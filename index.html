@@ -1689,6 +1689,1400 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawKeuanganData = [];
+  let selectedKeuanganRow = null;
+
+  function renderKeuanganCustom(data) {
+    rawKeuanganData = data.rows || [];
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-white border-l-4 border-emerald-500 p-3 rounded-xl shadow-sm">
+            <p class="text-[10px] text-gray-500 uppercase font-bold">Masuk</p>
+            <p id="card-masuk" class="font-bold text-emerald-600 text-sm md:text-base">Rp 0</p>
+          </div>
+          <div class="bg-white border-l-4 border-rose-500 p-3 rounded-xl shadow-sm">
+            <p class="text-[10px] text-gray-500 uppercase font-bold">Keluar</p>
+            <p id="card-keluar" class="font-bold text-rose-600 text-sm md:text-base">Rp 0</p>
+          </div>
+          <div class="bg-white border-l-4 border-blue-500 p-3 rounded-xl shadow-sm">
+            <p class="text-[10px] text-gray-500 uppercase font-bold">Saldo</p>
+            <p id="card-saldo" class="font-bold text-blue-600 text-sm md:text-base">Rp 0</p>
+          </div>
+        </div>
+
+        <!-- Filters & Action Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+          ${session.role === 'RT' ? `
+            <button onclick="bukaModalForm()" class="col-span-2 md:col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs shadow transition">
+              + Transaksi Baru
+            </button>
+          ` : ''}
+          <select id="filter-periode" onchange="filterDataKeuangan()" class="p-2 border rounded-lg text-xs bg-white shadow-sm">
+            <option value="all">Semua Periode</option>
+            <option value="hari">Hari Ini</option>
+            <option value="bulan">Bulan Ini</option>
+            <option value="tahun">Tahun Ini</option>
+            <option value="custom">Pilih Tanggal</option>
+          </select>
+          <select id="sort-order" onchange="filterDataKeuangan()" class="p-2 border rounded-lg text-xs bg-white shadow-sm">
+            <option value="newest">Terbaru</option>
+            <option value="oldest">Terlama</option>
+          </select>
+          <button onclick="window.print()" class="bg-gray-800 text-white rounded-lg text-xs py-2 font-bold shadow hover:bg-gray-900 transition">
+            <i class="bi bi-printer me-1"></i> Cetak Laporan
+          </button>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div id="custom-date-box" class="hidden grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <label class="text-[10px] text-gray-500 font-bold ml-1">Dari Tanggal</label>
+            <input type="date" id="date-start" onchange="filterDataKeuangan()" class="w-full p-2 border rounded-lg text-xs bg-white">
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-500 font-bold ml-1">Sampai Tanggal</label>
+            <input type="date" id="date-end" onchange="filterDataKeuangan()" class="w-full p-2 border rounded-lg text-xs bg-white">
+          </div>
+        </div>
+
+        <!-- Table Data -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">No</th>
+                  <th class="p-3">ID</th>
+                  <th class="p-3">Tgl</th>
+                  <th class="p-3">Keterangan</th>
+                  <th class="p-3 text-right">Masuk</th>
+                  <th class="p-3 text-right">Keluar</th>
+                  <th class="p-3 text-center">Bukti</th>
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="keuangan-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detail Transaksi -->
+      <div id="modal-detail-keuangan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl animate-fade-in">
+          <div class="flex justify-between items-center mb-3 border-b pb-2">
+            <h3 class="font-bold text-gray-800 text-sm">Rincian Transaksi</h3>
+            <button onclick="tutupDetailKeuangan()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">&times;</button>
+          </div>
+          <div id="modal-detail-body" class="mb-4"></div>
+          
+          <a id="btn-wa-detail" href="#" target="_blank" class="block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl font-bold text-xs shadow-sm transition mb-2">
+            <i class="bi bi-whatsapp me-1"></i> Laporkan Masalah (WA)
+          </a>
+          
+          ${session.role === 'RT' ? `
+            <div class="grid grid-cols-2 gap-2 border-t pt-3 mt-2">
+              <button onclick="editDariDetail()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>
+              <button onclick="hapusDariDetail()" class="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hapus Data</button>
+            </div>
+          ` : ''}
+          
+          <button onclick="tutupDetailKeuangan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataKeuangan();
+
+    // SAMBUNGKAN KOTAK PENCARIAN ATAS (#searchInput)
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterDataKeuangan();
+      };
+    }
+  }
+
+  function filterDataKeuangan() {
+    let p = document.getElementById('filter-periode') ? document.getElementById('filter-periode').value : 'all';
+    let o = document.getElementById('sort-order') ? document.getElementById('sort-order').value : 'newest';
+    let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+    let now = new Date();
+
+    let customBox = document.getElementById('custom-date-box');
+    if (customBox) {
+      if (p === 'custom') customBox.classList.remove('hidden'); 
+      else customBox.classList.add('hidden');
+    }
+
+    let start = document.getElementById('date-start') ? document.getElementById('date-start').value : '';
+    let end = document.getElementById('date-end') ? document.getElementById('date-end').value : '';
+
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
+    let pemIdx = headers.indexOf('pemasukan');
+    let pengIdx = headers.indexOf('pengeluaran');
+    let ketIdx = headers.indexOf('keterangan');
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+
+    let filtered = [...rawKeuanganData].filter(row => {
+      let dateStr = row[tglIdx] || '';
+      let dateParts = dateStr.split(' ')[0].split('/');
+      let d = dateParts.length === 3 ? new Date(dateParts[2], dateParts[1] - 1, dateParts[0]) : new Date();
+
+      let dateMatch = true;
+      if (p === 'hari') dateMatch = d.toDateString() === now.toDateString();
+      else if (p === 'bulan') dateMatch = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      else if (p === 'tahun') dateMatch = d.getFullYear() === now.getFullYear();
+      else if (p === 'custom') {
+        let rowTime = d.getTime();
+        let sTime = start ? new Date(start).setHours(0,0,0,0) : -Infinity;
+        let eTime = end ? new Date(end).setHours(23,59,59,999) : Infinity;
+        dateMatch = rowTime >= sTime && rowTime <= eTime;
+      }
+
+      let rowId = (row[idIdx] || '').toLowerCase();
+      let ketText = (row[ketIdx] || '').toLowerCase();
+      let searchMatch = rowId.includes(searchVal) || ketText.includes(searchVal);
+
+      return dateMatch && searchMatch;
+    });
+
+    if (o === 'newest') {
+      filtered.reverse();
+    }
+
+    let tbody = document.getElementById('keuangan-table-body');
+    if (!tbody) return;
+
+    let t = { m: 0, k: 0 };
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Tidak ada data transaksi yang cocok.</td></tr>`;
+    } else {
+      filtered.forEach((r, i) => {
+        let pem = Number((r[pemIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+        let peng = Number((r[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+        
+        t.m += pem;
+        t.k += peng;
+
+        let fotoUrl = r[fotoIdx] || '';
+        let fotoBtn = (fotoUrl && fotoUrl !== '-') 
+          ? `<button onclick="event.stopPropagation(); bukaPopUpFoto('${fotoUrl}')" class="text-blue-600 font-bold hover:underline"><i class="bi bi-image me-1"></i>Foto</button>` 
+          : '-';
+
+        let btnAksi = session.role === 'RT' 
+          ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200 hover:bg-blue-100">Edit</button>`
+          : `<button onclick="event.stopPropagation(); waLaporMasalahKeuangan('${r[idIdx]}')" class="bg-rose-50 text-rose-600 px-2 py-1 rounded-md text-[11px] font-bold border border-rose-200 hover:bg-rose-100">Laporkan</button>`;
+
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailKeuangan('${r[idIdx]}')">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
+            <td class="p-3 font-medium whitespace-nowrap">${r[tglIdx] || '-'}</td>
+            <td class="p-3 text-gray-800 font-medium">${r[ketIdx] || '-'}</td>
+            <td class="p-3 text-right text-emerald-600 font-bold whitespace-nowrap">Rp ${pem.toLocaleString('id-ID')}</td>
+            <td class="p-3 text-right text-rose-600 font-bold whitespace-nowrap">Rp ${peng.toLocaleString('id-ID')}</td>
+            <td class="p-3 text-center">${fotoBtn}</td>
+            <td class="p-3 text-center">${btnAksi}</td>
+          </tr>`;
+      });
+    }
+
+    if (document.getElementById('card-masuk')) document.getElementById('card-masuk').innerText = 'Rp ' + t.m.toLocaleString('id-ID');
+    if (document.getElementById('card-keluar')) document.getElementById('card-keluar').innerText = 'Rp ' + t.k.toLocaleString('id-ID');
+    if (document.getElementById('card-saldo')) document.getElementById('card-saldo').innerText = 'Rp ' + (t.m - t.k).toLocaleString('id-ID');
+  }
+
+  // ==== FUNGSI SHOW DETAIL & POPUP ====
+  function showDetailKeuangan(id) {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
+    let pemIdx = headers.indexOf('pemasukan');
+    let pengIdx = headers.indexOf('pengeluaran');
+    let ketIdx = headers.indexOf('keterangan');
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+
+    let row = rawKeuanganData.find(r => r[idIdx] === id);
+    if (!row) return;
+
+    selectedKeuanganRow = row;
+
+    let pem = Number((row[pemIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    let peng = Number((row[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    let fotoUrl = row[fotoIdx] || '';
+
+    let imgHtml = (fotoUrl && fotoUrl !== '-') 
+      ? `<div class="mt-3"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Lampiran:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-48 object-contain rounded-xl border border-gray-200 cursor-pointer shadow-sm hover:opacity-90 transition"></div>` 
+      : '';
+
+    let detailHtml = `
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+          <span class="text-gray-400 font-mono text-[10px]">ID: ${row[idIdx]}</span>
+          <span class="text-gray-500 font-bold">${row[tglIdx] || '-'}</span>
+        </div>
+        <div>
+          <p class="text-[10px] text-gray-400 uppercase font-bold">Keterangan:</p>
+          <p class="font-semibold text-gray-800 text-sm">${row[ketIdx] || '-'}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="bg-emerald-50 p-2 rounded-lg">
+            <p class="text-[10px] text-emerald-600 font-bold uppercase">Pemasukan</p>
+            <p class="font-bold text-emerald-700 text-sm">Rp ${pem.toLocaleString('id-ID')}</p>
+          </div>
+          <div class="bg-rose-50 p-2 rounded-lg">
+            <p class="text-[10px] text-rose-600 font-bold uppercase">Pengeluaran</p>
+            <p class="font-bold text-rose-700 text-sm">Rp ${peng.toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+        ${imgHtml}
+      </div>
+    `;
+
+    document.getElementById('modal-detail-body').innerHTML = detailHtml;
+    
+    let msg = `Halo RT 05, saya mau bertanya/melaporkan kendala mengenai Transaksi Keuangan ID: ${row[idIdx]}`;
+    document.getElementById('btn-wa-detail').href = `https://wa.me/${noWaAdmin}?text=${encodeURIComponent(msg)}`;
+
+    document.getElementById('modal-detail-keuangan').classList.remove('hidden');
+  }
+
+  function tutupDetailKeuangan() {
+    document.getElementById('modal-detail-keuangan').classList.add('hidden');
+  }
+
+  function editDariDetail() {
+    if (!selectedKeuanganRow) return;
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    
+    tutupDetailKeuangan();
+    bukaModalEdit(selectedKeuanganRow[idIdx]);
+  }
+
+  function hapusDariDetail() {
+    if (!selectedKeuanganRow) return;
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let id = selectedKeuanganRow[idIdx];
+
+    if (confirm(`Apakah Anda yakin ingin menghapus data transaksi ${id}?`)) {
+      tutupDetailKeuangan();
+      editingId = id;
+      hapusDataAktif();
+    }
+  }
+
+  function waLaporMasalahKeuangan(id) {
+    let msg = `Halo RT 05, saya mau melaporkan kendala/pertanyaan terkait Transaksi Keuangan dengan ID: ${id}`;
+    window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+
+  const originalLoadMenu = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'Keuangan') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Laporan Keuangan';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan...</small></div>';
+      document.getElementById('rek-info').style.display = 'none';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=Keuangan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderKeuanganCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data keuangan: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenu === 'function') originalLoadMenu(menu);
+    }
+  };
+</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawSumbanganData = [];
+  let selectedSumbanganRow = null;
+
+  function renderSumbanganCustom(data) {
+    rawSumbanganData = data.rows || [];
+    let headers = data.headers.map(h => h.toLowerCase().trim());
+    
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+    let statusIdx = headers.indexOf('status');
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-base text-gray-800"><i class="bi bi-gift-fill me-2 text-primary"></i>Daftar Sumbangan</h2>
+          ${session.role === 'Warga' ? `
+            <button onclick="bukaModalForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+              + Buat Sumbangan Baru
+            </button>
+          ` : ''}
+        </div>
+
+        <!-- Table Data -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">No</th>
+                  <th class="p-3">ID</th>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Nama</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="sumbangan-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detail Sumbangan -->
+      <div id="modal-detail-sumbangan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
+          <button onclick="tutupDetailSumbangan()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-3 border-b pb-2 pe-6">
+            <h3 class="font-bold text-gray-800 text-sm">Rincian Sumbangan</h3>
+          </div>
+          <div id="modal-detail-sumbangan-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
+          
+          <div id="sumbangan-action-buttons" class="space-y-2"></div>
+          
+          <button onclick="tutupDetailSumbangan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataSumbangan();
+
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterDataSumbangan();
+      };
+    }
+  }
+
+  function filterDataSumbangan() {
+    let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+    
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+
+    let filtered = [...rawSumbanganData].filter(row => {
+      let rowId = (row[idIdx] || '').toLowerCase();
+      let namaText = (row[namaIdx] || '').toLowerCase();
+      return rowId.includes(searchVal) || namaText.includes(searchVal);
+    });
+
+    let tbody = document.getElementById('sumbangan-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data sumbangan.</td></tr>`;
+    } else {
+      filtered.reverse().forEach((r, i) => {
+        let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+        let statusIdx = headers.indexOf('status');
+        let statusVal = r[statusIdx] || 'Belum di verifikasi';
+        let badgeColor = statusVal.toLowerCase().includes('diterima') || statusVal.toLowerCase().includes('selesai') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+
+        let btnAksi = session.role === 'RT' 
+          ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
+          : `<button onclick="event.stopPropagation(); waVerifikasiSumbangan('${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
+
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailSumbangan('${r[idIdx]}')">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
+            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
+            <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
+            <td class="p-3 text-center">${btnAksi}</td>
+          </tr>`;
+      });
+    }
+  }
+
+  function showDetailSumbangan(id) {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let row = rawSumbanganData.find(r => r[idIdx] === id);
+    if (!row) return;
+
+    selectedSumbanganRow = row;
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+    let fotoUrl = row[fotoIdx] || '';
+
+    let imgHtml = (fotoUrl && fotoUrl !== '-') 
+      ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Transfer:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+      : '';
+
+    let detailHtml = '';
+    currentHeaders.forEach((h, idx) => {
+      let hLower = h.toLowerCase().trim();
+      if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
+      detailHtml += `
+        <div class="border-b pb-1">
+          <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
+          <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        </div>`;
+    });
+    detailHtml += imgHtml;
+
+    document.getElementById('modal-detail-sumbangan-body').innerHTML = detailHtml;
+
+    let actionHtml = '';
+    if (session.role === 'RT') {
+      actionHtml = `
+        <button onclick="bukaModalEdit('${id}'); tutupDetailSumbangan();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>`;
+    } else {
+      actionHtml = `
+        <button onclick="waVerifikasiSumbangan('${id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Verifikasi via WhatsApp</button>`;
+    }
+    document.getElementById('sumbangan-action-buttons').innerHTML = actionHtml;
+
+    document.getElementById('modal-detail-sumbangan').classList.remove('hidden');
+  }
+
+  function tutupDetailSumbangan() {
+    document.getElementById('modal-detail-sumbangan').classList.add('hidden');
+  }
+
+  function waVerifikasiSumbangan(id) {
+    bukaWa(noWaAdmin, `ID sumbangan ${id} mohon di verifikasi.`);
+  }
+
+  const originalLoadMenuSumbangan = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'Sumbangan') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Sumbangan';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data sumbangan...</small></div>';
+      document.getElementById('rek-info').style.display = 'block';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=Sumbangan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderSumbanganCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data sumbangan: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenuSumbangan === 'function') originalLoadMenuSumbangan(menu);
+    }
+  };
+</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawAsetData = [];
+  let listDaftarBarang = [];
+  let activeVerifikasiData = null;
+  let activeKembaliData = null;
+  let currentAsetTab = 'stok'; // Default tab: 'stok' atau 'riwayat'
+  let isEditModeAset = false;
+
+  function renderAsetCustom(data) {
+    rawAsetData = data.rows || [];
+    let isRt = session && session.role === 'RT';
+
+    let btnRtTambah = isRt ? `
+      <button onclick="bukaModalTambahAset()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
+        <i class="bi bi-plus-circle"></i> + Tambah Barang Aset
+      </button>
+    ` : '';
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans space-y-4">
+        <!-- Header & Action Button -->
+        <div class="flex justify-between items-center flex-wrap gap-2">
+          <h2 class="font-bold text-base text-gray-800"><i class="bi bi-tools me-2 text-blue-600"></i>Aset & Inventaris RT 05</h2>
+          <div class="flex gap-2">
+            ${btnRtTambah}
+            <button onclick="bukaModalPinjamBarang()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
+              <i class="bi bi-plus-lg"></i> Form Peminjaman Barang
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB NAVIGASI TOGGLE -->
+        <div class="bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 flex gap-2">
+          <button id="tab-btn-stok" onclick="switchAsetTab('stok')" class="flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 ${currentAsetTab === 'stok' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}">
+            <span>📦</span> Daftar Barang Aset RT
+          </button>
+          <button id="tab-btn-riwayat" onclick="switchAsetTab('riwayat')" class="flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 ${currentAsetTab === 'riwayat' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}">
+            <span>📋</span> Riwayat Peminjaman Warga
+          </button>
+        </div>
+
+        <!-- TAB CONTENT 1: DAFTAR BARANG ASET -->
+        <div id="tab-content-stok" class="${currentAsetTab === 'stok' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📦 Stok Barang Aset RT</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">NO</th>
+                  <th class="p-3">ID BARANG</th>
+                  <th class="p-3">NAMA BARANG</th>
+                  <th class="p-3">STOK TERSEDIA</th>
+                  <th class="p-3 text-center">STATUS</th>
+                  ${isRt ? '<th class="p-3 text-center">AKSI RT</th>' : ''}
+                </tr>
+              </thead>
+              <tbody id="aset-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB CONTENT 2: RIWAYAT PEMINJAMAN WARGA -->
+        <div id="tab-content-riwayat" class="${currentAsetTab === 'riwayat' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📋 Riwayat & Status Peminjaman</h3>
+            <button onclick="loadTabelRiwayat()" class="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3">NAMA PEMINJAM</th>
+                  <th class="p-3">BARANG</th>
+                  <th class="p-3 text-center">MINTA</th>
+                  <th class="p-3 text-center">ACC RT</th>
+                  <th class="p-3">KET. WARGA</th>
+                  <th class="p-3">CATATAN / LOKASI RT</th>
+                  <th class="p-3 text-center">STATUS</th>
+                  <th class="p-3 text-center">AKSI RT</th>
+                </tr>
+              </thead>
+              <tbody id="riwayat-table-body">
+                <tr><td colspan="8" class="text-center p-4 text-gray-400">Memuat riwayat peminjaman...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL KELOLA ASET RT (TAMBAH / EDIT STOK) -->
+      <div id="modal-kelola-aset" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+          <button onclick="tutupModalKelolaAset()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-4 border-b pb-2">
+            <h3 class="font-bold text-gray-800 text-sm" id="modalKelolaTitle">Kelola Barang Aset</h3>
+            <p class="text-[11px] text-gray-500">Tambah barang baru atau perbarui stok inventaris RT</p>
+          </div>
+
+          <form id="formKelolaAset" onsubmit="submitKelolaAset(event)" class="space-y-3">
+            <input type="hidden" id="editAsetId" value="">
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA BARANG</label>
+              <input type="text" id="asetNama" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Kursi Plastik, Tenda, Sound System">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">STOK / JUMLAH TERSEDIA</label>
+              <input type="number" id="asetStok" min="0" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah stok...">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">STATUS BARANG</label>
+              <select id="asetStatus" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="Tersedia">Tersedia</option>
+                <option value="Habis">Habis</option>
+                <option value="Perbaikan">Perbaikan / Rusak</option>
+              </select>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t">
+              <button type="button" onclick="tutupModalKelolaAset()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+              <button type="submit" id="btnSubmitKelolaAset" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Simpan Data Aset</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- MODAL FORM PEMINJAMAN WARGA -->
+      <div id="modal-form-pinjam" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+          <button onclick="tutupModalPinjam()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-4 border-b pb-2">
+            <h3 class="font-bold text-gray-800 text-sm">Form Peminjaman Barang</h3>
+            <p class="text-[11px] text-gray-500">Isi detail pengajuan peminjaman fasilitas/aset RT</p>
+          </div>
+
+          <form id="formPinjamAset" onsubmit="submitFormPinjam(event)" class="space-y-3">
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA PEMINJAM</label>
+              <input type="text" id="pinjamNama" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama peminjam...">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA BARANG</label>
+              <select id="pinjamBarangSelect" required onchange="onBarangSelectChange()" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                <option value="">-- Pilih Barang --</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-[11px] font-bold text-gray-600 uppercase">JUMLAH</label>
+                <span id="stokInfoText" class="text-[10px] text-emerald-600 font-bold">Maksimal Stok: -</span>
+              </div>
+              <input type="number" id="pinjamJumlah" min="1" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah yang mau dipinjam...">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">KETERANGAN WARGA</label>
+              <textarea id="pinjamKeterangan" rows="2" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Untuk keperluan apa peminjaman ini..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" onclick="tutupModalPinjam()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+              <button type="submit" id="btnSubmitPinjam" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">Kirim Pengajuan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- MODAL VERIFIKASI RT (ACC / TOLAK + LOKASI PENGAMBILAN) -->
+      <div id="modal-verifikasi-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+          <button onclick="tutupModalVerifikasiRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-4 border-b pb-2">
+            <h3 class="font-bold text-gray-800 text-sm">Verifikasi Peminjaman (RT)</h3>
+            <p class="text-[11px] text-gray-500">Proses persetujuan peminjaman warga</p>
+          </div>
+
+          <div class="space-y-3">
+            <div class="bg-blue-50/70 p-3 rounded-xl text-xs border border-blue-100 space-y-1">
+              <p><b>Peminjam:</b> <span id="verifNamaPeminjam">-</span></p>
+              <p><b>Barang:</b> <span id="verifNamaBarang">-</span></p>
+              <p><b>Jumlah Diminta:</b> <span id="verifJumlahMinta" class="font-bold text-blue-600">-</span></p>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG DI-ACC RT</label>
+              <input type="number" id="verifJumlahAcc" min="1" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">CATATAN RT / LOKASI PENGAMBILAN BARANG</label>
+              <textarea id="verifCatatanRt" rows="3" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Ambil di gudang RT samping posyandu jam 4 sore..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t">
+              <button type="button" onclick="kirimVerifikasiRT('Ditolak')" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition">Tolak</button>
+              <button type="button" onclick="kirimVerifikasiRT('Disetujui')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Setujui (ACC)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL PENGEMBALIAN BARANG RT -->
+      <div id="modal-kembali-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+          <button onclick="tutupModalKembaliRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-4 border-b pb-2">
+            <h3 class="font-bold text-gray-800 text-sm">Pengembalian Barang Aset</h3>
+            <p class="text-[11px] text-gray-500">Catat jumlah barang yang dikembalikan warga</p>
+          </div>
+
+          <div class="space-y-3">
+            <div class="bg-gray-50 p-3 rounded-xl text-xs border space-y-1">
+              <p><b>Peminjam:</b> <span id="kembaliNamaPeminjam">-</span></p>
+              <p><b>Barang:</b> <span id="kembaliNamaBarang">-</span></p>
+              <p><b>Total Dipinjam (ACC):</b> <span id="kembaliTotalAcc" class="font-bold text-blue-600">-</span></p>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG BENERAN DIKEMBALIKAN</label>
+              <input type="number" id="kembaliJumlahBalik" min="0" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">CATATAN RT / KONDISI BARANG</label>
+              <textarea id="kembaliCatatanRt" rows="2" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Dikembalikan kondisi bersih & lengkap..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t">
+              <button type="button" onclick="tutupModalKembaliRT()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+              <button type="button" onclick="kirimPengembalianRT()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">Proses Selesai</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataAset();
+    loadTabelRiwayat();
+  }
+
+  // LOGIKA SWITCH TAB NAVIGASI
+  function switchAsetTab(tab) {
+    currentAsetTab = tab;
+    let btnStok = document.getElementById('tab-btn-stok');
+    let btnRiwayat = document.getElementById('tab-btn-riwayat');
+    let contentStok = document.getElementById('tab-content-stok');
+    let contentRiwayat = document.getElementById('tab-content-riwayat');
+
+    if (!btnStok || !btnRiwayat) return;
+
+    if (tab === 'stok') {
+      btnStok.className = 'flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-sm';
+      btnRiwayat.className = 'flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50';
+      contentStok.classList.remove('hidden');
+      contentStok.classList.add('block');
+      contentRiwayat.classList.remove('block');
+      contentRiwayat.classList.add('hidden');
+    } else {
+      btnRiwayat.className = 'flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-sm';
+      btnStok.className = 'flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50';
+      contentRiwayat.classList.remove('hidden');
+      contentRiwayat.classList.add('block');
+      contentStok.classList.remove('block');
+      contentStok.classList.add('hidden');
+    }
+  }
+
+  // Render Tabel Stok Barang Aset
+  function filterDataAset() {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let namaBarangIdx = headers.findIndex(h => h.includes('nama_barang') || h.includes('barang') || h.includes('nama'));
+    let stokIdx = headers.findIndex(h => h.includes('stok') || h.includes('jumlah') || h.includes('qty'));
+    let statusIdx = headers.indexOf('status');
+    let isRt = session && session.role === 'RT';
+
+    let tbody = document.getElementById('aset-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (rawAsetData.length === 0) {
+      let colSpan = isRt ? 6 : 5;
+      tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center p-4 text-gray-400">Belum ada data barang aset.</td></tr>`;
+    } else {
+      rawAsetData.forEach((r, i) => {
+        let idVal = r[idIdx] || '';
+        let namaVal = r[namaBarangIdx] || '-';
+        let stokVal = stokIdx > -1 ? (parseInt(r[stokIdx]) || 0) : 0;
+        let statusVal = statusIdx > -1 && r[statusIdx] ? r[statusIdx] : (stokVal > 0 ? 'Tersedia' : 'Habis');
+        let badgeColor = stokVal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
+
+        let aksiRt = isRt ? `
+          <td class="p-3 text-center">
+            <button onclick="bukaModalEditAset('${idVal}', '${namaVal.replace(/'/g, "\\'")}', ${stokVal}, '${statusVal}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg text-[10px] font-bold transition">
+              ✏️ Edit / Tambah Stok
+            </button>
+          </td>
+        ` : '';
+
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-gray-50/50 transition">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 font-mono text-[10px] text-gray-600">${idVal || '-'}</td>
+            <td class="p-3 font-semibold text-gray-800">${namaVal}</td>
+            <td class="p-3 font-bold text-blue-600">${stokVal}</td>
+            <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
+            ${aksiRt}
+          </tr>`;
+      });
+    }
+  }
+
+  // MODAL KELOLA ASET RT (TAMBAH / EDIT)
+  function bukaModalTambahAset() {
+    isEditModeAset = false;
+    document.getElementById('modalKelolaTitle').innerText = '➕ Tambah Barang Aset Baru';
+    document.getElementById('editAsetId').value = '';
+    document.getElementById('asetNama').value = '';
+    document.getElementById('asetStok').value = '';
+    document.getElementById('asetStatus').value = 'Tersedia';
+    document.getElementById('modal-kelola-aset').classList.remove('hidden');
+  }
+
+  function bukaModalEditAset(id, nama, stok, status) {
+    isEditModeAset = true;
+    document.getElementById('modalKelolaTitle').innerText = '✏️ Edit / Update Stok Aset (' + id + ')';
+    document.getElementById('editAsetId').value = id;
+    document.getElementById('asetNama').value = nama;
+    document.getElementById('asetStok').value = stok;
+    document.getElementById('asetStatus').value = status;
+    document.getElementById('modal-kelola-aset').classList.remove('hidden');
+  }
+
+  function tutupModalKelolaAset() {
+    document.getElementById('modal-kelola-aset').classList.add('hidden');
+    document.getElementById('formKelolaAset').reset();
+  }
+
+  function submitKelolaAset(e) {
+    e.preventDefault();
+    let id = document.getElementById('editAsetId').value;
+    let nama = document.getElementById('asetNama').value;
+    let stok = parseInt(document.getElementById('asetStok').value) || 0;
+    let status = document.getElementById('asetStatus').value;
+
+    let payload = {};
+    currentHeaders.forEach(h => {
+      let hLower = h.toLowerCase().trim();
+      if (hLower.includes('barang') || hLower.includes('nama')) {
+        payload[h] = nama;
+      } else if (hLower.includes('stok') || hLower.includes('jumlah') || hLower.includes('qty')) {
+        payload[h] = stok;
+      } else if (hLower === 'status') {
+        payload[h] = stok > 0 ? status : 'Habis';
+      }
+    });
+
+    let btn = document.getElementById('btnSubmitKelolaAset');
+    btn.disabled = true;
+    btn.innerText = 'Menyimpan...';
+
+    if (isEditModeAset && id) {
+      fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'updateDataDiSheet',
+          sheetName: 'Aset',
+          id: id,
+          formData: payload
+        })
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.innerText = 'Simpan Data Aset';
+        alert(res.message);
+        tutupModalKelolaAset();
+        if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerText = 'Simpan Data Aset';
+        alert('Error: ' + err.message);
+      });
+    } else {
+      fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'simpanDataKeSheet',
+          sheetName: 'Aset',
+          formData: payload
+        })
+      })
+      .then(res => res.json())
+      .then(res => {
+        btn.disabled = false;
+        btn.innerText = 'Simpan Data Aset';
+        alert(res.message);
+        tutupModalKelolaAset();
+        if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+      })
+      .catch(err => {
+        btn.disabled = false;
+        btn.innerText = 'Simpan Data Aset';
+        alert('Error: ' + err.message);
+      });
+    }
+  }
+
+  // Buka Modal Pinjam Barang
+  function bukaModalPinjamBarang() {
+    if (session && session.nama) {
+      document.getElementById('pinjamNama').value = session.nama;
+    }
+
+    fetch(`${API_URL}?action=getDaftarBarangAset`)
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === 'success') {
+          listDaftarBarang = res.data;
+          let select = document.getElementById('pinjamBarangSelect');
+          select.innerHTML = '<option value="">-- Pilih Barang --</option>';
+
+          if (listDaftarBarang.length === 0) {
+            select.innerHTML = '<option value="">-- Stok Barang Sedang Kosong --</option>';
+          } else {
+            listDaftarBarang.forEach(item => {
+              select.innerHTML += `<option value="${item.id}" data-nama="${item.nama}" data-stok="${item.stok}">${item.nama} (Sisa Stok: ${item.stok})</option>`;
+            });
+          }
+        }
+      });
+
+    document.getElementById('modal-form-pinjam').classList.remove('hidden');
+  }
+
+  function onBarangSelectChange() {
+    let select = document.getElementById('pinjamBarangSelect');
+    let selectedOption = select.options[select.selectedIndex];
+    let inputJumlah = document.getElementById('pinjamJumlah');
+    let infoText = document.getElementById('stokInfoText');
+
+    if (select.value) {
+      let maxStok = parseInt(selectedOption.getAttribute('data-stok')) || 1;
+      inputJumlah.max = maxStok;
+      infoText.innerText = `Maksimal Stok: ${maxStok}`;
+    } else {
+      inputJumlah.removeAttribute('max');
+      infoText.innerText = 'Maksimal Stok: -';
+    }
+  }
+
+  function tutupModalPinjam() {
+    document.getElementById('modal-form-pinjam').classList.add('hidden');
+    document.getElementById('formPinjamAset').reset();
+  }
+
+  // Submit Form Pengajuan Peminjaman
+  function submitFormPinjam(e) {
+    e.preventDefault();
+    let select = document.getElementById('pinjamBarangSelect');
+    let selectedOption = select.options[select.selectedIndex];
+    let jumlahInput = parseInt(document.getElementById('pinjamJumlah').value);
+    let maxStok = parseInt(selectedOption.getAttribute('data-stok')) || 0;
+
+    if (jumlahInput > maxStok) {
+      alert(`Jumlah pinjam (${jumlahInput}) melebihi stok yang tersedia (${maxStok})!`);
+      return;
+    }
+
+    let payload = {
+      namaPeminjam: document.getElementById('pinjamNama').value,
+      idBarang: select.value,
+      namaBarang: selectedOption.getAttribute('data-nama'),
+      jumlah: jumlahInput,
+      keterangan: document.getElementById('pinjamKeterangan').value,
+      nik: session ? session.nik : ''
+    };
+
+    let btn = document.getElementById('btnSubmitPinjam');
+    btn.disabled = true;
+    btn.innerText = 'Mengirim...';
+
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'simpanPengajuanPeminjaman',
+        payload: payload
+      })
+    })
+    .then(res => res.json())
+    .then(res => {
+      btn.disabled = false;
+      btn.innerText = 'Kirim Pengajuan';
+      alert(res.message);
+      tutupModalPinjam();
+      loadTabelRiwayat();
+      if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerText = 'Kirim Pengajuan';
+      alert('Error: ' + err.message);
+    });
+  }
+
+  // Load Tabel Riwayat Peminjaman Warga
+  function loadTabelRiwayat() {
+    fetch(`${API_URL}?action=getRiwayatPeminjaman`)
+      .then(res => res.json())
+      .then(res => {
+        let tbody = document.getElementById('riwayat-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (res.status === 'success' && res.data.length > 0) {
+          res.data.reverse().forEach(item => {
+            let statusText = item.status || 'Menunggu Verifikasi';
+            let badgeClass = 'bg-amber-100 text-amber-700';
+            if (statusText === 'Disetujui') badgeClass = 'bg-emerald-100 text-emerald-700';
+            if (statusText === 'Ditolak') badgeClass = 'bg-red-100 text-red-700';
+            if (statusText.includes('Selesai')) badgeClass = 'bg-gray-100 text-gray-700';
+
+            let aksiHtml = '<span class="text-gray-400 text-[10px]">-</span>';
+
+            if (session && session.role === 'RT') {
+              if (statusText === 'Menunggu Verifikasi') {
+                aksiHtml = `
+                  <button onclick="bukaModalVerifikasiRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahMinta})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Verifikasi RT</button>
+                `;
+              } else if (statusText === 'Disetujui') {
+                aksiHtml = `
+                  <button onclick="bukaModalKembaliRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahAcc})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Barang Kembali</button>
+                `;
+              }
+            }
+
+            let catatanRtDisplay = item.catatanRt && item.catatanRt !== '-' 
+              ? `<span class="text-blue-700 font-medium">${item.catatanRt}</span>` 
+              : '<span class="text-gray-400">-</span>';
+
+            tbody.innerHTML += `
+              <tr class="border-b hover:bg-gray-50/50 transition">
+                <td class="p-3 font-bold text-gray-800">${item.namaPeminjam}</td>
+                <td class="p-3 text-gray-700">${item.namaBarang}</td>
+                <td class="p-3 text-center font-bold text-gray-600">${item.jumlahMinta}</td>
+                <td class="p-3 text-center font-extrabold text-blue-600">${item.jumlahAcc || 0}</td>
+                <td class="p-3 text-gray-500">${item.keterangan || '-'}</td>
+                <td class="p-3">${catatanRtDisplay}</td>
+                <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${statusText}</span></td>
+                <td class="p-3 text-center">${aksiHtml}</td>
+              </tr>
+            `;
+          });
+        } else {
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
+        }
+      });
+  }
+
+  // Modal Verifikasi RT
+  function bukaModalVerifikasiRT(idPinjam, namaPeminjam, namaBarang, jumlahMinta) {
+    activeVerifikasiData = { idPinjam, jumlahMinta };
+    document.getElementById('verifNamaPeminjam').innerText = namaPeminjam;
+    document.getElementById('verifNamaBarang').innerText = namaBarang;
+    document.getElementById('verifJumlahMinta').innerText = jumlahMinta + ' unit';
+    document.getElementById('verifJumlahAcc').value = jumlahMinta;
+    document.getElementById('verifJumlahAcc').max = jumlahMinta;
+    document.getElementById('verifCatatanRt').value = '';
+
+    document.getElementById('modal-verifikasi-rt').classList.remove('hidden');
+  }
+
+  function tutupModalVerifikasiRT() {
+    document.getElementById('modal-verifikasi-rt').classList.add('hidden');
+  }
+
+  function kirimVerifikasiRT(status) {
+    if (!activeVerifikasiData) return;
+
+    let qtyAcc = document.getElementById('verifJumlahAcc').value;
+    let catatanRt = document.getElementById('verifCatatanRt').value;
+
+    if (status === 'Disetujui' && (!qtyAcc || parseInt(qtyAcc) <= 0)) {
+      alert('Jumlah ACC harus lebih dari 0!');
+      return;
+    }
+
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'verifikasiPeminjamanRT',
+        idPinjam: activeVerifikasiData.idPinjam,
+        status: status,
+        qtyAcc: qtyAcc,
+        catatanRt: catatanRt
+      })
+    })
+    .then(res => res.json())
+    .then(res => {
+      alert(res.message);
+      tutupModalVerifikasiRT();
+      loadTabelRiwayat();
+      if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+    })
+    .catch(err => {
+      alert('Error: ' + err.message);
+    });
+  }
+
+  // Modal Barang Kembali RT
+  function bukaModalKembaliRT(idPinjam, namaPeminjam, namaBarang, qtyAcc) {
+    activeKembaliData = { idPinjam, qtyAcc };
+    document.getElementById('kembaliNamaPeminjam').innerText = namaPeminjam;
+    document.getElementById('kembaliNamaBarang').innerText = namaBarang;
+    document.getElementById('kembaliTotalAcc').innerText = qtyAcc + ' unit';
+    document.getElementById('kembaliJumlahBalik').value = qtyAcc;
+    document.getElementById('kembaliJumlahBalik').max = qtyAcc;
+    document.getElementById('kembaliCatatanRt').value = '';
+
+    document.getElementById('modal-kembali-rt').classList.remove('hidden');
+  }
+
+  function tutupModalKembaliRT() {
+    document.getElementById('modal-kembali-rt').classList.add('hidden');
+  }
+
+  function kirimPengembalianRT() {
+    if (!activeKembaliData) return;
+
+    let qtyKembali = document.getElementById('kembaliJumlahBalik').value;
+    let catatanRt = document.getElementById('kembaliCatatanRt').value;
+
+    if (qtyKembali === '' || parseInt(qtyKembali) < 0 || parseInt(qtyKembali) > activeKembaliData.qtyAcc) {
+      alert(`Jumlah tidak valid! Masukkan angka antara 0 sampai ${activeKembaliData.qtyAcc}.`);
+      return;
+    }
+
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'prosesPengembalianAsetRT',
+        idPinjam: activeKembaliData.idPinjam,
+        qtyKembali: qtyKembali,
+        catatanRt: catatanRt
+      })
+    })
+    .then(res => res.json())
+    .then(res => {
+      alert(res.message);
+      tutupModalKembaliRT();
+      loadTabelRiwayat();
+      if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+    })
+    .catch(err => {
+      alert('Error: ' + err.message);
+    });
+  }
+
+  // Standard Apps Script Load Menu Hook
+  const originalLoadMenuAset = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'Aset') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Aset & Inventaris';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
+      document.getElementById('rek-info').style.display = 'none';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=Aset&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderAsetCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data aset: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenuAset === 'function') originalLoadMenuAset(menu);
+    }
+  };
+</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawKematianData = [];
+  let selectedKematianRow = null;
+
+  function renderKematianCustom(data) {
+    rawKematianData = data.rows || [];
+    let headers = data.headers.map(h => h.toLowerCase().trim());
+    
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-base text-gray-800"><i class="bi bi-heartbreak-fill me-2 text-primary"></i>Data Kematian RT 05</h2>
+          ${session.role === 'RT' ? `
+            <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+              + Tambah Kematian Baru
+            </button>
+          ` : ''}
+        </div>
+
+        <!-- Table Data -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">No</th>`;
+    data.headers.forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
+    html += `
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="kematian-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detail Kematian -->
+      <div id="modal-detail-kematian" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
+          <button onclick="tutupDetailKematian()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-3 border-b pb-2 pe-6">
+            <h3 class="font-bold text-gray-800 text-sm">Rincian Data Kematian</h3>
+          </div>
+          <div id="modal-detail-kematian-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
+          
+          <div id="kematian-action-buttons" class="space-y-2 mb-2"></div>
+          
+          <button onclick="tutupDetailKematian()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataKematian();
+
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterDataKematian();
+      };
+    }
+  }
+
+  function filterDataKematian() {
+    let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+    
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+
+    let filtered = [...rawKematianData].filter(row => {
+      let rowId = (row[idIdx] || '').toLowerCase();
+      let namaText = (row[namaIdx] || '').toLowerCase();
+      return rowId.includes(searchVal) || namaText.includes(searchVal);
+    });
+
+    let tbody = document.getElementById('kematian-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kematian yang cocok.</td></tr>`;
+    } else {
+      filtered.reverse().forEach((r, i) => {
+        let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+        let rowId = r[idIdx];
+
+        let btnAksi = session.role === 'RT' 
+          ? `<button onclick="event.stopPropagation(); bukaModalEdit('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
+          : `<span class="text-gray-400 text-[10px]">-</span>`;
+
+        let rowHtml = `<tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailKematian('${rowId}')">`;
+        rowHtml += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
+        
+        r.forEach((val, idx) => {
+          let headName = currentHeaders[idx].toLowerCase();
+          if (headName.includes('foto') || headName.includes('bukti')) {
+            rowHtml += `<td class="p-3">${val && val !== '***Rahasia***' ? `<img src="${val}" class="w-10 h-10 object-cover rounded-lg border shadow-sm" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
+          } else {
+            rowHtml += `<td class="p-3 font-medium text-gray-800">${val}</td>`;
+          }
+        });
+
+        rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
+        tbody.innerHTML += rowHtml;
+      });
+    }
+  }
+
+  function showDetailKematian(id) {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    
+    let row = rawKematianData.find(r => r[idIdx] === id);
+    if (!row) return;
+
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+    let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
+
+    let imgHtml = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***') 
+      ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Lampiran Foto / Bukti:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+      : '';
+
+    let detailHtml = '';
+    currentHeaders.forEach((h, idx) => {
+      let hLower = h.toLowerCase().trim();
+      if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
+      detailHtml += `
+        <div class="border-b pb-1">
+          <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
+          <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        </div>`;
+    });
+    detailHtml += imgHtml;
+
+    document.getElementById('modal-detail-kematian-body').innerHTML = detailHtml;
+
+    let actionHtml = '';
+    if (session.role === 'RT') {
+      actionHtml = `<button onclick="tutupDetailKematian(); bukaModalEdit('${id}');" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>`;
+    }
+    document.getElementById('kematian-action-buttons').innerHTML = actionHtml;
+
+    document.getElementById('modal-detail-kematian').classList.remove('hidden');
+  }
+
+  function tutupDetailKematian() {
+    document.getElementById('modal-detail-kematian').classList.add('hidden');
+  }
+
+  const originalLoadMenuKematian = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'Kematian') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Data Kematian';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data kematian...</small></div>';
+      document.getElementById('rek-info').style.display = 'none';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=Kematian&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderKematianCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data kematian: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenuKematian === 'function') originalLoadMenuKematian(menu);
+    }
+  };
+</script>
 </body>
 </html>
