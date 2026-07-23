@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>SISTEM INFORMASI RT 05</title>
+  
+  <!-- META TAG KHUSUS PWA MOBILE (ANDROID & IOS) -->
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SI RT 05">
+  <link rel="apple-touch-icon" href="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp">
+
+  <!-- MANIFEST PWA RESMI GITHUB PAGES -->
+  <link rel="manifest" href="manifest.json">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary-blue: #1e3a8a;
+      --secondary-blue: #3b82f6;
+      --light-blue: #eff6ff;
+      --dark-slate: #1e293b;
+      --card-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    body { background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif; color: var(--dark-slate); }
+    .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    #app-container { display: none; }
+    
+    .sidebar { background: var(--primary-blue); min-height: 100vh; color: white; padding-top: 25px; box-shadow: 4px 0 10px rgba(0,0,0,0.05); }
+    .sidebar h5 { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .sidebar a { color: rgba(255,255,255,0.8); text-decoration: none; display: block; padding: 14px 20px; font-weight: 500; transition: all 0.2s ease; border-left: 4px solid transparent; }
+    .sidebar a:hover, .sidebar a.active-menu { background: rgba(255,255,255,0.1); color: white; border-left: 4px solid var(--secondary-blue); cursor: pointer; }
+    
+    .img-table { max-width: 65px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .img-table:hover { transform: scale(1.08); }
+    .rekening-box { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid var(--secondary-blue); box-shadow: var(--card-shadow); margin-bottom: 25px; }
+    
+    .main-content-wrapper { padding: 30px; }
+    .card-custom { background: white; border: none; border-radius: 16px; box-shadow: var(--card-shadow); padding: 24px; transition: transform 0.2s; }
+    .card-custom:hover { transform: translateY(-2px); }
+    
+    .mobile-header { display: none; background: var(--primary-blue); color: white; padding: 15px 20px; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .mobile-header h6 { margin: 0; font-weight: 700; font-size: 1rem; }
+    .mobile-header .avatar-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; }
+    
+    .quick-actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; text-align: center; }
+    .quick-action-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--dark-slate); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .quick-action-icon { width: 50px; height: 50px; border-radius: 50%; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--secondary-blue); font-size: 1.3rem; transition: background 0.2s; border: 1px solid #e2e8f0; }
+    .quick-action-item:hover .quick-action-icon { background: var(--light-blue); }
+
+    .mobile-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 25px; }
+    .m-stat-card { border-radius: 14px; padding: 16px; color: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; min-height: 95px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .m-stat-card.blue-card { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
+    .m-stat-card.teal-card { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+    .m-stat-card.orange-card { background: linear-gradient(135deg, #ea580c, #f97316); }
+    .m-stat-card.slate-card { background: linear-gradient(135deg, #475569, #64748b); }
+    .m-stat-title { font-size: 0.75rem; font-weight: 600; opacity: 0.9; text-transform: uppercase; }
+    .m-stat-value { font-size: 1.3rem; font-weight: 700; margin-top: 5px; }
+    
+    .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; height: 65px; border-top: 1px solid #e2e8f0; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); padding-bottom: env(safe-area-inset-bottom); }
+    .bottom-nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #94a3b8; font-size: 0.7rem; font-weight: 600; width: 20%; transition: color 0.2s; cursor: pointer; }
+    .bottom-nav-item i { font-size: 1.35rem; margin-bottom: 3px; }
+    .bottom-nav-item.active { color: var(--secondary-blue); }
+
+    @media (max-width: 767.98px) {
+      .sidebar { display: none !important; }
+      .mobile-header.show-nav { display: flex !important; }
+      .bottom-nav.show-nav { display: flex !important; }
+      .main-content-wrapper { padding: 80px 15px 95px 15px !important; }
+      #searchInput { width: 100% !important; margin-top: 10px; }
+      .d-flex.justify-content-between { flex-direction: column; align-items: flex-start !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login-container" class="login-box text-center">
+    <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT 05" class="mb-3 rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+    
+    <h3 class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 05</h3>
+    <p class="text-muted mb-4"><small>AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</small></p>
+    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga"></div>
+    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password"></div>
+    <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin()">Masuk</button>
+    <div id="login-msg" class="text-danger mt-3 small"></div>
+  </div>
+
+  <div class="mobile-header" id="mob-header">
+    <div class="d-flex align-items-center gap-2">
+      <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+      <h6>SISTEM INFORMASI RT 5 <br><span style="font-size: 0.75rem; font-weight: 400; opacity: 0.8;">AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</span></h6>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="position-relative me-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
+        <i class="bi bi-bell fs-5"></i>
+        <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
+      </div>
+      <div class="avatar-circle bg-danger text-white" onclick="doLogout()" style="cursor:pointer;" title="Logout">
+        <i class="bi bi-power fs-6"></i>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-container" class="container-fluid">
+    <div class="row">
+      
+      <!-- Sidebar Menu -->
+      <div class="col-md-2 sidebar p-0">
+        <div class="text-center mb-3 mt-2 px-3">
+          <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT 05" class="rounded-circle mb-2 shadow" style="width: 55px; height: 55px; object-fit: cover;">
+          <h5 class="fw-bold mb-0 border-0 pb-0">Menu RT 05</h5>
+        </div>
+
+        <div class="px-3 mb-2">
+          <button id="btn-install-pwa" onclick="installPWA()" class="btn btn-success btn-sm w-100 font-bold shadow-sm" style="display:none;">
+            <i class="bi bi-download me-1"></i> Install Aplikasi RT
+          </button>
+        </div>
+
+        <a id="dmenu-Dashboard" onclick="loadMenu('Dashboard')"><i class="bi bi-grid-1x2-fill me-2"></i>Dashboard</a>
+        <a id="dmenu-Warga" onclick="loadMenu('Warga')"><i class="bi bi-people-fill me-2"></i>Data Warga</a>
+        <a id="dmenu-Kelahiran" class="rt-only" onclick="loadMenu('Kelahiran')"><i class="bi bi-gender-ambiguous me-2"></i>Kelahiran</a>
+        <a id="dmenu-Kematian" class="rt-only" onclick="loadMenu('Kematian')"><i class="bi bi-heartbreak-fill me-2"></i>Kematian</a>
+        <a id="dmenu-PindahMasuk" class="rt-only" onclick="loadMenu('PindahMasuk')"><i class="bi bi-box-arrow-in-right me-2"></i>Pindah Masuk</a>
+        <a id="dmenu-PindahKeluar" class="rt-only" onclick="loadMenu('PindahKeluar')"><i class="bi bi-box-arrow-left me-2"></i>Pindah Keluar</a>
+        <a id="dmenu-Pengaduan" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-square-text-fill me-2"></i>Pengaduan Warga</a>
+        <a id="dmenu-SuratPengantar" onclick="loadMenu('SuratPengantar')"><i class="bi bi-file-earmark-text-fill me-2"></i>Surat Pengantar</a>
+        <a id="dmenu-Keuangan" onclick="loadMenu('Keuangan')"><i class="bi bi-wallet2 me-2"></i>Keuangan</a>
+        <a id="dmenu-Sumbangan" onclick="loadMenu('Sumbangan')"><i class="bi bi-gift-fill me-2"></i>Sumbangan</a>
+        <a id="dmenu-Aset" onclick="loadMenu('Aset')"><i class="bi bi-tools me-2"></i>Aset & Inventaris</a>
+        <a onclick="doLogout()" class="text-danger mt-4 border-top border-secondary" style="cursor:pointer;"><i class="bi bi-power me-2"></i>Logout</a>
+      </div>
+
+      <!-- Main Content Area Desktop & Mobile -->
+      <div class="col-md-10 main-content-wrapper">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h3 id="page-title" class="fw-bold text-dark">Dashboard</h3>
+          <div class="d-flex align-items-center gap-3">
+            <input type="text" id="searchInput" class="form-control shadow-sm" style="min-width: 220px;" placeholder="Cari data atau menu..." onkeyup="filterTable()">
+            
+            <div class="position-relative d-none d-md-block ms-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
+              <i class="bi bi-bell fs-4 text-dark"></i>
+              <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
+            </div>
+          </div>
+        </div>
+        
+        <div id="rek-info" class="rekening-box" style="display:none;">
+          <h5 class="fw-bold text-primary mb-2"><i class="bi bi-info-circle-fill me-2"></i>Info Rekening RT 05</h5>
+          <p class="mb-1 text-secondary">
+            <strong>DANA:</strong> 08973366667 <button class="btn-salin-inline" onclick="copySingleRek('08973366667')">(salin)</button> | 
+            <strong>BRI:</strong> 231313 <button class="btn-salin-inline" onclick="copySingleRek('231313')">(salin)</button> 
+            <span class="ms-2 badge bg-light text-dark">a.n RIZKY NOVIANSYAH</span>
+          </p>
+        </div>
+
+        <div id="main-content">
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <div class="bottom-nav" id="mob-nav">
+    <a id="mmenu-Dashboard" class="bottom-nav-item" onclick="loadMenu('Dashboard')"><i class="bi bi-house-door-fill"></i>Home</a>
+    <a id="mmenu-Warga" class="bottom-nav-item" onclick="loadMenu('Warga')"><i class="bi bi-people-fill"></i>Warga</a>
+    <a id="mmenu-Pengaduan" class="bottom-nav-item" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-left-dots-fill"></i>Aduan</a>
+    <a id="mmenu-Keuangan" class="bottom-nav-item" onclick="loadMenu('Keuangan')"><i class="bi bi-wallet2"></i>Keuangan</a>
+  </div>
+
+  <!-- Modal Dynamic Form -->
+  <div class="modal fade" id="formModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold" id="formModalTitle">Tambah Data</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="dynamicForm">
+          </form>
+        </div>
+        <div class="modal-footer d-flex justify-content-between bg-light">
+          <button type="button" class="btn btn-danger fw-bold" id="btn-hapus-modal" onclick="hapusDataAktif()">Hapus Data</button>
+          <div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-primary fw-bold" onclick="submitFormBaru()">Simpan Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Preview Image -->
+  <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Pratinjau Foto / Dokumen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center bg-dark p-2">
+          <img id="modalPreviewImg" src="" class="img-fluid rounded" style="max-height: 75vh; object-fit: contain;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Notifikasi -->
+  <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-bell-fill me-2"></i>Pusat Notifikasi</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-3" id="notifList">
+          <div class="text-center py-4"><div class="spinner-border text-primary"></div><br><small class="text-muted">Memuat notifikasi...</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    // URL WEB APP APPS SCRIPT LENGKAP BUBBLE BACKEND
+    const API_URL = "https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec";
+
+    let session = { role: '', nik: '', nama: '', alamat: '', noHp: '' };
+    const noWaAdmin = '628973366667';
+    let currentActiveMenu = '';
+    let currentHeaders = [];
+    let currentRows = [];
+    let editingId = null;
+    let bootstrapModalInstance = null;
+    let bootstrapImageModalInstance = null;
+    let bootstrapNotifModalInstance = null;
+    let rawNotifData = [];
+    let notifTimer = null;
+
+    function doLogin() {
+      try {
+        var u = document.getElementById('username').value;
+        var p = document.getElementById('password').value;
+        
+        if(!u || !p) {
+          document.getElementById('login-msg').innerHTML = "Isi username dan password dulu bro!";
+          return;
+        }
+        
+        document.getElementById('login-msg').innerHTML = "Memeriksa ke database...";
+        
+        fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'processLogin', username: u, password: p })
+        })
+        .then(res => res.json())
+        .then(res => {
+          if(res.status === 'success') {
+            var roleClean = res.role.toString().trim().toLowerCase();
+            session.role = (roleClean === 'rt') ? 'RT' : 'Warga';
+            session.nik = res.nik.toString().trim();
+            session.nama = res.nama.toString().trim();
+            session.alamat = res.alamat.toString().trim();
+            session.noHp = res.noHp.toString().trim();
+
+            localStorage.setItem('rt_user_session', JSON.stringify(session));
+            applySessionUI();
+          } else {
+            document.getElementById('login-msg').innerHTML = res.message;
+          }
+        })
+        .catch(err => {
+          document.getElementById('login-msg').innerHTML = "Fetch Error: " + err.message;
+        });
+      } catch (error) {
+        alert("Browser JS Error: " + error.message);
+      }
+    }
+
+    function applySessionUI() {
+      document.getElementById('login-container').style.display = 'none';
+      document.getElementById('app-container').style.display = 'block';
+      
+      document.getElementById('mob-header').classList.add('show-nav');
+      document.getElementById('mob-nav').classList.add('show-nav');
+
+      if(session.role === 'Warga') {
+        document.querySelectorAll('.rt-only').forEach(el => el.style.display = 'none');
+      } else {
+        document.querySelectorAll('.rt-only').forEach(el => el.style.display = 'block');
+      }
+      loadMenu('Dashboard');
+      
+      fetchNotifikasi();
+
+      if (notifTimer) clearInterval(notifTimer);
+      notifTimer = setInterval(function() {
+        fetchNotifikasi();
+      }, 5000);
+    }
+
+    function doLogout() {
+      if (confirm('Apakah lu yakin ingin logout?')) {
+        if (notifTimer) clearInterval(notifTimer);
+        
+        document.getElementById('mob-header').classList.remove('show-nav');
+        document.getElementById('mob-nav').classList.remove('show-nav');
+
+        localStorage.removeItem('rt_user_session');
+        location.reload();
+      }
+    }
+
+    function checkExistingSession() {
+      let savedSession = localStorage.getItem('rt_user_session');
+      if (savedSession) {
+        try {
+          session = JSON.parse(savedSession);
+          if (session && session.role) {
+            applySessionUI();
+          }
+        } catch(e) {
+          localStorage.removeItem('rt_user_session');
+        }
+      }
+    }
+
+    function fetchNotifikasi() {
+      fetch(`${API_URL}?action=getNotifications&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          if(res.status === 'success') {
+            rawNotifData = res.data || [];
+            
+            let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
+            let now = new Date();
+
+            rawNotifData.forEach(item => {
+              let rawTime = savedTimestamps[item.id];
+              let notifDate = rawTime ? new Date(rawTime) : null;
+
+              if (!notifDate || isNaN(notifDate.getTime())) {
+                notifDate = new Date();
+                savedTimestamps[item.id] = notifDate.toISOString();
+              }
+
+              let isHariIni = notifDate.toDateString() === now.toDateString();
+              let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+
+              if (isHariIni) {
+                item.waktuTampil = jamStr;
+              } else {
+                let tglStr = notifDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                item.waktuTampil = tglStr + ' ' + jamStr;
+              }
+            });
+
+            localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
+
+            let badges = document.querySelectorAll('.notif-badge');
+            let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
+            
+            if (rawNotifData.length < readCount) {
+              readCount = 0;
+              localStorage.setItem('rt_notif_read_count_' + session.nik, '0');
+            }
+
+            let unreadCount = rawNotifData.length - readCount;
+
+            badges.forEach(badge => {
+              if (unreadCount > 0) {
+                badge.innerText = unreadCount;
+                badge.style.display = 'inline-block';
+              } else {
+                badge.style.display = 'none';
+              }
+            });
+          }
+        })
+        .catch(err => console.error("Gagal mengambil notifikasi:", err));
+    }
+
+    function bukaModalNotifikasi() {
+      let listEl = document.getElementById('notifList');
+      if (!rawNotifData || rawNotifData.length === 0) {
+        listEl.innerHTML = '<div class="alert alert-light text-center my-3 text-muted"><i class="bi bi-bell-slash fs-4 d-block mb-2"></i>Tidak ada notifikasi baru saat ini.</div>';
+      } else {
+        let html = '<div class="list-group list-group-flush">';
+        let notifTerbaru = rawNotifData;
+
+        notifTerbaru.forEach(item => {
+          let waktu = item.waktuTampil || 'Baru saja';
+
+          html += `
+            <div class="list-group-item list-group-item-action py-3 px-2 border-bottom" style="cursor:pointer;" onclick="bukaNotifTarget('${item.menu}')">
+              <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                <span class="badge bg-primary">${item.menu}</span>
+                <small class="text-muted"><i class="bi bi-clock me-1"></i>${waktu}</small>
+              </div>
+              <p class="mb-0 text-dark small">${item.pesan}</p>
+            </div>`;
+        });
+        html += '</div>';
+        listEl.innerHTML = html;
+      }
+
+      let badges = document.querySelectorAll('.notif-badge');
+      badges.forEach(badge => {
+        badge.style.display = 'none';
+        badge.innerText = '0';
+      });
+      
+      localStorage.setItem('rt_notif_read_count_' + session.nik, rawNotifData.length);
+
+      if(!bootstrapNotifModalInstance) {
+        bootstrapNotifModalInstance = new bootstrap.Modal(document.getElementById('notifModal'));
+      }
+      bootstrapNotifModalInstance.show();
+    }
+
+    function bukaNotifTarget(menuName) {
+      if(bootstrapNotifModalInstance) bootstrapNotifModalInstance.hide();
+      loadMenu(menuName);
+    }
+
+    function syncActiveNav(menu) {
+      document.querySelectorAll('.sidebar a').forEach(el => el.classList.remove('active-menu'));
+      var dEl = document.getElementById('dmenu-' + menu);
+      if(dEl) dEl.classList.add('active-menu');
+      
+      document.querySelectorAll('.bottom-nav-item').forEach(el => el.classList.remove('active'));
+      var mEl = document.getElementById('mmenu-' + menu);
+      if(mEl) mEl.classList.add('active');
+    }
+
+    function loadMenu(menu) {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
+      document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
+      document.getElementById('searchInput').value = "";
+
+      switch(menu) {
+        case 'Dashboard': if (typeof loadDashboardView === 'function') loadDashboardView(); break;
+        case 'Profil': if (typeof loadProfilView === 'function') loadProfilView(); break;
+        case 'Warga': if (typeof loadWargaView === 'function') loadWargaView(); break;
+        case 'Kelahiran': if (typeof loadKelahiranView === 'function') loadKelahiranView(); break;
+        case 'Kematian': if (typeof loadKematianView === 'function') loadKematianView(); break;
+        case 'PindahMasuk': if (typeof loadPindahMasukView === 'function') loadPindahMasukView(); break;
+        case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') loadPindahKeluarView(); break;
+        default:
+          fetch(`${API_URL}?action=getTableData&sheetName=${encodeURIComponent(menu)}&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+            .then(res => res.json())
+            .then(res => {
+              currentHeaders = res.headers;
+              currentRows = res.rows;
+              renderTable(res, menu);
+            })
+            .catch(err => {
+              document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data: ${err.message}</div>`;
+            });
+      }
+    }
+
+    function renderTable(data, menu) {
+      let html = '';
+      
+      let bolehTambah = false;
+      if (session.role === 'RT') bolehTambah = true; 
+      if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset'].includes(menu)) bolehTambah = true;
+      
+      if (bolehTambah) {
+        let labelTombol = session.role === 'RT' ? '+ Tambah Data Baru' : '+ Buat Pengajuan / Form Baru';
+        if (menu === 'Aset') {
+          labelTombol = session.role === 'RT' ? '+ Tambah Data Barang Baru' : '+ Buat Form Peminjaman Aset Baru';
+        }
+        html += `<button class="btn btn-success fw-bold mb-3 shadow-sm px-3 py-2" onclick="bukaModalForm()"><i class="bi bi-plus-circle me-2"></i>${labelTombol}</button>`;
+      }
+
+      if(!data || !data.rows || data.rows.length === 0) {
+        html += '<div class="alert alert-light border text-muted mt-2"><i class="bi bi-folder-x me-2"></i>Belum ada baris data di dalam sheet ini.</div>';
+        document.getElementById('main-content').innerHTML = html;
+        return;
+      }
+
+      html += '<div class="card card-custom"><div class="table-responsive"><table class="table table-hover align-middle mb-0" id="dataTable">';
+      html += '<thead class="table-light"><tr>';
+      data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size: 0.85rem; letter-spacing: 0.5px;">${h.toUpperCase()}</th>`);
+      html += '<th class="py-3 text-secondary text-center" style="font-size: 0.85rem;">AKSI</th></tr></thead><tbody>';
+
+      let reversedRows = [...data.rows].reverse();
+      reversedRows.forEach(row => {
+        html += '<tr>';
+        row.forEach((val, idx) => {
+          let headName = data.headers[idx].toLowerCase();
+          if (headName.includes('foto') || headName.includes('bukti')) {
+            html += `<td>${val && val !== '***Rahasia***' ? `<img src="${val}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
+          } else {
+            html += `<td>${val}</td>`;
+          }
+        });
+
+        html += `<td class="text-center">${getTombolAksi(menu, row, data.headers)}</td></tr>`;
+      });
+      html += '</tbody></table></div></div>';
+      document.getElementById('main-content').innerHTML = html;
+    }
+
+    function bukaPopUpFoto(urlImg) {
+      document.getElementById('modalPreviewImg').src = urlImg;
+      if(!bootstrapImageModalInstance) {
+        bootstrapImageModalInstance = new bootstrap.Modal(document.getElementById('imageModal'));
+      }
+      bootstrapImageModalInstance.show();
+    }
+
+    function bukaModalForm() {
+      editingId = null;
+      document.getElementById('formModalTitle').innerText = "Form Input Menu: " + currentActiveMenu;
+      document.getElementById('btn-hapus-modal').style.display = 'none';
+      generateFormInputs(null);
+      
+      if(!bootstrapModalInstance) {
+        bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
+      }
+      bootstrapModalInstance.show();
+    }
+
+    function bukaModalEdit(id) {
+      editingId = id;
+      document.getElementById('formModalTitle').innerText = "Edit / Ubah Status Data: " + currentActiveMenu;
+      
+      if (session.role === 'RT') {
+        document.getElementById('btn-hapus-modal').style.display = 'inline-block';
+      } else {
+        document.getElementById('btn-hapus-modal').style.display = 'none';
+      }
+      
+      let rowData = currentRows.find(r => r[0] === id);
+      generateFormInputs(rowData);
+      
+      if(!bootstrapModalInstance) {
+        bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
+      }
+      bootstrapModalInstance.show();
+    }
+
+    function generateFormInputs(rowData) {
+      let formBody = document.getElementById('dynamicForm');
+      formBody.innerHTML = '';
+      
+      currentHeaders.forEach((h, idx) => {
+        if(['id', 'no', 'saldo'].includes(h.toLowerCase())) return;
+        
+        let nameLower = h.toLowerCase().trim();
+        
+        if (currentActiveMenu === 'Aset') {
+          if (session.role === 'Warga') {
+            if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama'].includes(nameLower)) return;
+          }
+        }
+        
+        let labelText = h.replace('_', ' ').toUpperCase();
+        if (currentActiveMenu === 'Aset' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+          labelText = 'ID BARANG';
+        }
+        if (currentActiveMenu === 'Aset' && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
+          labelText = 'NAMA PEMINJAM';
+        }
+        
+        let val = rowData ? rowData[idx] : "";
+        let inputHtml = '';
+        
+        if (nameLower === 'status' || nameLower.includes('penyelesaian') || nameLower.includes('penyelsaian') || nameLower.includes('admin')) {
+          if (session.role !== 'RT' || !rowData) return;
+        }
+        
+        if (session.role === 'Warga' && !rowData) {
+          if (nameLower === 'nik') val = session.nik;
+          if (nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower === 'nama_peminjam') val = session.nama;
+          if (nameLower.includes('alamat')) val = session.alamat;
+          if (nameLower === 'no_hp' || nameLower === 'hp' || nameLower === 'telp' || nameLower === 'wa') val = session.noHp;
+        }
+        
+        if (val && (nameLower === 'tanggal' || nameLower === 'tanggal_lahir' || nameLower.includes('tanggal')) && val.includes('/')) {
+          var parts = val.split('/');
+          if (parts.length === 3) {
+            val = parts[2] + '-' + parts[1] + '-' + parts[0];
+          }
+        }
+        
+        if (nameLower === 'status' && currentActiveMenu === 'Aset') {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="Belum diverifikasi" ${val === 'Belum diverifikasi' || val === 'Belum di verifikasi' || !val ? 'selected' : ''}>Belum diverifikasi</option>
+              <option value="Diterima" ${val === 'Diterima' ? 'selected' : ''}>Diterima</option>
+              <option value="Ditolak" ${val === 'Ditolak' ? 'selected' : ''}>Ditolak</option>
+              <option value="Diterima sebagian" ${val === 'Diterima sebagian' ? 'selected' : ''}>Diterima sebagian</option>
+            </select>`;
+        } else if (nameLower === 'status' && (currentActiveMenu === 'Pengaduan' || currentActiveMenu === 'SuratPengantar' || currentActiveMenu === 'Sumbangan')) {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="Belum di verifikasi" ${val === 'Belum di verifikasi' ? 'selected' : ''}>Belum di verifikasi</option>
+              <option value="Sedang ditindak lanjuti" ${val === 'Sedang ditindak lanjuti' ? 'selected' : ''}>Sedang ditindak lanjuti</option>
+              <option value="selesai" ${val === 'selesai' ? 'selected' : ''}>selesai</option>
+              <option value="di tolak" ${val === 'di tolak' ? 'selected' : ''}>di tolak</option>
+              <option value="diterima" ${val === 'diterima' ? 'selected' : ''}>diterima</option>
+            </select>`;
+        } else if (nameLower === 'jenis_aduan' || (currentActiveMenu === 'Pengaduan' && nameLower.includes('jenis'))) {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="">-- Pilih Jenis Aduan --</option>
+              <option value="KEAMANAN" ${val.toUpperCase() === 'KEAMANAN' ? 'selected' : ''}>KEAMANAN</option>
+              <option value="KEBERSIHAN" ${val.toUpperCase() === 'KEBERSIHAN' ? 'selected' : ''}>KEBERSIHAN</option>
+              <option value="LAMPU JALAN" ${val.toUpperCase() === 'LAMPU JALAN' ? 'selected' : ''}>LAMPU JALAN</option>
+              <option value="JALANAN" ${val.toUpperCase() === 'JALANAN' ? 'selected' : ''}>JALANAN</option>
+              <option value="LAINNYA" ${val.toUpperCase() === 'LAINNYA' ? 'selected' : ''}>LAINNYA</option>
+            </select>`;
+        } else if (nameLower === 'tanggal' || nameLower === 'tanggal_lahir' || nameLower.includes('tanggal')) {
+          inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${val}">`;
+        } else if (nameLower === 'jenis_kelamin') {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="">-- Pilih Jenis Kelamin --</option>
+              <option value="LAKI-LAKI" ${val.toUpperCase() === 'LAKI-LAKI' || val.toUpperCase() === 'LAKI LAKI' ? 'selected' : ''}>LAKI-LAKI</option>
+              <option value="PEREMPUAN" ${val.toUpperCase() === 'PEREMPUAN' ? 'selected' : ''}>PEREMPUAN</option>
+            </select>`;
+        } else if (nameLower === 'status_nikah' || (nameLower === 'status' && currentActiveMenu === 'Warga')) {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="">-- Pilih Status Nikah --</option>
+              <option value="MENIKAH" ${val.toUpperCase() === 'MENIKAH' ? 'selected' : ''}>MENIKAH</option>
+              <option value="BELUM MENIKAH" ${val.toUpperCase() === 'BELUM MENIKAH' || val.toUpperCase() === 'BELUM' ? 'selected' : ''}>BELUM MENIKAH</option>
+            </select>`;
+        } else if (nameLower === 'status_tinggal' || nameLower === 'status_pindah') {
+          inputHtml = `
+            <select class="form-select dynamic-input" data-key="${h}">
+              <option value="">-- Pilih Status Tinggal --</option>
+              <option value="TETAP" ${val.toUpperCase() === 'TETAP' ? 'selected' : ''}>TETAP</option>
+              <option value="KONTRAK" ${val.toUpperCase() === 'KONTRAK' ? 'selected' : ''}>KONTRAK</option>
+            </select>`;
+        } else if (nameLower.includes('foto') || nameLower.includes('bukti')) {
+          inputHtml = `
+            ${val && !val.includes('***') ? `<div class="mb-1"><small class="text-muted">File saat ini:</small><br><img src="${val}" class="img-table mb-2" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
+            <input type="file" class="form-control dynamic-file-input" data-key="${h}" accept="image/*">`;
+        } else {
+          let isReadonly = '';
+          if (session.role === 'Warga') {
+            if (nameLower === 'nik' || nameLower.includes('alamat')) {
+              isReadonly = 'readonly style="background-color: #f1f5f9; cursor: not-allowed;"';
+            } else if (nameLower.includes('nama') || nameLower === 'nama_peminjam') {
+              if (currentActiveMenu !== 'Sumbangan') {
+                isReadonly = 'readonly style="background-color: #f1f5f9; cursor: not-allowed;"';
+              }
+            }
+          }
+          
+          inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>`;
+        }
+
+        formBody.innerHTML += `
+          <div class="mb-3">
+            <label class="form-label font-weight-bold small text-secondary">${labelText}</label>
+            ${inputHtml}
+          </div>`;
+      });
+    }
+
+    function submitFormBaru() {
+      let inputs = document.querySelectorAll('.dynamic-input');
+      let fileInputs = document.querySelectorAll('.dynamic-file-input');
+      let payload = {};
+      
+      inputs.forEach(inp => {
+        payload[inp.getAttribute('data-key')] = inp.value;
+      });
+      
+      document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Sedang memproses data ke database...</b></div>';
+      
+      let filePromises = [];
+      fileInputs.forEach(fileInp => {
+        let key = fileInp.getAttribute('data-key');
+        let file = fileInp.files[0];
+        if (file) {
+          let p = new Promise((resolve, reject) => {
+            let reader = new FileReader();
+            reader.onload = function(e) {
+              payload[key] = {
+                base64: e.target.result,
+                name: file.name,
+                type: file.type
+              };
+              resolve();
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          filePromises.push(p);
+        }
+      });
+      
+      Promise.all(filePromises).then(() => {
+        if (editingId) {
+          fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'updateDataDiSheet',
+              sheetName: currentActiveMenu,
+              id: editingId,
+              formData: payload
+            })
+          })
+          .then(res => res.json())
+          .then(res => {
+            if(res.status === 'success') {
+              bootstrapModalInstance.hide();
+              alert(res.message);
+              loadMenu(currentActiveMenu);
+              fetchNotifikasi();
+            } else {
+              alert('Gagal memperbarui: ' + res.message);
+              loadMenu(currentActiveMenu);
+            }
+          })
+          .catch(err => {
+            alert('Error server: ' + err.message);
+            loadMenu(currentActiveMenu);
+          });
+        } else {
+          fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'simpanDataKeSheet',
+              sheetName: currentActiveMenu,
+              formData: payload
+            })
+          })
+          .then(res => res.json())
+          .then(res => {
+            if(res.status === 'success') {
+              bootstrapModalInstance.hide();
+              alert('Data Berhasil Disimpan!');
+              
+              if(session.role === 'Warga') {
+                if(currentActiveMenu === 'Pengaduan' && typeof waKirimLaporan === 'function') waKirimLaporan('aduan', res.id);
+                if(currentActiveMenu === 'SuratPengantar' && typeof waKirimLaporan === 'function') waKirimLaporan('surat', res.id);
+                if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
+                if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
+              }
+              loadMenu(currentActiveMenu);
+              fetchNotifikasi();
+            } else {
+              alert('Gagal menyimpan: ' + res.message);
+              loadMenu(currentActiveMenu);
+            }
+          })
+          .catch(err => {
+            alert('Error server: ' + err.message);
+            loadMenu(currentActiveMenu);
+          });
+        }
+      }).catch(err => {
+        alert('Gagal membaca file foto: ' + err.message);
+        loadMenu(currentActiveMenu);
+      });
+    }
+
+    function hapusDataAktif() {
+      if(!editingId) return;
+      if(confirm('Apakah lu yakin ingin menghapus data ini secara permanen dari database Google Sheets?')) {
+        document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Sedang menghapus data dari server...</b></div>';
+        
+        fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'hapusDataDariSheet',
+            sheetName: currentActiveMenu,
+            id: editingId
+          })
+        })
+        .then(res => res.json())
+        .then(res => {
+          if(res.status === 'success') {
+            bootstrapModalInstance.hide();
+            alert('Data Berhasil Dihapus!');
+            loadMenu(currentActiveMenu);
+            fetchNotifikasi();
+          } else {
+            alert('Gagal menghapus: ' + res.message);
+            loadMenu(currentActiveMenu);
+          }
+        })
+        .catch(err => {
+          alert('Error server: ' + err.message);
+          loadMenu(currentActiveMenu);
+        });
+      }
+    }
+
+    function getTombolAksi(menu, row, headers) {
+      let id = row[0];
+      
+      let lowerHeaders = headers.map(h => h.toLowerCase().trim());
+      let noHpIdx = lowerHeaders.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
+      let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
+
+      if (session.role === 'RT') {
+        let btn = `<button class="btn btn-sm btn-outline-primary m-1 fw-bold" onclick="bukaModalEdit('${id}')">Edit/Status</button>`;
+        if (menu === 'Pengaduan' || menu === 'SuratPengantar') {
+           btn += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="waKirimLaporanKeWarga('${id}', '${noHpWarga}')"><i class="bi bi-whatsapp me-1"></i>Kirim Laporan</button>`;
+        }
+        return btn;
+      }
+      if (session.role === 'Warga') {
+        if (menu === 'Pengaduan') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('aduan', '${id}')"><i class="bi bi-whatsapp me-1"></i>WA Lapor</button>`;
+        if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat', '${id}')"><i class="bi bi-whatsapp me-1"></i>WA Pengantar</button>`;
+        if (menu === 'Keuangan') return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${id}')">Laporkan Masalah</button>`;
+        if (menu === 'Sumbangan') return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${id}')"><i class="bi bi-whatsapp me-1"></i>WA Verifikasi</button>`;
+        if (menu === 'Aset') return `<button class="btn btn-sm btn-info text-white fw-bold" onclick="waPinjamAset('${id}')">Pinjam (WA)</button>`;
+      }
+      return '-';
+    }
+
+    function bukaWa(nomor, text) {
+      window.open(`https://wa.me/${nomor}?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    function filterTable() {
+      let input = document.getElementById("searchInput").value.toUpperCase().trim();
+      
+      let tr = document.querySelectorAll("#dataTable tbody tr");
+      tr.forEach(row => {
+        let text = row.innerText.toUpperCase();
+        row.style.display = text.includes(input) ? "" : "none";
+      });
+
+      let quickItems = document.querySelectorAll(".quick-action-item");
+      quickItems.forEach(item => {
+        let menuText = item.innerText.toUpperCase();
+        item.style.display = menuText.includes(input) ? "flex" : "none";
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      checkExistingSession();
+
+      window.copySingleRek = function(nomor) {
+        navigator.clipboard.writeText(nomor).then(() => {
+          alert("Nomor rekening " + nomor + " berhasil disalin ke clipboard!");
+        }).catch(err => {
+          alert("Gagal menyalin otomatis: " + err);
+        });
+      }
+    });
+  </script>
+
+  <!-- PWA SERVICE WORKER REGISTRATION & PROMPT INSTALL SCRIPT -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('PWA Service Worker terdaftar!', reg))
+          .catch(err => console.log('PWA SW gagal:', err));
+      });
+    }
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btnInstall = document.getElementById('btn-install-pwa');
+      if (btnInstall) {
+        btnInstall.style.display = 'block';
+      }
+    });
+
+    function installPWA() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('User menginstall PWA RT');
+          }
+          deferredPrompt = null;
+        });
+      }
+    }
+  </script>
+
+  <!-- TEMPATKAN ISI FILE MODUL HTML LU DI SINI (GANTIKAN <?!= include() ?>) -->
+  <!-- CONTOH: TEMPELKAN ISI Dashboard.html, Profil.html, Warga.html, DLL DI BAGIAN INI -->
+<script>
+const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri RT 05. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
+
+let infoWargaTimer = null;
+
+// Fungsi untuk mengubah teks URL biasa menjadi link yang bisa diklik
+function linkify(text) {
+  if (!text) return '';
+  let urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.replace(urlRegex, function(url) {
+    return `<a href="${url}" target="_blank" class="text-blue-600 underline fw-bold" style="color: #2563eb; text-decoration: underline;" onclick="event.stopPropagation();">${url}</a>`;
+  });
+}
+
+function muatInfoWargaRealtime() {
+  fetch(`${API_URL}?action=getInfoWarga`)
+    .then(res => res.json())
+    .then(res => {
+      let el = document.getElementById('infoWargaTextDisplay');
+      if (el) {
+        let teks = res.data || '';
+        let finalText = (teks && teks.trim() !== '') ? teks : defaultInfoText;
+        finalText = finalText.replace(/\{NAMA\}/g, session.nama || 'Warga');
+        el.innerHTML = linkify(finalText);
+      }
+    })
+    .catch(err => {
+      let el = document.getElementById('infoWargaTextDisplay');
+      if (el) {
+        let finalText = defaultInfoText.replace(/\{NAMA\}/g, session.nama || 'Warga');
+        el.innerHTML = linkify(finalText);
+      }
+    });
+}
+
+function simpanInfoWarga() {
+  let textBaru = document.getElementById('editInfoTextarea').value;
+  if(textBaru) {
+    let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
+    if(btnSimpan) {
+      btnSimpan.innerText = 'Menyimpan...';
+      btnSimpan.disabled = true;
+    }
+
+    fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'simpanInfoWarga',
+        teksBaru: textBaru
+      })
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(btnSimpan) {
+        btnSimpan.innerText = 'Simpan Perubahan';
+        btnSimpan.disabled = false;
+      }
+      
+      if(res && res.status === 'success') {
+        alert('Informasi Warga berhasil diperbarui!');
+        let modalEl = document.getElementById('modalEditInfo');
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if(modalInstance) modalInstance.hide();
+        
+        muatInfoWargaRealtime();
+      } else {
+        alert('Gagal menyimpan: ' + (res ? res.message : 'Respon kosong'));
+      }
+    })
+    .catch(err => {
+      if(btnSimpan) {
+        btnSimpan.innerText = 'Simpan Perubahan';
+        btnSimpan.disabled = false;
+      }
+      alert('Error dari Server: ' + err.message);
+    });
+  }
+}
+
+function bukaModalEditInfo() {
+  let textarea = document.getElementById('editInfoTextarea');
+  textarea.value = "Memuat data dari database...";
+  
+  let modal = new bootstrap.Modal(document.getElementById('modalEditInfo'));
+  modal.show();
+
+  fetch(`${API_URL}?action=getInfoWarga`)
+    .then(res => res.json())
+    .then(res => {
+      let teks = res.data || '';
+      textarea.value = (teks && teks.trim() !== '') ? teks : defaultInfoText;
+    })
+    .catch(err => {
+      textarea.value = defaultInfoText;
+    });
+}
+
+function loadDashboardView() {
+  fetch(`${API_URL}?action=getDashboardSummary&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+    .then(res => res.json())
+    .then(res => {
+      let htmlLayout = '';
+      
+      if (res.role === 'RT') {
+        htmlLayout = `
+          <div class="row text-center d-none d-md-flex g-4 mb-4">
+            <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-people-fill text-primary me-2"></i>Total Warga</h5><h2 class="fw-bold text-primary mt-2">${res.warga} Warga</h2></div></div>
+            <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Aduan Masuk</h5><h2 class="fw-bold text-warning mt-2">${res.aduan} Laporan</h2></div></div>
+            <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-cash-stack text-success me-2"></i>Data Transaksi</h5><h2 class="fw-bold text-success mt-2">${res.keuangan} Laporan</h2></div></div>
+          </div>
+
+          <div class="d-block d-md-none">
+            <div class="quick-actions-grid">
+              <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
+              <div class="quick-action-item" onclick="loadMenu('Kelahiran')"><div class="quick-action-icon"><i class="bi bi-gender-ambiguous"></i></div>Kelahiran</div>
+              <div class="quick-action-item" onclick="loadMenu('Kematian')"><div class="quick-action-icon"><i class="bi bi-heartbreak-fill"></i></div>Kematian</div>
+              <div class="quick-action-item" onclick="loadMenu('PindahMasuk')"><div class="quick-action-icon"><i class="bi bi-box-arrow-in-right"></i></div>Pindah Masuk</div>
+              <div class="quick-action-item" onclick="loadMenu('PindahKeluar')"><div class="quick-action-icon"><i class="bi bi-box-arrow-left"></i></div>Pindah Keluar</div>
+              <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i></div>Aduan</div>
+              <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i></div>Surat</div>
+              <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
+              <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i></div>Sumbangan</div>
+              <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i></div>Inventaris</div>
+              <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
+            </div>
+            <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Ringkasan RT</p>
+            <div class="mobile-stats-grid">
+              <div class="m-stat-card blue-card"><span class="m-stat-title">Total Warga</span><span class="m-stat-value">${res.warga} Orang</span></div>
+              <div class="m-stat-card teal-card"><span class="m-stat-title">Transaksi Beres</span><span class="m-stat-value">${res.keuangan} Data</span></div>
+              <div class="m-stat-card orange-card"><span class="m-stat-title">Aduan Masuk</span><span class="m-stat-value">${res.aduan} Kasus</span></div>
+              <div class="m-stat-card slate-card"><span class="m-stat-title">Status Sistem</span><span class="m-stat-value">Aktif RT</span></div>
+            </div>
+          </div>
+        `;
+      } else {
+        htmlLayout = `
+          <div class="row text-center d-none d-md-flex g-4 mb-4">
+            <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-chat-left-dots-fill text-warning me-2"></i>Aduan Saya</h5><h2 class="fw-bold text-warning mt-2">${res.aduan} Laporan</h2></div></div>
+            <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-file-earmark-text-fill text-primary me-2"></i>Surat Saya</h5><h2 class="fw-bold text-primary mt-2">${res.surat} Pengajuan</h2></div></div>
+            <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-gift-fill text-success me-2"></i>Sumbangan Saya</h5><h2 class="fw-bold text-success mt-2">${res.sumbangan} Data</h2></div></div>
+          </div>
+
+          <div class="d-block d-md-none">
+            <div class="quick-actions-grid">
+              <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
+              <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i></div>Aduan</div>
+              <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i></div>Surat</div>
+              <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
+              <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i></div>Sumbangan</div>
+              <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i></div>Inventaris</div>
+              <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
+            </div>
+            <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Laporan Saya</p>
+            <div class="mobile-stats-grid">
+              <div class="m-stat-card orange-card"><span class="m-stat-title">Aduan Saya</span><span class="m-stat-value">${res.aduan} Laporan</span></div>
+              <div class="m-stat-card blue-card"><span class="m-stat-title">Surat Saya</span><span class="m-stat-value">${res.surat} Berkas</span></div>
+              <div class="m-stat-card teal-card"><span class="m-stat-title">Sumbangan Saya</span><span class="m-stat-value">${res.sumbangan} Data</span></div>
+              <div class="m-stat-card slate-card"><span class="m-stat-title">Status Akun</span><span class="m-stat-value">Terverifikasi</span></div>
+            </div>
+          </div>
+        `;
+      }
+
+      let btnEditAdmin = res.role === 'RT' 
+        ? `<button class="btn btn-warning btn-sm fw-bold me-2" onclick="bukaModalEditInfo()"><i class="bi bi-pencil-square me-1"></i> Edit Info Warga</button>` 
+        : '';
+
+      htmlLayout += `
+        <div class="card card-custom mt-2">
+          <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-2">
+            <h5 class="fw-bold text-dark mb-2 mb-md-0"><i class="bi bi-clock-history me-2"></i>Informasi Warga</h5>
+            <div class="d-flex align-items-center">
+              ${btnEditAdmin}
+              <button class="btn btn-outline-primary btn-sm fw-bold d-none d-md-block" onclick="loadMenu('Profil')"><i class="bi bi-person-vcard me-1"></i> Buka Profil & Keluarga</button>
+            </div>
+          </div>
+          <p id="infoWargaTextDisplay" class="text-muted small mb-0"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</p>
+        </div>
+
+        <!-- Modal Edit Informasi Khusus RT Admin -->
+        <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Informasi Warga</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body p-4">
+                <div class="mb-3">
+                  <label class="form-label font-weight-bold small text-secondary">Teks Informasi (Gunakan <code>{NAMA}</code> untuk nama warga otomatis)</label>
+                  <textarea id="editInfoTextarea" class="form-control" rows="5" placeholder="Masukkan teks informasi warga..."></textarea>
+                </div>
+              </div>
+              <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary fw-bold" onclick="simpanInfoWarga()">Simpan Perubahan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('main-content').innerHTML = htmlLayout;
+
+      muatInfoWargaRealtime();
+
+      if (infoWargaTimer) clearInterval(infoWargaTimer);
+      infoWargaTimer = setInterval(muatInfoWargaRealtime, 5000);
+    })
+    .catch(err => {
+      document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat dashboard: ${err.message}</div>`;
+    });
+}
+</script>
+  <script>
+function loadProfilView() {
+  fetch(`${API_URL}?action=getProfileData&nik=${encodeURIComponent(session.nik)}`)
+    .then(res => res.json())
+    .then(res => {
+      if (res.status === 'error') {
+        document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message}</div>`;
+        return;
+      }
+      
+      let htmlLayout = `
+        <button class="btn btn-outline-secondary btn-sm mb-3 shadow-sm fw-bold" onclick="loadMenu('Dashboard')"><i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard</button>
+        <div class="row g-4">`;
+      
+      htmlLayout += `
+        <div class="col-md-5">
+          <div class="card card-custom h-100">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-person-vcard-fill me-2"></i>Data Pribadi Anda</h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-borderless align-middle mb-0">
+                <tbody>`;
+      
+      res.headers.forEach(h => {
+        let labelText = h.replace('_', ' ').toUpperCase();
+        let val = res.pribadi[h] || '-';
+        if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
+          htmlLayout += `<tr><td class="fw-bold text-secondary py-2" style="width:38%; font-size:0.85rem;">${labelText}</td><td>${val !== '-' ? `<img src="${val}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td></tr>`;
+        } else {
+          htmlLayout += `<tr><td class="fw-bold text-secondary py-2" style="width:38%; font-size:0.85rem;">${labelText}</td><td class="text-dark fw-semibold" style="font-size:0.9rem;">${val}</td></tr>`;
+        }
+      });
+      
+      htmlLayout += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>`;
+      
+      htmlLayout += `
+        <div class="col-md-7">
+          <div class="card card-custom h-100">
+            <h5 class="fw-bold text-success mb-3"><i class="bi bi-houses-fill me-2"></i>Anggota Keluarga</h5>`;
+      
+      if (!res.keluarga || res.keluarga.length === 0) {
+        htmlLayout += `<div class="alert alert-light border text-muted small mb-0">Tidak ada anggota keluarga lain dengan No KK yang sama.</div>`;
+      } else {
+        htmlLayout += `
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;" id="keluargaTable">
+              <thead class="table-light">
+                <tr>`;
+        res.headers.forEach(h => {
+          if (!['no_kk', 'alamat'].includes(h.toLowerCase().trim())) {
+            htmlLayout += `<th class="text-secondary py-2 text-nowrap">${h.replace('_', ' ').toUpperCase()}</th>`;
+          }
+        });
+        htmlLayout += `</tr></thead><tbody>`;
+        
+        // Simpan data keluarga di global biar bisa dipanggil fungsi show detail
+        window._profilKeluargaData = res.keluarga;
+        window._profilHeaders = res.headers;
+
+        res.keluarga.forEach((member, index) => {
+          let memberId = member.id || member.nik || index;
+          // Tambahkan event onclick pada baris tabel keluarga
+          htmlLayout += `<tr style="cursor:pointer;" onclick="showDetailKeluarga('${memberId}')">`;
+          
+          res.headers.forEach(h => {
+            if (!['no_kk', 'alamat'].includes(h.toLowerCase().trim())) {
+              let val = member[h] || '-';
+              if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
+                htmlLayout += `<td>${val !== '-' ? `<img src="${val}" class="img-table" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
+              } else {
+                htmlLayout += `<td class="fw-medium text-dark text-nowrap">${val}</td>`;
+              }
+            }
+          });
+          htmlLayout += '</tr>';
+        });
+        htmlLayout += `</tbody></table></div>`;
+      }
+      
+      htmlLayout += `</div></div></div>`;
+
+      // Modal Global untuk Detail Anggota Keluarga di halaman Profil
+      htmlLayout += `
+        <div class="modal fade" id="modalDetailKeluarga" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold" id="modalKeluargaTitle"><i class="bi bi-person-badge-fill me-2"></i>Detail Anggota Keluarga</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body p-4" id="modalKeluargaContent"></div>
+              <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary fw-bold btn-sm" data-bs-dismiss="modal">Tutup</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('main-content').innerHTML = htmlLayout;
+    })
+    .catch(err => {
+      document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat profil: ${err.message}</div>`;
+    });
+}
+
+// Fungsi Pop-up Detail Anggota Keluarga saat baris diklik
+function showDetailKeluarga(identifier) {
+  if (!window._profilKeluargaData) return;
+  let member = window._profilKeluargaData.find(m => (m.id == identifier || m.nik == identifier));
+  if (!member) return;
+
+  let contentHtml = '<div class="list-group list-group-flush">';
+  let fotoUrl = '';
+
+  window._profilHeaders.forEach(h => {
+    let val = member[h] || '-';
+    let hLower = h.toLowerCase().trim();
+
+    if (hLower.includes('foto') || hLower.includes('bukti')) {
+      if (val && val !== '-' && val !== '***Rahasia***') {
+        fotoUrl = val;
+      }
+    } else {
+      contentHtml += `
+        <div class="list-group-item py-2 px-0 border-bottom">
+          <small class="text-muted font-monospace d-block text-uppercase">${h.replace(/_/g, ' ')}</small>
+          <span class="fw-bold text-dark">${val}</span>
+        </div>`;
+    }
+  });
+
+  if (fotoUrl) {
+    contentHtml += `
+      <div class="mt-3 text-center">
+        <small class="text-muted d-block text-start font-monospace uppercase mb-1">FOTO</small>
+        <img src="${fotoUrl}" onclick="event.stopPropagation(); bukaPopUpFoto('${fotoUrl}')" class="img-fluid rounded border shadow-sm" style="max-height: 200px; cursor:pointer;" title="Klik untuk memperbesar">
+      </div>`;
+  }
+
+  contentHtml += '</div>';
+  document.getElementById('modalKeluargaContent').innerHTML = contentHtml;
+
+  let modalEl = document.getElementById('modalDetailKeluarga');
+  let modalInstance = new bootstrap.Modal(modalEl);
+  modalInstance.show();
+}
+</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawPengaduanData = [];
+  let selectedAduanRow = null;
+
+  function renderPengaduanCustom(data) {
+    rawPengaduanData = data.rows || [];
+    let headers = data.headers.map(h => h.toLowerCase().trim());
+    
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+    let jenisIdx = headers.findIndex(h => h.includes('jenis'));
+    let statusIdx = headers.indexOf('status');
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-base text-gray-800"><i class="bi bi-chat-square-text-fill me-2 text-primary"></i>Daftar Pengaduan Warga</h2>
+          ${session.role === 'Warga' ? `
+            <button onclick="bukaModalForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+              + Buat Aduan Baru
+            </button>
+          ` : ''}
+        </div>
+
+        <!-- Table Data -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">No</th>
+                  <th class="p-3">ID</th>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Pelapor</th>
+                  <th class="p-3">Jenis Aduan</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="pengaduan-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detail Pengaduan -->
+      <div id="modal-detail-pengaduan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
+          <!-- Tombol X diletakkan absolute agar rapi dan tidak ketutupan -->
+          <button onclick="tutupDetailPengaduan()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-3 border-b pb-2 pe-6">
+            <h3 class="font-bold text-gray-800 text-sm">Rincian Pengaduan</h3>
+          </div>
+          <div id="modal-detail-pengaduan-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
+          
+          <div id="pengaduan-action-buttons" class="space-y-2"></div>
+          
+          <button onclick="tutupDetailPengaduan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataPengaduan();
+
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterDataPengaduan();
+      };
+    }
+  }
+
+  function filterDataPengaduan() {
+    let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+    
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+    let jenisIdx = headers.findIndex(h => h.includes('jenis'));
+
+    let filtered = [...rawPengaduanData].filter(row => {
+      let rowId = (row[idIdx] || '').toLowerCase();
+      let namaText = (row[namaIdx] || '').toLowerCase();
+      let jenisText = (row[jenisIdx] || '').toLowerCase();
+      return rowId.includes(searchVal) || namaText.includes(searchVal) || jenisText.includes(searchVal);
+    });
+
+    let tbody = document.getElementById('pengaduan-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-400">Tidak ada data aduan.</td></tr>`;
+    } else {
+      filtered.reverse().forEach((r, i) => {
+        let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+        let statusIdx = headers.indexOf('status');
+        let statusVal = r[statusIdx] || 'Belum di verifikasi';
+        let badgeColor = statusVal.toLowerCase().includes('selesai') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+
+        let btnAksi = session.role === 'RT' 
+          ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
+          : `<button onclick="event.stopPropagation(); waKirimLaporan('aduan', '${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
+
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailPengaduan('${r[idIdx]}')">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
+            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
+            <td class="p-3 text-gray-600">${r[jenisIdx] || '-'}</td>
+            <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
+            <td class="p-3 text-center">${btnAksi}</td>
+          </tr>`;
+      });
+    }
+  }
+
+  function showDetailPengaduan(id) {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let row = rawPengaduanData.find(r => r[idIdx] === id);
+    if (!row) return;
+
+    selectedAduanRow = row;
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+    let fotoUrl = row[fotoIdx] || '';
+    let noHpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
+    let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
+
+    let imgHtml = (fotoUrl && fotoUrl !== '-') 
+      ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Foto:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+      : '';
+
+    let detailHtml = '';
+    currentHeaders.forEach((h, idx) => {
+      let hLower = h.toLowerCase().trim();
+      if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
+      detailHtml += `
+        <div class="border-b pb-1">
+          <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
+          <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        </div>`;
+    });
+    detailHtml += imgHtml;
+
+    document.getElementById('modal-detail-pengaduan-body').innerHTML = detailHtml;
+
+    let actionHtml = '';
+    if (session.role === 'RT') {
+      actionHtml = `
+        <button onclick="bukaModalEdit('${id}'); tutupDetailPengaduan();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit / Ubah Status</button>
+        <button onclick="waKirimLaporanKeWarga('${id}', '${noHpWarga}'); tutupDetailPengaduan();" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim Laporan (WA)</button>`;
+    } else {
+      actionHtml = `
+        <button onclick="waKirimLaporan('aduan', '${id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim via WhatsApp</button>`;
+    }
+    document.getElementById('pengaduan-action-buttons').innerHTML = actionHtml;
+
+    document.getElementById('modal-detail-pengaduan').classList.remove('hidden');
+  }
+
+  function tutupDetailPengaduan() {
+    document.getElementById('modal-detail-pengaduan').classList.add('hidden');
+  }
+
+  function waKirimLaporanKeWarga(id, noHp) {
+    let cleanNo = noHp ? noHp.toString().replace(/[^0-9]/g, '') : '';
+    if (cleanNo.startsWith('0')) {
+      cleanNo = '62' + cleanNo.slice(1);
+    }
+    if (!cleanNo) {
+      cleanNo = prompt("Nomor WA warga tidak terdeteksi otomatis di kolom. Silakan ketik manual (ex: 628xxx):");
+      if (cleanNo) cleanNo = cleanNo.toString().replace(/[^0-9]/g, '');
+    }
+    if (cleanNo) {
+      bukaWa(cleanNo, `id aduan/surat ${id} sudah selesai.`);
+    }
+  }
+
+  function waKirimLaporan(jenis, id) {
+    let pesan = jenis === 'aduan' 
+      ? `ini adalah id aduan saya : ${id} mohon segera di tindak lanjuti.`
+      : `ini adalah id surat pengantar saya : ${id} mohon segera di tindak lanjuti.`;
+    bukaWa(noWaAdmin, pesan);
+  }
+
+  const originalLoadMenuPengaduan = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'Pengaduan') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Pengaduan Warga';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat pengaduan...</small></div>';
+      document.getElementById('rek-info').style.display = 'none';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=Pengaduan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderPengaduanCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat data pengaduan: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenuPengaduan === 'function') originalLoadMenuPengaduan(menu);
+    }
+  };
+</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+  let rawSuratData = [];
+  let selectedSuratRow = null;
+
+  function renderSuratPengantarCustom(data) {
+    rawSuratData = data.rows || [];
+    let headers = data.headers.map(h => h.toLowerCase().trim());
+    
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+    let statusIdx = headers.indexOf('status');
+
+    let html = `
+      <div class="p-1 text-gray-800 font-sans">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-base text-gray-800"><i class="bi bi-file-earmark-text-fill me-2 text-primary"></i>Daftar Surat Pengantar</h2>
+          ${session.role === 'Warga' ? `
+            <button onclick="bukaModalForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+              + Buat Surat Baru
+            </button>
+          ` : ''}
+        </div>
+
+        <!-- Table Data -->
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-3 text-center">No</th>
+                  <th class="p-3">ID</th>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Nama Warga</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="surat-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Detail Surat Pengantar -->
+      <div id="modal-detail-surat" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
+          <!-- Tombol X Close -->
+          <button onclick="tutupDetailSurat()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+          
+          <div class="mb-3 border-b pb-2 pe-6">
+            <h3 class="font-bold text-gray-800 text-sm">Rincian Surat Pengantar</h3>
+          </div>
+          <div id="modal-detail-surat-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
+          
+          <div id="surat-action-buttons" class="space-y-2"></div>
+          
+          <button onclick="tutupDetailSurat()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('main-content').innerHTML = html;
+    filterDataSurat();
+
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterDataSurat();
+      };
+    }
+  }
+
+  function filterDataSurat() {
+    let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+    
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let namaIdx = headers.findIndex(h => h.includes('nama'));
+
+    let filtered = [...rawSuratData].filter(row => {
+      let rowId = (row[idIdx] || '').toLowerCase();
+      let namaText = (row[namaIdx] || '').toLowerCase();
+      return rowId.includes(searchVal) || namaText.includes(searchVal);
+    });
+
+    let tbody = document.getElementById('surat-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data surat pengantar.</td></tr>`;
+    } else {
+      filtered.reverse().forEach((r, i) => {
+        let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+        let statusIdx = headers.indexOf('status');
+        let statusVal = r[statusIdx] || 'Belum di verifikasi';
+        let badgeColor = statusVal.toLowerCase().includes('selesai') || statusVal.toLowerCase().includes('diterima') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+
+        let btnAksi = session.role === 'RT' 
+          ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
+          : `<button onclick="event.stopPropagation(); waKirimLaporan('surat', '${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
+
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailSurat('${r[idIdx]}')">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
+            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
+            <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
+            <td class="p-3 text-center">${btnAksi}</td>
+          </tr>`;
+      });
+    }
+  }
+
+  function showDetailSurat(id) {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let row = rawSuratData.find(r => r[idIdx] === id);
+    if (!row) return;
+
+    selectedSuratRow = row;
+    let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+    let fotoUrl = row[fotoIdx] || '';
+    let noHpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
+    let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
+
+    let imgHtml = (fotoUrl && fotoUrl !== '-') 
+      ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Lampiran:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+      : '';
+
+    let detailHtml = '';
+    currentHeaders.forEach((h, idx) => {
+      let hLower = h.toLowerCase().trim();
+      if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
+      detailHtml += `
+        <div class="border-b pb-1">
+          <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
+          <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        </div>`;
+    });
+    detailHtml += imgHtml;
+
+    document.getElementById('modal-detail-surat-body').innerHTML = detailHtml;
+
+    let actionHtml = '';
+    if (session.role === 'RT') {
+      actionHtml = `
+        <button onclick="bukaModalEdit('${id}'); tutupDetailSurat();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit / Ubah Status</button>
+        <button onclick="waKirimLaporanKeWarga('${id}', '${noHpWarga}'); tutupDetailSurat();" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim Laporan (WA)</button>`;
+    } else {
+      actionHtml = `
+        <button onclick="waKirimLaporan('surat', '${id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim via WhatsApp</button>`;
+    }
+    document.getElementById('surat-action-buttons').innerHTML = actionHtml;
+
+    document.getElementById('modal-detail-surat').classList.remove('hidden');
+  }
+
+  function tutupDetailSurat() {
+    document.getElementById('modal-detail-surat').classList.add('hidden');
+  }
+
+  function waKirimLaporanKeWarga(id, noHp) {
+    let cleanNo = noHp ? noHp.toString().replace(/[^0-9]/g, '') : '';
+    if (cleanNo.startsWith('0')) {
+      cleanNo = '62' + cleanNo.slice(1);
+    }
+    if (!cleanNo) {
+      cleanNo = prompt("Nomor WA warga tidak terdeteksi otomatis di kolom. Silakan ketik manual (ex: 628xxx):");
+      if (cleanNo) cleanNo = cleanNo.toString().replace(/[^0-9]/g, '');
+    }
+    if (cleanNo) {
+      bukaWa(cleanNo, `id aduan/surat ${id} sudah selesai.`);
+    }
+  }
+
+  function waKirimLaporan(jenis, id) {
+    let pesan = jenis === 'aduan' 
+      ? `ini adalah id aduan saya : ${id} mohon segera di tindak lanjuti.`
+      : `ini adalah id surat pengantar saya : ${id} mohon segera di tindak lanjuti.`;
+    bukaWa(noWaAdmin, pesan);
+  }
+
+  const originalLoadMenuSurat = window.loadMenu;
+  window.loadMenu = function(menu) {
+    if (menu === 'SuratPengantar') {
+      currentActiveMenu = menu;
+      syncActiveNav(menu);
+      document.getElementById('page-title').innerText = 'Surat Pengantar';
+      document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat surat pengantar...</small></div>';
+      document.getElementById('rek-info').style.display = 'none';
+
+      fetch(`${API_URL}?action=getTableData&sheetName=SuratPengantar&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+        .then(res => res.json())
+        .then(res => {
+          currentHeaders = res.headers;
+          currentRows = res.rows;
+          renderSuratPengantarCustom(res);
+        })
+        .catch(err => {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">Gagal memuat surat pengantar: ${err.message}</div>`;
+        });
+    } else {
+      if (typeof originalLoadMenuSurat === 'function') originalLoadMenuSurat(menu);
+    }
+  };
+</script>
+  
+</body>
+</html>
