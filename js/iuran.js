@@ -26,13 +26,14 @@ function renderIuranCustom(data) {
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
   
-  // Hitung total belum bayar hanya dari yang statusnya belum lunas
+  // Hitung total belum bayar akurat khusus status belum lunas
   let totalBelumBayar = 0;
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
+    let statusLower = statusVal.toLowerCase().trim();
     let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
     
-    if(!statusVal.toLowerCase().includes('lunas')) {
+    if (statusLower.includes('belum') || statusLower === '' || statusLower === '-') {
       totalBelumBayar += nominalVal;
     }
   });
@@ -54,7 +55,7 @@ function renderIuranCustom(data) {
         </div>
       ` : ''}
 
-      <!-- Card Ringkasan Tagihan (Tanpa Tombol Bayar di atas) -->
+      <!-- Card Ringkasan Tagihan -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
         <div class="flex justify-between items-center mb-3">
           <div>
@@ -144,9 +145,11 @@ function renderListBulanDatabase(rows, headers) {
     let nominalRaw = getVal(r, headers, 'nominal', '0');
     let nominalVal = Number(nominalRaw.toString().replace(/[^0-9]/g, '')) || 0;
     let statusVal = getVal(r, headers, 'status', 'Belum Lunas');
+    let statusLower = statusVal.toLowerCase().trim();
     let tglBayar = getVal(r, headers, 'tanggal_bayar', '-');
 
-    let isLunas = statusVal.toLowerCase().includes('lunas');
+    // Pastikan hanya mendeteksi lunas jika benar-benar lunas dan tidak mengandung kata 'belum'
+    let isLunas = statusLower === 'lunas' || (statusLower.includes('lunas') && !statusLower.includes('belum'));
 
     let badgeHtml = isLunas 
       ? `<div class="text-right"><span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">LUNAS</span><span class="block text-[9px] text-gray-400 mt-0.5"><i class="bi bi-clock me-1"></i>${tglBayar}</span></div>`
