@@ -146,7 +146,7 @@ function tutupDetailKematian() {
 }
 
 const originalLoadMenuKematian = window.loadMenu;
-window.loadMenu = function(menu) {
+window.loadMenu = async function(menu) {
   if (menu === 'Kematian') {
     currentActiveMenu = menu;
     syncActiveNav(menu);
@@ -154,11 +154,12 @@ window.loadMenu = function(menu) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data kematian...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    google.script.run.withSuccessHandler(res => {
-      currentHeaders = res.headers;
-      currentRows = res.rows;
+    const res = await callGASGet('getTableData', { sheetName: 'Kematian' });
+    if (res) {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
       renderKematianCustom(res);
-    }).getTableData('Kematian', session.role, session.nik);
+    }
   } else {
     if (typeof originalLoadMenuKematian === 'function') originalLoadMenuKematian(menu);
   }
