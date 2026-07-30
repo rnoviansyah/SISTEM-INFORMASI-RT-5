@@ -1,4 +1,5 @@
 let rawIuranData = [];
+let iuranHeaders = [];
 
 async function loadIuranView() {
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data iuran...</small></div>';
@@ -6,6 +7,7 @@ async function loadIuranView() {
   const res = await callGASGet('getIuranData');
   if (res && res.status === 'success') {
     rawIuranData = res.rows || [];
+    iuranHeaders = res.headers || [];
     renderIuranCustom(res);
   } else {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message || 'Gagal memuat data'}</div>`;
@@ -13,14 +15,19 @@ async function loadIuranView() {
 }
 
 function renderIuranCustom(data) {
+  let headers = (data.headers || []).map(h => h.toLowerCase().trim());
   let rows = data.rows || [];
   
-  // Hitung total belum bayar khusus untuk warga
+  let nominalIdx = headers.indexOf('nominal');
+  let statusIdx = headers.indexOf('status');
+  
+  // Hitung total belum bayar secara dinamis dari data nominal sheet
   let totalBelumBayar = 0;
   rows.forEach(r => {
-    let status = (r[6] || r[5] || '').toLowerCase();
-    if(status.includes('belum')) {
-      totalBelumBayar += 30000; // Asumsi iuran per bulan Rp 30.000
+    let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : '';
+    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 30000;
+    if(statusVal.toLowerCase().includes('belum')) {
+      totalBelumBayar += nominalVal;
     }
   });
 
@@ -53,7 +60,7 @@ function renderIuranCustom(data) {
 
         <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between">
           <div>
-            <p class="text-[10px] text-rose-500 uppercase font-bold">Estimasi Belum Bayar</p>
+            <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
             <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
           </div>
           <button onclick="bukaModalBayarIuran()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
@@ -117,10 +124,10 @@ function renderIuranCustom(data) {
   `;
 
   document.getElementById('main-content').innerHTML = html;
-  renderListBulanDatabase(rows);
+  renderListBulanDatabase(rows, headers);
 }
 
-function renderListBulanDatabase(rows) {
+function renderListBulanDatabase(rows, headers) {
   let container = document.getElementById('list-bulan-iuran');
   if(!container) return;
   container.innerHTML = '';
@@ -130,15 +137,24 @@ function renderListBulanDatabase(rows) {
     return;
   }
 
+  let idIdx = headers.indexOf('id');
+  let nikIdx = headers.indexOf('nik');
+  let namaIdx = headers.indexOf('nama');
+  let bulanIdx = headers.indexOf('bulan');
+  let tahunIdx = headers.indexOf('tahun');
+  let nominalIdx = headers.indexOf('nominal');
+  let statusIdx = headers.indexOf('status');
+  let tglBayarIdx = headers.indexOf('tanggal_bayar');
+
   rows.forEach((r) => {
-    let idVal = r[0] || '-';
-    let nikVal = r[1] || '-';
-    let namaVal = r[2] || '-';
-    let bulanVal = r[4] || r[3] || '-';
-    let tahunVal = r[5] || '2026';
-    let statusVal = r[6] || r[5] || 'Belum Lunas';
-    let tglBayar = r[7] || '-';
-    let petugas = r[8] || '-';
+    let idVal = idIdx > -1 ? r[idIdx] : (r[0] || '-');
+    let nikVal = nikIdx > -1 ? r[nikIdx] : (r[1] || '-');
+    let namaVal = namaIdx > -1 ? r[namaIdx] : (r[2] || '-');
+    let bulanVal = bulanIdx > -1 ? r[bulanIdx] : (r[4] || '-');
+    let tahunVal = tahunIdx > -1 ? r[tahunIdx] : (r[5] || '2026');
+    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 30000) : 30000;
+    let statusVal = statusIdx > -1 ? r[statusIdx] : (r[6] || 'Belum Lunas');
+    let tglBayar = tglBayarIdx > -1 ? r[tglBayarIdx] : (r[7] || '-');
 
     let isLunas = statusVal.toLowerCase().includes('lunas');
 
@@ -150,7 +166,7 @@ function renderListBulanDatabase(rows) {
       <div class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border border-gray-100 transition">
         <div>
           <p class="font-bold text-gray-800 text-xs">${bulanVal} ${tahunVal} <span class="text-[10px] font-normal text-gray-500">(${namaVal})</span></p>
-          <p class="text-[10px] text-gray-400">ID: ${idVal} | NIK: ${nikVal}</p>
+          <p class="text-[10px] text-blue-600 font-semibold">Nominal: Rp ${nominalVal.toLocaleString('id-ID')}</p>
         </div>
         <div>${badgeHtml}</div>
       </div>
@@ -201,6 +217,10 @@ async function bukaModalTambahIuranRT() {
         <input type="text" id="iuran-input-tahun" value="2026" class="w-full p-2 border rounded-xl bg-gray-50" readonly>
       </div>
       <div>
+        <label class="font-bold text-gray-600 mb-1 block">Nominal Tagihan (Rp)</label>
+        <input type="number" id="iuran-input-nominal" value="30000" class="w-full p-2 border rounded-xl bg-white">
+      </div>
+      <div>
         <label class="font-bold text-gray-600 mb-1 block">Status Pembayaran</label>
         <select id="iuran-input-status" class="w-full p-2 border rounded-xl bg-white">
           <option value="Belum Lunas">Belum Lunas</option>
@@ -233,6 +253,7 @@ async function simpanIuranBaruRT() {
     no_kk: document.getElementById('iuran-input-kk').value,
     bulan: document.getElementById('iuran-input-bulan').value,
     tahun: document.getElementById('iuran-input-tahun').value,
+    nominal: document.getElementById('iuran-input-nominal').value || '30000',
     status: document.getElementById('iuran-input-status').value,
     tanggal_bayar: '-',
     diterima_oleh: '-'
