@@ -11,7 +11,46 @@ let bootstrapNotifModalInstance = null;
 let rawNotifData = [];
 let notifTimer = null;
 
-function doLogin() {
+// ==========================================================
+// ==== URL DEPLOY GOOGLE APPS SCRIPT (WEB APP API) =========
+// ==========================================================
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec'; 
+
+// --- HELPER FETCH UNTUK MENGGANTIKAN google.script.run ---
+async function callGASPost(actionName, extraPayload = {}) {
+  try {
+    const response = await fetch(GAS_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: actionName,
+        token: session.token,
+        ...extraPayload
+      })
+    });
+    return await response.json();
+  } catch (err) {
+    console.error('Fetch Error (POST):', err);
+    return { status: 'error', message: 'Gagal terhubung ke server RT: ' + err.message };
+  }
+}
+
+async function callGASGet(actionName, params = {}) {
+  try {
+    let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
+    for (let key in params) {
+      query += `&${key}=${encodeURIComponent(params[key])}`;
+    }
+    const response = await fetch(GAS_API_URL + query, { method: 'GET' });
+    return await response.json();
+  } catch (err) {
+    console.error('Fetch Error (GET):', err);
+    return { status: 'error', message: 'Gagal memuat data server: ' + err.message };
+  }
+}
+
+// --- FUNGSI AUTHENTICATION & SESSION ---
+async function doLogin() {
   try {
     var u = document.getElementById('username').value;
     var p = document.getElementById('password').value;
@@ -23,27 +62,22 @@ function doLogin() {
     
     document.getElementById('login-msg').innerHTML = "Memeriksa ke database...";
     
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if(res.status === 'success') {
-          var roleClean = res.role.toString().trim().toLowerCase();
-          session.token = res.token || '';
-          session.role = (roleClean === 'rt') ? 'RT' : 'Warga';
-          session.nik = res.nik.toString().trim();
-          session.nama = res.nama.toString().trim();
-          session.alamat = res.alamat.toString().trim();
-          session.noHp = res.noHp.toString().trim();
+    const res = await callGASPost('processLogin', { username: u, password: p });
 
-          localStorage.setItem('rt_user_session', JSON.stringify(session));
-          applySessionUI();
-        } else {
-          document.getElementById('login-msg').innerHTML = res.message;
-        }
-      })
-      .withFailureHandler(function(err) {
-        document.getElementById('login-msg').innerHTML = "Script Error: " + err.message;
-      })
-      .processLogin(u, p);
+    if(res && res.status === 'success') {
+      var roleClean = res.role.toString().trim().toLowerCase();
+      session.token = res.token || '';
+      session.role = (roleClean === 'rt') ? 'RT' : 'Warga';
+      session.nik = res.nik ? res.nik.toString().trim() : '';
+      session.nama = res.nama ? res.nama.toString().trim() : '';
+      session.alamat = res.alamat ? res.alamat.toString().trim() : '';
+      session.noHp = res.noHp ? res.noHp.toString().trim() : '';
+
+      localStorage.setItem('rt_user_session', JSON.stringify(session));
+      applySessionUI();
+    } else {
+      document.getElementById('login-msg').innerHTML = res ? res.message : 'Login gagal!';
+    }
   } catch (error) {
     alert("Browser JS Error: " + error.message);
   }
@@ -68,7 +102,7 @@ function applySessionUI() {
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(function() {
     fetchNotifikasi();
-  }, 5000);
+  }, 10000); // Polling setiap 10 detik
 }
 
 function doLogout() {
@@ -97,56 +131,58 @@ function checkExistingSession() {
   }
 }
 
-function fetchNotifikasi() {
-  google.script.run.withSuccessHandler(res => {
-    if(res.status === 'success') {
-      rawNotifData = res.data || [];
-      
-      let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
-      let now = new Date();
+// --- FUNGSI NOTIFIKASI ---
+async function fetchNotifikasi() {
+  if (!session.token) return;
+  const res = await callGASGet('getNotifications');
+  
+  if(res && res.status === 'success') {
+    rawNotifData = res.data || [];
+    
+    let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
+    let now = new Date();
 
-      rawNotifData.forEach(item => {
-        let rawTime = savedTimestamps[item.id];
-        let notifDate = rawTime ? new Date(rawTime) : null;
+    rawNotifData.forEach(item => {
+      let rawTime = savedTimestamps[item.id];
+      let notifDate = rawTime ? new Date(rawTime) : null;
 
-        if (!notifDate || isNaN(notifDate.getTime())) {
-          notifDate = new Date();
-          savedTimestamps[item.id] = notifDate.toISOString();
-        }
-
-        let isHariIni = notifDate.toDateString() === now.toDateString();
-        let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
-
-        if (isHariIni) {
-          item.waktuTampil = jamStr;
-        } else {
-          let tglStr = notifDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-          item.waktuTampil = tglStr + ' ' + jamStr;
-        }
-      });
-
-      localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
-
-      let badges = document.querySelectorAll('.notif-badge');
-      let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
-      
-      if (rawNotifData.length < readCount) {
-        readCount = 0;
-        localStorage.setItem('rt_notif_read_count_' + session.nik, '0');
+      if (!notifDate || isNaN(notifDate.getTime())) {
+        notifDate = new Date();
+        savedTimestamps[item.id] = notifDate.toISOString();
       }
 
-      let unreadCount = rawNotifData.length - readCount;
+      let isHariIni = notifDate.toDateString() === now.toDateString();
+      let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
 
-      badges.forEach(badge => {
-        if (unreadCount > 0) {
-          badge.innerText = unreadCount;
-          badge.style.display = 'inline-block';
-        } else {
-          badge.style.display = 'none';
-        }
-      });
+      if (isHariIni) {
+        item.waktuTampil = jamStr;
+      } else {
+        let tglStr = notifDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        item.waktuTampil = tglStr + ' ' + jamStr;
+      }
+    });
+
+    localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
+
+    let badges = document.querySelectorAll('.notif-badge');
+    let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
+    
+    if (rawNotifData.length < readCount) {
+      readCount = 0;
+      localStorage.setItem('rt_notif_read_count_' + session.nik, '0');
     }
-  }).getNotifications(session.role, session.nik);
+
+    let unreadCount = rawNotifData.length - readCount;
+
+    badges.forEach(badge => {
+      if (unreadCount > 0) {
+        badge.innerText = unreadCount;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    });
+  }
 }
 
 function bukaModalNotifikasi() {
@@ -202,7 +238,8 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-function loadMenu(menu) {
+// --- FUNGSI NAVIGASI MENU ---
+async function loadMenu(menu) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
   document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
@@ -211,19 +248,20 @@ function loadMenu(menu) {
   document.getElementById('searchInput').value = "";
 
   switch(menu) {
-    case 'Dashboard': loadDashboardView(); break;
-    case 'Profil': loadProfilView(); break;
-    case 'Warga': loadWargaView(); break;
-    case 'Kelahiran': loadKelahiranView(); break;
-    case 'Kematian': loadKematianView(); break;
-    case 'PindahMasuk': loadPindahMasukView(); break;
-    case 'PindahKeluar': loadPindahKeluarView(); break;
+    case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); break;
+    case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); break;
+    case 'Warga': if(typeof loadWargaView === 'function') loadWargaView(); break;
+    case 'Kelahiran': if(typeof loadKelahiranView === 'function') loadKelahiranView(); break;
+    case 'Kematian': if(typeof loadKematianView === 'function') loadKematianView(); break;
+    case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') loadPindahMasukView(); break;
+    case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') loadPindahKeluarView(); break;
     default:
-      google.script.run.withSuccessHandler(res => {
-        currentHeaders = res.headers;
-        currentRows = res.rows;
+      const res = await callGASGet('getTableData', { sheetName: menu });
+      if (res) {
+        currentHeaders = res.headers || [];
+        currentRows = res.rows || [];
         renderTable(res, menu);
-      }).getTableData(menu, session.role, session.nik);
+      }
   }
 }
 
@@ -431,6 +469,7 @@ function generateFormInputs(rowData) {
   });
 }
 
+// --- FUNGSI SUBMIT FORM & HAPUS DATA ---
 function submitFormBaru() {
   let inputs = document.querySelectorAll('.dynamic-input');
   let fileInputs = document.querySelectorAll('.dynamic-file-input');
@@ -464,38 +503,45 @@ function submitFormBaru() {
     }
   });
   
-  Promise.all(filePromises).then(() => {
+  Promise.all(filePromises).then(async () => {
     if (editingId) {
-      google.script.run.withSuccessHandler(res => {
-        if(res.status === 'success') {
-          bootstrapModalInstance.hide();
-          alert(res.message);
-          loadMenu(currentActiveMenu);
-          fetchNotifikasi();
-        } else {
-          alert('Gagal memperbarui: ' + res.message);
-          loadMenu(currentActiveMenu);
-        }
-      }).updateDataDiSheet(currentActiveMenu, editingId, payload, session);
+      const res = await callGASPost('updateDataDiSheet', {
+        sheetName: currentActiveMenu,
+        id: editingId,
+        formData: payload
+      });
+      
+      if(res && res.status === 'success') {
+        bootstrapModalInstance.hide();
+        alert(res.message);
+        loadMenu(currentActiveMenu);
+        fetchNotifikasi();
+      } else {
+        alert('Gagal memperbarui: ' + (res ? res.message : 'Error'));
+        loadMenu(currentActiveMenu);
+      }
     } else {
-      google.script.run.withSuccessHandler(res => {
-        if(res.status === 'success') {
-          bootstrapModalInstance.hide();
-          alert('Data Berhasil Disimpan!');
-          
-          if(session.role === 'Warga') {
-            if(currentActiveMenu === 'Pengaduan') waKirimLaporan('aduan', res.id);
-            if(currentActiveMenu === 'SuratPengantar') waKirimLaporan('surat', res.id);
-            if(currentActiveMenu === 'Sumbangan') waVerifikasiSumbangan(res.id);
-            if(currentActiveMenu === 'Aset') waPinjamAset(res.id);
-          }
-          loadMenu(currentActiveMenu);
-          fetchNotifikasi();
-        } else {
-          alert('Gagal menyimpan: ' + res.message);
-          loadMenu(currentActiveMenu);
+      const res = await callGASPost('simpanDataKeSheet', {
+        sheetName: currentActiveMenu,
+        formData: payload
+      });
+
+      if(res && res.status === 'success') {
+        bootstrapModalInstance.hide();
+        alert('Data Berhasil Disimpan!');
+        
+        if(session.role === 'Warga') {
+          if(currentActiveMenu === 'Pengaduan' && typeof waKirimLaporan === 'function') waKirimLaporan('aduan', res.id);
+          if(currentActiveMenu === 'SuratPengantar' && typeof waKirimLaporan === 'function') waKirimLaporan('surat', res.id);
+          if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
+          if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-      }).simpanDataKeSheet(currentActiveMenu, payload, session);
+        loadMenu(currentActiveMenu);
+        fetchNotifikasi();
+      } else {
+        alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
+        loadMenu(currentActiveMenu);
+      }
     }
   }).catch(err => {
     alert('Gagal membaca file foto: ' + err.message);
@@ -503,21 +549,25 @@ function submitFormBaru() {
   });
 }
 
-function hapusDataAktif() {
+async function hapusDataAktif() {
   if(!editingId) return;
   if(confirm('Apakah lu yakin ingin menghapus data ini secara permanen dari database Google Sheets?')) {
     document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Sedang menghapus data dari server...</b></div>';
-    google.script.run.withSuccessHandler(res => {
-      if(res.status === 'success') {
-        bootstrapModalInstance.hide();
-        alert('Data Berhasil Dihapus!');
-        loadMenu(currentActiveMenu);
-        fetchNotifikasi();
-      } else {
-        alert('Gagal menghapus: ' + res.message);
-        loadMenu(currentActiveMenu);
-      }
-    }).hapusDataDariSheet(currentActiveMenu, editingId);
+    
+    const res = await callGASPost('hapusDataDariSheet', {
+      sheetName: currentActiveMenu,
+      id: editingId
+    });
+
+    if(res && res.status === 'success') {
+      bootstrapModalInstance.hide();
+      alert('Data Berhasil Dihapus!');
+      loadMenu(currentActiveMenu);
+      fetchNotifikasi();
+    } else {
+      alert('Gagal menghapus: ' + (res ? res.message : 'Error'));
+      loadMenu(currentActiveMenu);
+    }
   }
 }
 
