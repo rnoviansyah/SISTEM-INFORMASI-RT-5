@@ -14,19 +14,24 @@ async function loadIuranView() {
   }
 }
 
+// Helper pintar untuk ambil data berdasarkan nama kolom header
+function getVal(r, headers, colName, defaultVal = '') {
+  let idx = headers.indexOf(colName.toLowerCase());
+  return idx > -1 && r[idx] !== undefined && r[idx] !== "" ? r[idx] : defaultVal;
+}
+
 function renderIuranCustom(data) {
   let headers = (data.headers || []).map(h => h.toLowerCase().trim());
   let rows = data.rows || [];
   
-  let nominalIdx = headers.indexOf('nominal');
-  let statusIdx = headers.indexOf('status');
-  
-  // Hitung total belum bayar murni dari nominal yang diinput
+  // Hitung total belum bayar murni dari tagihan yang statusnya belum lunas
   let totalBelumBayar = 0;
   rows.forEach(r => {
-    let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : '';
-    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
-    if(statusVal.toLowerCase().includes('belum')) {
+    let statusVal = getVal(r, headers, 'status', 'Belum Lunas');
+    let nominalRaw = getVal(r, headers, 'nominal', '0');
+    let nominalVal = Number(nominalRaw.toString().replace(/[^0-9]/g, '')) || 0;
+    
+    if(!statusVal.toLowerCase().includes('lunas')) {
       totalBelumBayar += nominalVal;
     }
   });
@@ -134,24 +139,14 @@ function renderListBulanDatabase(rows, headers) {
     return;
   }
 
-  let idIdx = headers.indexOf('id');
-  let nikIdx = headers.indexOf('nik');
-  let namaIdx = headers.indexOf('nama');
-  let bulanIdx = headers.indexOf('bulan');
-  let tahunIdx = headers.indexOf('tahun');
-  let nominalIdx = headers.indexOf('nominal');
-  let statusIdx = headers.indexOf('status');
-  let tglBayarIdx = headers.indexOf('tanggal_bayar');
-
   rows.forEach((r) => {
-    let idVal = idIdx > -1 ? r[idIdx] : (r[0] || '-');
-    let nikVal = nikIdx > -1 ? r[nikIdx] : (r[1] || '-');
-    let namaVal = namaIdx > -1 ? r[namaIdx] : (r[2] || '-');
-    let bulanVal = bulanIdx > -1 ? r[bulanIdx] : (r[4] || '-');
-    let tahunVal = tahunIdx > -1 ? r[tahunIdx] : (r[5] || '2026');
-    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
-    let statusVal = statusIdx > -1 ? r[statusIdx] : (r[6] || 'Belum Lunas');
-    let tglBayar = tglBayarIdx > -1 ? r[tglBayarIdx] : (r[7] || '-');
+    let bulanVal = getVal(r, headers, 'bulan', '-');
+    let tahunVal = getVal(r, headers, 'tahun', '2026');
+    let namaVal = getVal(r, headers, 'nama', '-');
+    let nominalRaw = getVal(r, headers, 'nominal', '0');
+    let nominalVal = Number(nominalRaw.toString().replace(/[^0-9]/g, '')) || 0;
+    let statusVal = getVal(r, headers, 'status', 'Belum Lunas');
+    let tglBayar = getVal(r, headers, 'tanggal_bayar', '-');
 
     let isLunas = statusVal.toLowerCase().includes('lunas');
 
@@ -264,13 +259,9 @@ async function simpanIuranBaruRT() {
   const res = await callGASPost('simpanDataKeSheet', { sheetName: 'Iuran', formData: formData });
   if (res && res.status === 'success') {
     alert('Tagihan iuran berhasil ditambahkan!');
-    
-    // Tutup modal bootstrap dengan benar agar tidak mental ke dashboard utama
     let modalEl = document.getElementById('formModal');
     let modalInstance = bootstrap.Modal.getInstance(modalEl);
     if (modalInstance) modalInstance.hide();
-    
-    // Refresh khusus view iuran saja
     loadIuranView();
   } else {
     alert('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'));
@@ -311,7 +302,6 @@ function kirimKonfirmasiWA() {
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(pesan)}`, '_blank');
 }
 
-// Handler Load Menu Iuran
 const originalLoadMenuIuran = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Iuran') {
