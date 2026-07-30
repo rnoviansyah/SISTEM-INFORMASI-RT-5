@@ -94,7 +94,7 @@
       .sidebar { display: none !important; }
       .mobile-header.show-nav { display: flex !important; }
       .bottom-nav.show-nav { display: flex !important; }
-      .main-content-wrapper { padding: 100px 15px 95px 15px !important; }
+      .main-content-wrapper { padding: 110px 15px 95px 15px !important; }
       #searchInput { width: 100% !important; margin-top: 10px; }
       .d-flex.justify-content-between { flex-direction: column; align-items: flex-start !important; }
     }
@@ -148,13 +148,14 @@
 
         <a id="dmenu-Dashboard" onclick="loadMenu('Dashboard')"><i class="bi bi-grid-1x2-fill me-2"></i>Dashboard</a>
         <a id="dmenu-Warga" onclick="loadMenu('Warga')"><i class="bi bi-people-fill me-2"></i>Data Warga</a>
+        <a id="dmenu-Iuran" onclick="loadMenu('Iuran')"><i class="bi bi-wallet2 me-2"></i>Iuran Warga</a>
         <a id="dmenu-Kelahiran" class="rt-only" onclick="loadMenu('Kelahiran')"><i class="bi bi-gender-ambiguous me-2"></i>Kelahiran</a>
         <a id="dmenu-Kematian" class="rt-only" onclick="loadMenu('Kematian')"><i class="bi bi-heartbreak-fill me-2"></i>Kematian</a>
         <a id="dmenu-PindahMasuk" class="rt-only" onclick="loadMenu('PindahMasuk')"><i class="bi bi-box-arrow-in-right me-2"></i>Pindah Masuk</a>
         <a id="dmenu-PindahKeluar" class="rt-only" onclick="loadMenu('PindahKeluar')"><i class="bi bi-box-arrow-left me-2"></i>Pindah Keluar</a>
         <a id="dmenu-Pengaduan" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-square-text-fill me-2"></i>Pengaduan Warga</a>
         <a id="dmenu-SuratPengantar" onclick="loadMenu('SuratPengantar')"><i class="bi bi-file-earmark-text-fill me-2"></i>Surat Pengantar</a>
-        <a id="dmenu-Keuangan" onclick="loadMenu('Keuangan')"><i class="bi bi-wallet2 me-2"></i>Keuangan</a>
+        <a id="dmenu-Keuangan" onclick="loadMenu('Keuangan')"><i class="bi bi-cash-stack me-2"></i>Kas Keuangan</a>
         <a id="dmenu-Sumbangan" onclick="loadMenu('Sumbangan')"><i class="bi bi-gift-fill me-2"></i>Sumbangan</a>
         <a id="dmenu-Aset" onclick="loadMenu('Aset')"><i class="bi bi-tools me-2"></i>Aset & Inventaris</a>
         <a onclick="doLogout()" class="text-danger mt-4 border-top border-secondary" style="cursor:pointer;"><i class="bi bi-power me-2"></i>Logout</a>
@@ -192,8 +193,9 @@
   <div class="bottom-nav" id="mob-nav">
     <a id="mmenu-Dashboard" class="bottom-nav-item" onclick="loadMenu('Dashboard')"><i class="bi bi-house-door-fill"></i>Home</a>
     <a id="mmenu-Warga" class="bottom-nav-item" onclick="loadMenu('Warga')"><i class="bi bi-people-fill"></i>Warga</a>
+    <a id="mmenu-Iuran" class="bottom-nav-item" onclick="loadMenu('Iuran')"><i class="bi bi-wallet2"></i>Iuran</a>
     <a id="mmenu-Pengaduan" class="bottom-nav-item" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-left-dots-fill"></i>Aduan</a>
-    <a id="mmenu-Keuangan" class="bottom-nav-item" onclick="loadMenu('Keuangan')"><i class="bi bi-wallet2"></i>Keuangan</a>
+    <a id="mmenu-Keuangan" class="bottom-nav-item" onclick="loadMenu('Keuangan')"><i class="bi bi-cash-stack"></i>Kas</a>
   </div>
 
   <!-- MODAL DYNAMIC FORM -->
@@ -256,6 +258,7 @@
   <script src="js/dashboard.js"></script>
   <script src="js/profil.js"></script>
   <script src="js/warga.js"></script>
+  <script src="js/iuran.js"></script>
   <script src="js/pengaduan.js"></script>
   <script src="js/surat.js"></script>
   <script src="js/keuangan.js"></script>
