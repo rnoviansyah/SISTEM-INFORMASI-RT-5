@@ -145,10 +145,11 @@ function tutupDetailPindahMasuk() {
   document.getElementById('modal-detail-pindahmasuk').classList.add('hidden');
 }
 
-function loadPindahMasukView() {
-  google.script.run.withSuccessHandler(res => {
-    currentHeaders = res.headers;
-    currentRows = res.rows;
+async function loadPindahMasukView() {
+  const res = await callGASGet('getTableData', { sheetName: 'PindahMasuk' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
     renderPindahMasukCustom(res);
-  }).getTableData('PindahMasuk', session.role, session.nik);
+  }
 }
