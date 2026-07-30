@@ -155,10 +155,11 @@ function tutupDetailWarga() {
   document.getElementById('modal-detail-warga').classList.add('hidden');
 }
 
-function loadWargaView() {
-  google.script.run.withSuccessHandler(res => {
-    currentHeaders = res.headers;
-    currentRows = res.rows;
+async function loadWargaView() {
+  const res = await callGASGet('getTableData', { sheetName: 'Warga' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
     renderWargaCustom(res);
-  }).getTableData('Warga', session.role, session.nik);
+  }
 }
