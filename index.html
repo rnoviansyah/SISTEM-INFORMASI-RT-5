@@ -231,10 +231,10 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
   <script>
-    // URL WEB APP APPS SCRIPT LENGKAP BUBBLE BACKEND
+    // URL WEB APP APPS SCRIPT BACKEND
     const API_URL = "https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec";
 
-    let session = { role: '', nik: '', nama: '', alamat: '', noHp: '' };
+    let session = { role: '', nik: '', nama: '', alamat: '', noHp: '', token: '' };
     const noWaAdmin = '628973366667';
     let currentActiveMenu = '';
     let currentHeaders = [];
@@ -267,10 +267,11 @@
           if(res.status === 'success') {
             var roleClean = res.role.toString().trim().toLowerCase();
             session.role = (roleClean === 'rt') ? 'RT' : 'Warga';
-            session.nik = res.nik.toString().trim();
-            session.nama = res.nama.toString().trim();
-            session.alamat = res.alamat.toString().trim();
-            session.noHp = res.noHp.toString().trim();
+            session.nik = res.nik ? res.nik.toString().trim() : '';
+            session.nama = res.nama ? res.nama.toString().trim() : '';
+            session.alamat = res.alamat ? res.alamat.toString().trim() : '';
+            session.noHp = res.noHp ? res.noHp.toString().trim() : '';
+            session.token = res.token || ''; // Simpan token dari backend
 
             localStorage.setItem('rt_user_session', JSON.stringify(session));
             applySessionUI();
@@ -325,8 +326,10 @@
       if (savedSession) {
         try {
           session = JSON.parse(savedSession);
-          if (session && session.role) {
+          if (session && session.role && session.token) {
             applySessionUI();
+          } else {
+            localStorage.removeItem('rt_user_session');
           }
         } catch(e) {
           localStorage.removeItem('rt_user_session');
@@ -335,7 +338,7 @@
     }
 
     function fetchNotifikasi() {
-      fetch(`${API_URL}?action=getNotifications&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getNotifications&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
           if(res.status === 'success') {
@@ -459,11 +462,15 @@
         case 'PindahMasuk': if (typeof loadPindahMasukView === 'function') loadPindahMasukView(); break;
         case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') loadPindahKeluarView(); break;
         default:
-          fetch(`${API_URL}?action=getTableData&sheetName=${encodeURIComponent(menu)}&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+          fetch(`${API_URL}?action=getTableData&sheetName=${encodeURIComponent(menu)}&token=${encodeURIComponent(session.token)}`)
             .then(res => res.json())
             .then(res => {
-              currentHeaders = res.headers;
-              currentRows = res.rows;
+              if (res.status === 'error') {
+                document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+                return;
+              }
+              currentHeaders = res.headers || [];
+              currentRows = res.rows || [];
               renderTable(res, menu);
             })
             .catch(err => {
@@ -717,7 +724,8 @@
               action: 'updateDataDiSheet',
               sheetName: currentActiveMenu,
               id: editingId,
-              formData: payload
+              formData: payload,
+              token: session.token
             })
           })
           .then(res => res.json())
@@ -742,7 +750,8 @@
             body: JSON.stringify({
               action: 'simpanDataKeSheet',
               sheetName: currentActiveMenu,
-              formData: payload
+              formData: payload,
+              token: session.token
             })
           })
           .then(res => res.json())
@@ -785,7 +794,8 @@
           body: JSON.stringify({
             action: 'hapusDataDariSheet',
             sheetName: currentActiveMenu,
-            id: editingId
+            id: editingId,
+            token: session.token
           })
         })
         .then(res => res.json())
@@ -897,14 +907,12 @@
     }
   </script>
 
-  <!-- TEMPATKAN ISI FILE MODUL HTML LU DI SINI (GANTIKAN <?!= include() ?>) -->
-  <!-- CONTOH: TEMPELKAN ISI Dashboard.html, Profil.html, Warga.html, DLL DI BAGIAN INI -->
+  <!-- MODUL JS COMPONENT INTERNAL -->
 <script>
 const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri RT 05. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
 
 let infoWargaTimer = null;
 
-// Fungsi untuk mengubah teks URL biasa menjadi link yang bisa diklik
 function linkify(text) {
   if (!text) return '';
   let urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -914,7 +922,7 @@ function linkify(text) {
 }
 
 function muatInfoWargaRealtime() {
-  fetch(`${API_URL}?action=getInfoWarga`)
+  fetch(`${API_URL}?action=getInfoWarga&token=${encodeURIComponent(session.token)}`)
     .then(res => res.json())
     .then(res => {
       let el = document.getElementById('infoWargaTextDisplay');
@@ -947,7 +955,8 @@ function simpanInfoWarga() {
       method: 'POST',
       body: JSON.stringify({
         action: 'simpanInfoWarga',
-        teksBaru: textBaru
+        teksBaru: textBaru,
+        token: session.token
       })
     })
     .then(res => res.json())
@@ -985,7 +994,7 @@ function bukaModalEditInfo() {
   let modal = new bootstrap.Modal(document.getElementById('modalEditInfo'));
   modal.show();
 
-  fetch(`${API_URL}?action=getInfoWarga`)
+  fetch(`${API_URL}?action=getInfoWarga&token=${encodeURIComponent(session.token)}`)
     .then(res => res.json())
     .then(res => {
       let teks = res.data || '';
@@ -997,11 +1006,15 @@ function bukaModalEditInfo() {
 }
 
 function loadDashboardView() {
-  fetch(`${API_URL}?action=getDashboardSummary&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+  fetch(`${API_URL}?action=getDashboardSummary&token=${encodeURIComponent(session.token)}`)
     .then(res => res.json())
     .then(res => {
+      if (res.status === 'error') {
+        document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message}</div>`;
+        return;
+      }
+
       let htmlLayout = '';
-      
       if (res.role === 'RT') {
         htmlLayout = `
           <div class="row text-center d-none d-md-flex g-4 mb-4">
@@ -1113,9 +1126,10 @@ function loadDashboardView() {
     });
 }
 </script>
-  <script>
+
+<script>
 function loadProfilView() {
-  fetch(`${API_URL}?action=getProfileData&nik=${encodeURIComponent(session.nik)}`)
+  fetch(`${API_URL}?action=getProfileData&token=${encodeURIComponent(session.token)}`)
     .then(res => res.json())
     .then(res => {
       if (res.status === 'error') {
@@ -1135,9 +1149,9 @@ function loadProfilView() {
               <table class="table table-sm table-borderless align-middle mb-0">
                 <tbody>`;
       
-      res.headers.forEach(h => {
+      (res.headers || []).forEach(h => {
         let labelText = h.replace('_', ' ').toUpperCase();
-        let val = res.pribadi[h] || '-';
+        let val = (res.pribadi && res.pribadi[h]) ? res.pribadi[h] : '-';
         if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
           htmlLayout += `<tr><td class="fw-bold text-secondary py-2" style="width:38%; font-size:0.85rem;">${labelText}</td><td>${val !== '-' ? `<img src="${val}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td></tr>`;
         } else {
@@ -1165,23 +1179,21 @@ function loadProfilView() {
             <table class="table table-hover align-middle mb-0" style="font-size:0.85rem;" id="keluargaTable">
               <thead class="table-light">
                 <tr>`;
-        res.headers.forEach(h => {
+        (res.headers || []).forEach(h => {
           if (!['no_kk', 'alamat'].includes(h.toLowerCase().trim())) {
             htmlLayout += `<th class="text-secondary py-2 text-nowrap">${h.replace('_', ' ').toUpperCase()}</th>`;
           }
         });
         htmlLayout += `</tr></thead><tbody>`;
         
-        // Simpan data keluarga di global biar bisa dipanggil fungsi show detail
         window._profilKeluargaData = res.keluarga;
         window._profilHeaders = res.headers;
 
         res.keluarga.forEach((member, index) => {
           let memberId = member.id || member.nik || index;
-          // Tambahkan event onclick pada baris tabel keluarga
           htmlLayout += `<tr style="cursor:pointer;" onclick="showDetailKeluarga('${memberId}')">`;
           
-          res.headers.forEach(h => {
+          (res.headers || []).forEach(h => {
             if (!['no_kk', 'alamat'].includes(h.toLowerCase().trim())) {
               let val = member[h] || '-';
               if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
@@ -1198,7 +1210,6 @@ function loadProfilView() {
       
       htmlLayout += `</div></div></div>`;
 
-      // Modal Global untuk Detail Anggota Keluarga di halaman Profil
       htmlLayout += `
         <div class="modal fade" id="modalDetailKeluarga" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
@@ -1223,7 +1234,6 @@ function loadProfilView() {
     });
 }
 
-// Fungsi Pop-up Detail Anggota Keluarga saat baris diklik
 function showDetailKeluarga(identifier) {
   if (!window._profilKeluargaData) return;
   let member = window._profilKeluargaData.find(m => (m.id == identifier || m.nik == identifier));
@@ -1232,7 +1242,7 @@ function showDetailKeluarga(identifier) {
   let contentHtml = '<div class="list-group list-group-flush">';
   let fotoUrl = '';
 
-  window._profilHeaders.forEach(h => {
+  (window._profilHeaders || []).forEach(h => {
     let val = member[h] || '-';
     let hLower = h.toLowerCase().trim();
 
@@ -1265,21 +1275,15 @@ function showDetailKeluarga(identifier) {
   modalInstance.show();
 }
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL PENGADUAN -->
 <script>
   let rawPengaduanData = [];
   let selectedAduanRow = null;
 
   function renderPengaduanCustom(data) {
     rawPengaduanData = data.rows || [];
-    let headers = data.headers.map(h => h.toLowerCase().trim());
-    
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
-    let namaIdx = headers.findIndex(h => h.includes('nama'));
-    let jenisIdx = headers.findIndex(h => h.includes('jenis'));
-    let statusIdx = headers.indexOf('status');
+    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -1292,7 +1296,6 @@ function showDetailKeluarga(identifier) {
           ` : ''}
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -1313,19 +1316,15 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Pengaduan -->
       <div id="modal-detail-pengaduan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
-          <!-- Tombol X diletakkan absolute agar rapi dan tidak ketutupan -->
           <button onclick="tutupDetailPengaduan()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
           
           <div class="mb-3 border-b pb-2 pe-6">
             <h3 class="font-bold text-gray-800 text-sm">Rincian Pengaduan</h3>
           </div>
           <div id="modal-detail-pengaduan-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-          
           <div id="pengaduan-action-buttons" class="space-y-2"></div>
-          
           <button onclick="tutupDetailPengaduan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
         </div>
       </div>
@@ -1336,34 +1335,31 @@ function showDetailKeluarga(identifier) {
 
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataPengaduan();
-      };
+      searchInp.onkeyup = function() { filterDataPengaduan(); };
     }
   }
 
   function filterDataPengaduan() {
     let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-    
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let namaIdx = headers.findIndex(h => h.includes('nama'));
     let jenisIdx = headers.findIndex(h => h.includes('jenis'));
 
     let filtered = [...rawPengaduanData].filter(row => {
       let rowId = (row[idIdx] || '').toLowerCase();
-      let namaText = (row[namaIdx] || '').toLowerCase();
-      let jenisText = (row[jenisIdx] || '').toLowerCase();
+      let namaText = (namaIdx > -1 ? row[namaIdx] : '').toLowerCase();
+      let jenisText = (jenisIdx > -1 ? row[jenisIdx] : '').toLowerCase();
       return rowId.includes(searchVal) || namaText.includes(searchVal) || jenisText.includes(searchVal);
     });
 
     let tbody = document.getElementById('pengaduan-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="text-center p-4 text-gray-400">Tidak ada data aduan.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
         let statusIdx = headers.indexOf('status');
@@ -1374,29 +1370,30 @@ function showDetailKeluarga(identifier) {
           ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
           : `<button onclick="event.stopPropagation(); waKirimLaporan('aduan', '${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
 
-        tbody.innerHTML += `
+        rowsHtml += `
           <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailPengaduan('${r[idIdx]}')">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
             <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
-            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
-            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
-            <td class="p-3 text-gray-600">${r[jenisIdx] || '-'}</td>
+            <td class="p-3 font-medium">${tglIdx > -1 ? r[tglIdx] : '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${namaIdx > -1 ? r[namaIdx] : '-'}</td>
+            <td class="p-3 text-gray-600">${jenisIdx > -1 ? r[jenisIdx] : '-'}</td>
             <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
             <td class="p-3 text-center">${btnAksi}</td>
           </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
   function showDetailPengaduan(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let row = rawPengaduanData.find(r => r[idIdx] === id);
     if (!row) return;
 
     selectedAduanRow = row;
     let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
-    let fotoUrl = row[fotoIdx] || '';
+    let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
     let noHpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
     let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
 
@@ -1405,7 +1402,7 @@ function showDetailKeluarga(identifier) {
       : '';
 
     let detailHtml = '';
-    currentHeaders.forEach((h, idx) => {
+    (currentHeaders || []).forEach((h, idx) => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
       detailHtml += `
@@ -1466,11 +1463,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat pengaduan...</small></div>';
       document.getElementById('rek-info').style.display = 'none';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=Pengaduan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=Pengaduan&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderPengaduanCustom(res);
         })
         .catch(err => {
@@ -1481,20 +1482,15 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL SURAT PENGANTAR -->
 <script>
   let rawSuratData = [];
   let selectedSuratRow = null;
 
   function renderSuratPengantarCustom(data) {
     rawSuratData = data.rows || [];
-    let headers = data.headers.map(h => h.toLowerCase().trim());
-    
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
-    let namaIdx = headers.findIndex(h => h.includes('nama'));
-    let statusIdx = headers.indexOf('status');
+    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -1507,7 +1503,6 @@ function showDetailKeluarga(identifier) {
           ` : ''}
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -1527,19 +1522,15 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Surat Pengantar -->
       <div id="modal-detail-surat" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
-          <!-- Tombol X Close -->
           <button onclick="tutupDetailSurat()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
           
           <div class="mb-3 border-b pb-2 pe-6">
             <h3 class="font-bold text-gray-800 text-sm">Rincian Surat Pengantar</h3>
           </div>
           <div id="modal-detail-surat-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-          
           <div id="surat-action-buttons" class="space-y-2"></div>
-          
           <button onclick="tutupDetailSurat()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
         </div>
       </div>
@@ -1550,32 +1541,29 @@ function showDetailKeluarga(identifier) {
 
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataSurat();
-      };
+      searchInp.onkeyup = function() { filterDataSurat(); };
     }
   }
 
   function filterDataSurat() {
     let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-    
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let namaIdx = headers.findIndex(h => h.includes('nama'));
 
     let filtered = [...rawSuratData].filter(row => {
       let rowId = (row[idIdx] || '').toLowerCase();
-      let namaText = (row[namaIdx] || '').toLowerCase();
+      let namaText = (namaIdx > -1 ? row[namaIdx] : '').toLowerCase();
       return rowId.includes(searchVal) || namaText.includes(searchVal);
     });
 
     let tbody = document.getElementById('surat-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data surat pengantar.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
         let statusIdx = headers.indexOf('status');
@@ -1586,28 +1574,29 @@ function showDetailKeluarga(identifier) {
           ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
           : `<button onclick="event.stopPropagation(); waKirimLaporan('surat', '${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
 
-        tbody.innerHTML += `
+        rowsHtml += `
           <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailSurat('${r[idIdx]}')">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
             <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
-            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
-            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
+            <td class="p-3 font-medium">${tglIdx > -1 ? r[tglIdx] : '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${namaIdx > -1 ? r[namaIdx] : '-'}</td>
             <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
             <td class="p-3 text-center">${btnAksi}</td>
           </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
   function showDetailSurat(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let row = rawSuratData.find(r => r[idIdx] === id);
     if (!row) return;
 
     selectedSuratRow = row;
     let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
-    let fotoUrl = row[fotoIdx] || '';
+    let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
     let noHpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
     let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
 
@@ -1616,7 +1605,7 @@ function showDetailKeluarga(identifier) {
       : '';
 
     let detailHtml = '';
-    currentHeaders.forEach((h, idx) => {
+    (currentHeaders || []).forEach((h, idx) => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
       detailHtml += `
@@ -1647,27 +1636,6 @@ function showDetailKeluarga(identifier) {
     document.getElementById('modal-detail-surat').classList.add('hidden');
   }
 
-  function waKirimLaporanKeWarga(id, noHp) {
-    let cleanNo = noHp ? noHp.toString().replace(/[^0-9]/g, '') : '';
-    if (cleanNo.startsWith('0')) {
-      cleanNo = '62' + cleanNo.slice(1);
-    }
-    if (!cleanNo) {
-      cleanNo = prompt("Nomor WA warga tidak terdeteksi otomatis di kolom. Silakan ketik manual (ex: 628xxx):");
-      if (cleanNo) cleanNo = cleanNo.toString().replace(/[^0-9]/g, '');
-    }
-    if (cleanNo) {
-      bukaWa(cleanNo, `id aduan/surat ${id} sudah selesai.`);
-    }
-  }
-
-  function waKirimLaporan(jenis, id) {
-    let pesan = jenis === 'aduan' 
-      ? `ini adalah id aduan saya : ${id} mohon segera di tindak lanjuti.`
-      : `ini adalah id surat pengantar saya : ${id} mohon segera di tindak lanjuti.`;
-    bukaWa(noWaAdmin, pesan);
-  }
-
   const originalLoadMenuSurat = window.loadMenu;
   window.loadMenu = function(menu) {
     if (menu === 'SuratPengantar') {
@@ -1677,11 +1645,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat surat pengantar...</small></div>';
       document.getElementById('rek-info').style.display = 'none';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=SuratPengantar&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=SuratPengantar&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderSuratPengantarCustom(res);
         })
         .catch(err => {
@@ -1692,8 +1664,8 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL KEUANGAN -->
 <script>
   let rawKeuanganData = [];
   let selectedKeuanganRow = null;
@@ -1703,7 +1675,6 @@ function showDetailKeluarga(identifier) {
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
-        <!-- Summary Cards -->
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-white border-l-4 border-emerald-500 p-3 rounded-xl shadow-sm">
             <p class="text-[10px] text-gray-500 uppercase font-bold">Masuk</p>
@@ -1719,7 +1690,6 @@ function showDetailKeluarga(identifier) {
           </div>
         </div>
 
-        <!-- Filters & Action Bar -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
           ${session.role === 'RT' ? `
             <button onclick="bukaModalForm()" class="col-span-2 md:col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs shadow transition">
@@ -1742,7 +1712,6 @@ function showDetailKeluarga(identifier) {
           </button>
         </div>
 
-        <!-- Date Range Filter -->
         <div id="custom-date-box" class="hidden grid grid-cols-2 gap-2 mb-4">
           <div>
             <label class="text-[10px] text-gray-500 font-bold ml-1">Dari Tanggal</label>
@@ -1754,7 +1723,6 @@ function showDetailKeluarga(identifier) {
           </div>
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -1776,7 +1744,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Transaksi -->
       <div id="modal-detail-keuangan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl animate-fade-in">
           <div class="flex justify-between items-center mb-3 border-b pb-2">
@@ -1804,12 +1771,9 @@ function showDetailKeluarga(identifier) {
     document.getElementById('main-content').innerHTML = html;
     filterDataKeuangan();
 
-    // SAMBUNGKAN KOTAK PENCARIAN ATAS (#searchInput)
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataKeuangan();
-      };
+      searchInp.onkeyup = function() { filterDataKeuangan(); };
     }
   }
 
@@ -1828,7 +1792,7 @@ function showDetailKeluarga(identifier) {
     let start = document.getElementById('date-start') ? document.getElementById('date-start').value : '';
     let end = document.getElementById('date-end') ? document.getElementById('date-end').value : '';
 
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
     let pemIdx = headers.indexOf('pemasukan');
@@ -1837,7 +1801,7 @@ function showDetailKeluarga(identifier) {
     let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
 
     let filtered = [...rawKeuanganData].filter(row => {
-      let dateStr = row[tglIdx] || '';
+      let dateStr = tglIdx > -1 ? row[tglIdx] || '' : '';
       let dateParts = dateStr.split(' ')[0].split('/');
       let d = dateParts.length === 3 ? new Date(dateParts[2], dateParts[1] - 1, dateParts[0]) : new Date();
 
@@ -1853,7 +1817,7 @@ function showDetailKeluarga(identifier) {
       }
 
       let rowId = (row[idIdx] || '').toLowerCase();
-      let ketText = (row[ketIdx] || '').toLowerCase();
+      let ketText = (ketIdx > -1 ? row[ketIdx] : '' || '').toLowerCase();
       let searchMatch = rowId.includes(searchVal) || ketText.includes(searchVal);
 
       return dateMatch && searchMatch;
@@ -1867,19 +1831,19 @@ function showDetailKeluarga(identifier) {
     if (!tbody) return;
 
     let t = { m: 0, k: 0 };
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Tidak ada data transaksi yang cocok.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.forEach((r, i) => {
-        let pem = Number((r[pemIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
-        let peng = Number((r[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+        let pem = Number((pemIdx > -1 ? r[pemIdx] : '0' || '0').toString().replace(/[^0-9]/g, '')) || 0;
+        let peng = Number((pengIdx > -1 ? r[pengIdx] : '0' || '0').toString().replace(/[^0-9]/g, '')) || 0;
         
         t.m += pem;
         t.k += peng;
 
-        let fotoUrl = r[fotoIdx] || '';
+        let fotoUrl = fotoIdx > -1 ? r[fotoIdx] || '' : '';
         let fotoBtn = (fotoUrl && fotoUrl !== '-') 
           ? `<button onclick="event.stopPropagation(); bukaPopUpFoto('${fotoUrl}')" class="text-blue-600 font-bold hover:underline"><i class="bi bi-image me-1"></i>Foto</button>` 
           : '-';
@@ -1888,18 +1852,19 @@ function showDetailKeluarga(identifier) {
           ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200 hover:bg-blue-100">Edit</button>`
           : `<button onclick="event.stopPropagation(); waLaporMasalahKeuangan('${r[idIdx]}')" class="bg-rose-50 text-rose-600 px-2 py-1 rounded-md text-[11px] font-bold border border-rose-200 hover:bg-rose-100">Laporkan</button>`;
 
-        tbody.innerHTML += `
+        rowsHtml += `
           <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailKeuangan('${r[idIdx]}')">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
             <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
-            <td class="p-3 font-medium whitespace-nowrap">${r[tglIdx] || '-'}</td>
-            <td class="p-3 text-gray-800 font-medium">${r[ketIdx] || '-'}</td>
+            <td class="p-3 font-medium whitespace-nowrap">${tglIdx > -1 ? r[tglIdx] : '-'}</td>
+            <td class="p-3 text-gray-800 font-medium">${ketIdx > -1 ? r[ketIdx] : '-'}</td>
             <td class="p-3 text-right text-emerald-600 font-bold whitespace-nowrap">Rp ${pem.toLocaleString('id-ID')}</td>
             <td class="p-3 text-right text-rose-600 font-bold whitespace-nowrap">Rp ${peng.toLocaleString('id-ID')}</td>
             <td class="p-3 text-center">${fotoBtn}</td>
             <td class="p-3 text-center">${btnAksi}</td>
           </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
 
     if (document.getElementById('card-masuk')) document.getElementById('card-masuk').innerText = 'Rp ' + t.m.toLocaleString('id-ID');
@@ -1907,9 +1872,8 @@ function showDetailKeluarga(identifier) {
     if (document.getElementById('card-saldo')) document.getElementById('card-saldo').innerText = 'Rp ' + (t.m - t.k).toLocaleString('id-ID');
   }
 
-  // ==== FUNGSI SHOW DETAIL & POPUP ====
   function showDetailKeuangan(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
     let pemIdx = headers.indexOf('pemasukan');
@@ -1922,9 +1886,9 @@ function showDetailKeluarga(identifier) {
 
     selectedKeuanganRow = row;
 
-    let pem = Number((row[pemIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
-    let peng = Number((row[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
-    let fotoUrl = row[fotoIdx] || '';
+    let pem = Number((pemIdx > -1 ? row[pemIdx] : '0' || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    let peng = Number((pengIdx > -1 ? row[pengIdx] : '0' || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    let fotoUrl = fotoIdx > -1 ? row[fotoIdx] || '' : '';
 
     let imgHtml = (fotoUrl && fotoUrl !== '-') 
       ? `<div class="mt-3"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Lampiran:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-48 object-contain rounded-xl border border-gray-200 cursor-pointer shadow-sm hover:opacity-90 transition"></div>` 
@@ -1934,11 +1898,11 @@ function showDetailKeluarga(identifier) {
       <div class="space-y-2 text-xs">
         <div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
           <span class="text-gray-400 font-mono text-[10px]">ID: ${row[idIdx]}</span>
-          <span class="text-gray-500 font-bold">${row[tglIdx] || '-'}</span>
+          <span class="text-gray-500 font-bold">${tglIdx > -1 ? row[tglIdx] : '-'}</span>
         </div>
         <div>
           <p class="text-[10px] text-gray-400 uppercase font-bold">Keterangan:</p>
-          <p class="font-semibold text-gray-800 text-sm">${row[ketIdx] || '-'}</p>
+          <p class="font-semibold text-gray-800 text-sm">${ketIdx > -1 ? row[ketIdx] : '-'}</p>
         </div>
         <div class="grid grid-cols-2 gap-2 pt-1">
           <div class="bg-emerald-50 p-2 rounded-lg">
@@ -1968,7 +1932,7 @@ function showDetailKeluarga(identifier) {
 
   function editDariDetail() {
     if (!selectedKeuanganRow) return;
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     
     tutupDetailKeuangan();
@@ -1977,7 +1941,7 @@ function showDetailKeluarga(identifier) {
 
   function hapusDariDetail() {
     if (!selectedKeuanganRow) return;
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let id = selectedKeuanganRow[idIdx];
 
@@ -2002,11 +1966,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan...</small></div>';
       document.getElementById('rek-info').style.display = 'none';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=Keuangan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=Keuangan&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderKeuanganCustom(res);
         })
         .catch(err => {
@@ -2017,20 +1985,15 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL SUMBANGAN -->
 <script>
   let rawSumbanganData = [];
   let selectedSumbanganRow = null;
 
   function renderSumbanganCustom(data) {
     rawSumbanganData = data.rows || [];
-    let headers = data.headers.map(h => h.toLowerCase().trim());
-    
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
-    let namaIdx = headers.findIndex(h => h.includes('nama'));
-    let statusIdx = headers.indexOf('status');
+    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -2043,7 +2006,6 @@ function showDetailKeluarga(identifier) {
           ` : ''}
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
@@ -2063,7 +2025,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Sumbangan -->
       <div id="modal-detail-sumbangan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
           <button onclick="tutupDetailSumbangan()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2072,9 +2033,7 @@ function showDetailKeluarga(identifier) {
             <h3 class="font-bold text-gray-800 text-sm">Rincian Sumbangan</h3>
           </div>
           <div id="modal-detail-sumbangan-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-          
           <div id="sumbangan-action-buttons" class="space-y-2"></div>
-          
           <button onclick="tutupDetailSumbangan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
         </div>
       </div>
@@ -2085,32 +2044,29 @@ function showDetailKeluarga(identifier) {
 
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataSumbangan();
-      };
+      searchInp.onkeyup = function() { filterDataSumbangan(); };
     }
   }
 
   function filterDataSumbangan() {
     let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-    
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let namaIdx = headers.findIndex(h => h.includes('nama'));
 
     let filtered = [...rawSumbanganData].filter(row => {
       let rowId = (row[idIdx] || '').toLowerCase();
-      let namaText = (row[namaIdx] || '').toLowerCase();
+      let namaText = (namaIdx > -1 ? row[namaIdx] : '').toLowerCase();
       return rowId.includes(searchVal) || namaText.includes(searchVal);
     });
 
     let tbody = document.getElementById('sumbangan-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data sumbangan.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
         let statusIdx = headers.indexOf('status');
@@ -2121,35 +2077,36 @@ function showDetailKeluarga(identifier) {
           ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
           : `<button onclick="event.stopPropagation(); waVerifikasiSumbangan('${r[idIdx]}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
 
-        tbody.innerHTML += `
+        rowsHtml += `
           <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailSumbangan('${r[idIdx]}')">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
             <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
-            <td class="p-3 font-medium">${r[tglIdx] || '-'}</td>
-            <td class="p-3 font-medium text-gray-800">${r[namaIdx] || '-'}</td>
+            <td class="p-3 font-medium">${tglIdx > -1 ? r[tglIdx] : '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${namaIdx > -1 ? r[namaIdx] : '-'}</td>
             <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
             <td class="p-3 text-center">${btnAksi}</td>
           </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
   function showDetailSumbangan(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let row = rawSumbanganData.find(r => r[idIdx] === id);
     if (!row) return;
 
     selectedSumbanganRow = row;
     let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
-    let fotoUrl = row[fotoIdx] || '';
+    let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
 
     let imgHtml = (fotoUrl && fotoUrl !== '-') 
       ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Transfer:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
       : '';
 
     let detailHtml = '';
-    currentHeaders.forEach((h, idx) => {
+    (currentHeaders || []).forEach((h, idx) => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
       detailHtml += `
@@ -2192,11 +2149,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data sumbangan...</small></div>';
       document.getElementById('rek-info').style.display = 'block';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=Sumbangan&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=Sumbangan&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderSumbanganCustom(res);
         })
         .catch(err => {
@@ -2207,14 +2168,14 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL ASET -->
 <script>
   let rawAsetData = [];
   let listDaftarBarang = [];
   let activeVerifikasiData = null;
   let activeKembaliData = null;
-  let currentAsetTab = 'stok'; // Default tab: 'stok' atau 'riwayat'
+  let currentAsetTab = 'stok';
   let isEditModeAset = false;
 
   function renderAsetCustom(data) {
@@ -2229,7 +2190,6 @@ function showDetailKeluarga(identifier) {
 
     let html = `
       <div class="p-1 text-gray-800 font-sans space-y-4">
-        <!-- Header & Action Button -->
         <div class="flex justify-between items-center flex-wrap gap-2">
           <h2 class="font-bold text-base text-gray-800"><i class="bi bi-tools me-2 text-blue-600"></i>Aset & Inventaris RT 05</h2>
           <div class="flex gap-2">
@@ -2240,7 +2200,6 @@ function showDetailKeluarga(identifier) {
           </div>
         </div>
 
-        <!-- TAB NAVIGASI TOGGLE -->
         <div class="bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 flex gap-2">
           <button id="tab-btn-stok" onclick="switchAsetTab('stok')" class="flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 ${currentAsetTab === 'stok' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}">
             <span>📦</span> Daftar Barang Aset RT
@@ -2250,7 +2209,6 @@ function showDetailKeluarga(identifier) {
           </button>
         </div>
 
-        <!-- TAB CONTENT 1: DAFTAR BARANG ASET -->
         <div id="tab-content-stok" class="${currentAsetTab === 'stok' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📦 Stok Barang Aset RT</h3>
@@ -2272,7 +2230,6 @@ function showDetailKeluarga(identifier) {
           </div>
         </div>
 
-        <!-- TAB CONTENT 2: RIWAYAT PEMINJAMAN WARGA -->
         <div id="tab-content-riwayat" class="${currentAsetTab === 'riwayat' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📋 Riwayat & Status Peminjaman</h3>
@@ -2301,7 +2258,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- MODAL KELOLA ASET RT (TAMBAH / EDIT STOK) -->
       <div id="modal-kelola-aset" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
           <button onclick="tutupModalKelolaAset()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2341,7 +2297,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- MODAL FORM PEMINJAMAN WARGA -->
       <div id="modal-form-pinjam" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
           <button onclick="tutupModalPinjam()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2385,7 +2340,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- MODAL VERIFIKASI RT (ACC / TOLAK + LOKASI PENGAMBILAN) -->
       <div id="modal-verifikasi-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
           <button onclick="tutupModalVerifikasiRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2420,7 +2374,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- MODAL PENGEMBALIAN BARANG RT -->
       <div id="modal-kembali-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
           <button onclick="tutupModalKembaliRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2461,7 +2414,6 @@ function showDetailKeluarga(identifier) {
     loadTabelRiwayat();
   }
 
-  // LOGIKA SWITCH TAB NAVIGASI
   function switchAsetTab(tab) {
     currentAsetTab = tab;
     let btnStok = document.getElementById('tab-btn-stok');
@@ -2488,9 +2440,8 @@ function showDetailKeluarga(identifier) {
     }
   }
 
-  // Render Tabel Stok Barang Aset
   function filterDataAset() {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let namaBarangIdx = headers.findIndex(h => h.includes('nama_barang') || h.includes('barang') || h.includes('nama'));
     let stokIdx = headers.findIndex(h => h.includes('stok') || h.includes('jumlah') || h.includes('qty'));
@@ -2499,15 +2450,15 @@ function showDetailKeluarga(identifier) {
 
     let tbody = document.getElementById('aset-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (rawAsetData.length === 0) {
       let colSpan = isRt ? 6 : 5;
       tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center p-4 text-gray-400">Belum ada data barang aset.</td></tr>`;
     } else {
+      let rowsHtml = '';
       rawAsetData.forEach((r, i) => {
         let idVal = r[idIdx] || '';
-        let namaVal = r[namaBarangIdx] || '-';
+        let namaVal = (namaBarangIdx > -1 ? r[namaBarangIdx] : '') || '-';
         let stokVal = stokIdx > -1 ? (parseInt(r[stokIdx]) || 0) : 0;
         let statusVal = statusIdx > -1 && r[statusIdx] ? r[statusIdx] : (stokVal > 0 ? 'Tersedia' : 'Habis');
         let badgeColor = stokVal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
@@ -2520,7 +2471,7 @@ function showDetailKeluarga(identifier) {
           </td>
         ` : '';
 
-        tbody.innerHTML += `
+        rowsHtml += `
           <tr class="border-b hover:bg-gray-50/50 transition">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
             <td class="p-3 font-mono text-[10px] text-gray-600">${idVal || '-'}</td>
@@ -2530,10 +2481,10 @@ function showDetailKeluarga(identifier) {
             ${aksiRt}
           </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
-  // MODAL KELOLA ASET RT (TAMBAH / EDIT)
   function bukaModalTambahAset() {
     isEditModeAset = false;
     document.getElementById('modalKelolaTitle').innerText = '➕ Tambah Barang Aset Baru';
@@ -2567,7 +2518,7 @@ function showDetailKeluarga(identifier) {
     let status = document.getElementById('asetStatus').value;
 
     let payload = {};
-    currentHeaders.forEach(h => {
+    (currentHeaders || []).forEach(h => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('barang') || hLower.includes('nama')) {
         payload[h] = nama;
@@ -2589,7 +2540,8 @@ function showDetailKeluarga(identifier) {
           action: 'updateDataDiSheet',
           sheetName: 'Aset',
           id: id,
-          formData: payload
+          formData: payload,
+          token: session.token
         })
       })
       .then(res => res.json())
@@ -2611,7 +2563,8 @@ function showDetailKeluarga(identifier) {
         body: JSON.stringify({
           action: 'simpanDataKeSheet',
           sheetName: 'Aset',
-          formData: payload
+          formData: payload,
+          token: session.token
         })
       })
       .then(res => res.json())
@@ -2630,17 +2583,16 @@ function showDetailKeluarga(identifier) {
     }
   }
 
-  // Buka Modal Pinjam Barang
   function bukaModalPinjamBarang() {
     if (session && session.nama) {
       document.getElementById('pinjamNama').value = session.nama;
     }
 
-    fetch(`${API_URL}?action=getDaftarBarangAset`)
+    fetch(`${API_URL}?action=getDaftarBarangAset&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
         if (res.status === 'success') {
-          listDaftarBarang = res.data;
+          listDaftarBarang = res.data || [];
           let select = document.getElementById('pinjamBarangSelect');
           select.innerHTML = '<option value="">-- Pilih Barang --</option>';
 
@@ -2678,7 +2630,6 @@ function showDetailKeluarga(identifier) {
     document.getElementById('formPinjamAset').reset();
   }
 
-  // Submit Form Pengajuan Peminjaman
   function submitFormPinjam(e) {
     e.preventDefault();
     let select = document.getElementById('pinjamBarangSelect');
@@ -2696,8 +2647,7 @@ function showDetailKeluarga(identifier) {
       idBarang: select.value,
       namaBarang: selectedOption.getAttribute('data-nama'),
       jumlah: jumlahInput,
-      keterangan: document.getElementById('pinjamKeterangan').value,
-      nik: session ? session.nik : ''
+      keterangan: document.getElementById('pinjamKeterangan').value
     };
 
     let btn = document.getElementById('btnSubmitPinjam');
@@ -2708,7 +2658,8 @@ function showDetailKeluarga(identifier) {
       method: 'POST',
       body: JSON.stringify({
         action: 'simpanPengajuanPeminjaman',
-        payload: payload
+        payload: payload,
+        token: session.token
       })
     })
     .then(res => res.json())
@@ -2727,16 +2678,15 @@ function showDetailKeluarga(identifier) {
     });
   }
 
-  // Load Tabel Riwayat Peminjaman Warga
   function loadTabelRiwayat() {
-    fetch(`${API_URL}?action=getRiwayatPeminjaman`)
+    fetch(`${API_URL}?action=getRiwayatPeminjaman&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
         let tbody = document.getElementById('riwayat-table-body');
         if (!tbody) return;
-        tbody.innerHTML = '';
 
-        if (res.status === 'success' && res.data.length > 0) {
+        if (res.status === 'success' && res.data && res.data.length > 0) {
+          let rowsHtml = '';
           res.data.reverse().forEach(item => {
             let statusText = item.status || 'Menunggu Verifikasi';
             let badgeClass = 'bg-amber-100 text-amber-700';
@@ -2762,7 +2712,7 @@ function showDetailKeluarga(identifier) {
               ? `<span class="text-blue-700 font-medium">${item.catatanRt}</span>` 
               : '<span class="text-gray-400">-</span>';
 
-            tbody.innerHTML += `
+            rowsHtml += `
               <tr class="border-b hover:bg-gray-50/50 transition">
                 <td class="p-3 font-bold text-gray-800">${item.namaPeminjam}</td>
                 <td class="p-3 text-gray-700">${item.namaBarang}</td>
@@ -2775,13 +2725,13 @@ function showDetailKeluarga(identifier) {
               </tr>
             `;
           });
+          tbody.innerHTML = rowsHtml;
         } else {
           tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
         }
       });
   }
 
-  // Modal Verifikasi RT
   function bukaModalVerifikasiRT(idPinjam, namaPeminjam, namaBarang, jumlahMinta) {
     activeVerifikasiData = { idPinjam, jumlahMinta };
     document.getElementById('verifNamaPeminjam').innerText = namaPeminjam;
@@ -2816,7 +2766,8 @@ function showDetailKeluarga(identifier) {
         idPinjam: activeVerifikasiData.idPinjam,
         status: status,
         qtyAcc: qtyAcc,
-        catatanRt: catatanRt
+        catatanRt: catatanRt,
+        token: session.token
       })
     })
     .then(res => res.json())
@@ -2831,7 +2782,6 @@ function showDetailKeluarga(identifier) {
     });
   }
 
-  // Modal Barang Kembali RT
   function bukaModalKembaliRT(idPinjam, namaPeminjam, namaBarang, qtyAcc) {
     activeKembaliData = { idPinjam, qtyAcc };
     document.getElementById('kembaliNamaPeminjam').innerText = namaPeminjam;
@@ -2865,7 +2815,8 @@ function showDetailKeluarga(identifier) {
         action: 'prosesPengembalianAsetRT',
         idPinjam: activeKembaliData.idPinjam,
         qtyKembali: qtyKembali,
-        catatanRt: catatanRt
+        catatanRt: catatanRt,
+        token: session.token
       })
     })
     .then(res => res.json())
@@ -2880,7 +2831,6 @@ function showDetailKeluarga(identifier) {
     });
   }
 
-  // Standard Apps Script Load Menu Hook
   const originalLoadMenuAset = window.loadMenu;
   window.loadMenu = function(menu) {
     if (menu === 'Aset') {
@@ -2890,11 +2840,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
       document.getElementById('rek-info').style.display = 'none';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=Aset&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=Aset&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderAsetCustom(res);
         })
         .catch(err => {
@@ -2905,19 +2859,15 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL KEMATIAN -->
 <script>
   let rawKematianData = [];
-  let selectedKematianRow = null;
 
   function renderKematianCustom(data) {
     rawKematianData = data.rows || [];
-    let headers = data.headers.map(h => h.toLowerCase().trim());
-    
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-    let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
-    let namaIdx = headers.findIndex(h => h.includes('nama'));
+    currentHeaders = data.headers || [];
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -2930,14 +2880,13 @@ function showDetailKeluarga(identifier) {
           ` : ''}
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
                 <tr>
                   <th class="p-3 text-center">No</th>`;
-    data.headers.forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
+    (data.headers || []).forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
     html += `
                   <th class="p-3 text-center">Aksi</th>
                 </tr>
@@ -2948,7 +2897,6 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Kematian -->
       <div id="modal-detail-kematian" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
           <button onclick="tutupDetailKematian()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -2957,9 +2905,7 @@ function showDetailKeluarga(identifier) {
             <h3 class="font-bold text-gray-800 text-sm">Rincian Data Kematian</h3>
           </div>
           <div id="modal-detail-kematian-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-          
           <div id="kematian-action-buttons" class="space-y-2 mb-2"></div>
-          
           <button onclick="tutupDetailKematian()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
         </div>
       </div>
@@ -2970,34 +2916,30 @@ function showDetailKeluarga(identifier) {
 
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataKematian();
-      };
+      searchInp.onkeyup = function() { filterDataKematian(); };
     }
   }
 
   function filterDataKematian() {
     let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-    
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     let namaIdx = headers.findIndex(h => h.includes('nama'));
 
     let filtered = [...rawKematianData].filter(row => {
       let rowId = (row[idIdx] || '').toLowerCase();
-      let namaText = (row[namaIdx] || '').toLowerCase();
+      let namaText = (namaIdx > -1 ? row[namaIdx] : '' || '').toLowerCase();
       return rowId.includes(searchVal) || namaText.includes(searchVal);
     });
 
     let tbody = document.getElementById('kematian-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kematian yang cocok.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${(currentHeaders || []).length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kematian yang cocok.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
-        let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
         let rowId = r[idIdx];
 
         let btnAksi = session.role === 'RT' 
@@ -3008,22 +2950,24 @@ function showDetailKeluarga(identifier) {
         rowHtml += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
         
         r.forEach((val, idx) => {
-          let headName = currentHeaders[idx].toLowerCase();
+          let headName = (currentHeaders[idx] || '').toLowerCase();
           if (headName.includes('foto') || headName.includes('bukti')) {
             rowHtml += `<td class="p-3">${val && val !== '***Rahasia***' ? `<img src="${val}" class="w-10 h-10 object-cover rounded-lg border shadow-sm" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
           } else {
-            rowHtml += `<td class="p-3 font-medium text-gray-800">${val}</td>`;
+            rowHtml += `<td class="p-3 font-medium text-gray-800">${val || '-'}</td>`;
           }
         });
 
         rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+        rowsHtml += rowHtml;
       });
+
+      tbody.innerHTML = rowsHtml;
     }
   }
 
   function showDetailKematian(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
     
     let row = rawKematianData.find(r => r[idIdx] === id);
@@ -3037,7 +2981,7 @@ function showDetailKeluarga(identifier) {
       : '';
 
     let detailHtml = '';
-    currentHeaders.forEach((h, idx) => {
+    (currentHeaders || []).forEach((h, idx) => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
       detailHtml += `
@@ -3072,11 +3016,15 @@ function showDetailKeluarga(identifier) {
       document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data kematian...</small></div>';
       document.getElementById('rek-info').style.display = 'none';
 
-      fetch(`${API_URL}?action=getTableData&sheetName=Kematian&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+      fetch(`${API_URL}?action=getTableData&sheetName=Kematian&token=${encodeURIComponent(session.token)}`)
         .then(res => res.json())
         .then(res => {
-          currentHeaders = res.headers;
-          currentRows = res.rows;
+          if (res.status === 'error') {
+            document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+            return;
+          }
+          currentHeaders = res.headers || [];
+          currentRows = res.rows || [];
           renderKematianCustom(res);
         })
         .catch(err => {
@@ -3087,20 +3035,16 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-  <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- MODUL WARGA -->
 <script>
   let rawWargaData = [];
   let selectedWargaRow = null;
 
   function renderWargaCustom(data) {
     rawWargaData = data.rows || [];
-    let headers = data.headers.map(h => h.toLowerCase().trim());
-    
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-    let nikIdx = headers.indexOf('nik');
-    let namaIdx = headers.findIndex(h => h.includes('nama'));
-    let alamatIdx = headers.findIndex(h => h.includes('alamat'));
+    currentHeaders = data.headers || [];
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -3113,15 +3057,15 @@ function showDetailKeluarga(identifier) {
           ` : ''}
         </div>
 
-        <!-- Table Data -->
         <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
                 <tr>
-                  <th class="p-3 text-center">No</th>`;
-    data.headers.forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
-    html += `
+                  <th class="p-3 text-center">No</th>
+                  <th class="p-3">NIK</th>
+                  <th class="p-3">Nama Lengkap</th>
+                  <th class="p-3">Alamat</th>
                   <th class="p-3 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -3131,9 +3075,8 @@ function showDetailKeluarga(identifier) {
         </div>
       </div>
 
-      <!-- Modal Detail Warga -->
       <div id="modal-detail-warga" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
+        <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
           <button onclick="tutupDetailWarga()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
           
           <div class="mb-3 border-b pb-2 pe-6">
@@ -3153,67 +3096,63 @@ function showDetailKeluarga(identifier) {
 
     let searchInp = document.getElementById('searchInput');
     if (searchInp) {
-      searchInp.onkeyup = function() {
-        filterDataWarga();
-      };
+      searchInp.onkeyup = function() { filterDataWarga(); };
     }
   }
 
   function filterDataWarga() {
     let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-    
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let nikIdx = headers.indexOf('nik');
     let namaIdx = headers.findIndex(h => h.includes('nama'));
 
     let filtered = [...rawWargaData].filter(row => {
-      let rowId = (row[idIdx] || '').toLowerCase();
-      let rowNik = (nikIdx > -1 ? row[nikIdx] : '').toLowerCase();
-      let namaText = (namaIdx > -1 ? row[namaIdx] : '').toLowerCase();
-      return rowId.includes(searchVal) || rowNik.includes(searchVal) || namaText.includes(searchVal);
+      let nikText = (nikIdx > -1 ? row[nikIdx] : '' || '').toLowerCase();
+      let namaText = (namaIdx > -1 ? row[namaIdx] : '' || '').toLowerCase();
+      return nikText.includes(searchVal) || namaText.includes(searchVal);
     });
 
     let tbody = document.getElementById('warga-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.forEach((r, i) => {
+        let nikVal = nikIdx > -1 ? r[nikIdx] : '-';
+        let namaVal = namaIdx > -1 ? r[namaIdx] : '-';
+        let alamatIdx = headers.findIndex(h => h.includes('alamat'));
+        let alamatVal = alamatIdx > -1 ? r[alamatIdx] : '-';
         let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
-        let rowId = r[idIdx] || r[0];
+        let rowId = r[idIdx] || nikVal;
 
         let btnAksi = session.role === 'RT' 
           ? `<button onclick="event.stopPropagation(); bukaModalEdit('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
           : `<span class="text-gray-400 text-[10px]">-</span>`;
 
-        let rowHtml = `<tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailWarga('${rowId}')">`;
-        rowHtml += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
-        
-        r.forEach((val, idx) => {
-          let headName = currentHeaders[idx].toLowerCase();
-          if (headName.includes('foto') || headName.includes('bukti')) {
-            rowHtml += `<td class="p-3">${val && val !== '***Rahasia***' && val !== '-' ? `<img src="${val}" class="w-10 h-10 object-cover rounded-lg border shadow-sm" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
-          } else {
-            rowHtml += `<td class="p-3 font-medium text-gray-800">${val}</td>`;
-          }
-        });
-
-        rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+        rowsHtml += `
+          <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailWarga('${rowId}')">
+            <td class="p-3 text-center text-gray-400">${i + 1}</td>
+            <td class="p-3 font-mono text-[10px] text-gray-600">${nikVal}</td>
+            <td class="p-3 font-medium text-gray-800">${namaVal}</td>
+            <td class="p-3 text-gray-600 truncate max-w-[150px]">${alamatVal}</td>
+            <td class="p-3 text-center">${btnAksi}</td>
+          </tr>`;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
   function showDetailWarga(id) {
-    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
     let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let nikIdx = headers.indexOf('nik');
     
-    let row = rawWargaData.find(r => r[idIdx] === id || r[0] === id);
+    let row = rawWargaData.find(r => (r[idIdx] === id || r[nikIdx] === id));
     if (!row) return;
 
+    selectedWargaRow = row;
     let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
     let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
 
@@ -3222,7 +3161,7 @@ function showDetailKeluarga(identifier) {
       : '';
 
     let detailHtml = '';
-    currentHeaders.forEach((h, idx) => {
+    (currentHeaders || []).forEach((h, idx) => {
       let hLower = h.toLowerCase().trim();
       if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
       detailHtml += `
@@ -3237,7 +3176,9 @@ function showDetailKeluarga(identifier) {
 
     let actionHtml = '';
     if (session.role === 'RT') {
-      actionHtml = `<button onclick="tutupDetailWarga(); bukaModalEdit('${id}');" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data Warga</button>`;
+      let nikVal = row[nikIdx] || id;
+      actionHtml = `
+        <button onclick="bukaModalEdit('${nikVal}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data Warga</button>`;
     }
     document.getElementById('warga-action-buttons').innerHTML = actionHtml;
 
@@ -3255,11 +3196,15 @@ function showDetailKeluarga(identifier) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data warga...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    fetch(`${API_URL}?action=getTableData&sheetName=Warga&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+    fetch(`${API_URL}?action=getTableData&sheetName=Warga&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
-        currentHeaders = res.headers;
-        currentRows = res.rows;
+        if (res.status === 'error') {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+          return;
+        }
+        currentHeaders = res.headers || [];
+        currentRows = res.rows || [];
         renderWargaCustom(res);
       })
       .catch(err => {
@@ -3276,14 +3221,15 @@ function showDetailKeluarga(identifier) {
     }
   };
 </script>
-<!-- ================= MODUL KELAHIRAN ================= -->
+
+<!-- MODUL KELAHIRAN -->
 <script>
   let rawKelahiranData = [];
 
   function renderKelahiranCustom(data) {
     rawKelahiranData = data.rows || [];
-    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    currentHeaders = data.headers || [];
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -3349,11 +3295,11 @@ function showDetailKeluarga(identifier) {
 
     let tbody = document.getElementById('kelahiran-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${(currentHeaders || []).length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kelahiran.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let rowId = r[idIdx] || r[0];
         let btnAksi = session.role === 'RT' 
@@ -3373,8 +3319,9 @@ function showDetailKeluarga(identifier) {
         });
 
         rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+        rowsHtml += rowHtml;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
@@ -3416,9 +3363,13 @@ function showDetailKeluarga(identifier) {
     document.getElementById('page-title').innerText = 'Data Kelahiran';
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data kelahiran...</small></div>';
 
-    fetch(`${API_URL}?action=getTableData&sheetName=Kelahiran&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+    fetch(`${API_URL}?action=getTableData&sheetName=Kelahiran&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
+        if (res.status === 'error') {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+          return;
+        }
         currentHeaders = res.headers || [];
         currentRows = res.rows || [];
         renderKelahiranCustom(res);
@@ -3438,14 +3389,14 @@ function showDetailKeluarga(identifier) {
   };
 </script>
 
-<!-- ================= MODUL PINDAH MASUK ================= -->
+<!-- MODUL PINDAH MASUK -->
 <script>
   let rawPindahMasukData = [];
 
   function renderPindahMasukCustom(data) {
     rawPindahMasukData = data.rows || [];
-    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    currentHeaders = data.headers || [];
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -3511,11 +3462,11 @@ function showDetailKeluarga(identifier) {
 
     let tbody = document.getElementById('pindahmasuk-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${(currentHeaders || []).length + 2}" class="text-center p-4 text-gray-400">Tidak ada data pindah masuk.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let rowId = r[idIdx] || r[0];
         let btnAksi = session.role === 'RT' 
@@ -3535,8 +3486,9 @@ function showDetailKeluarga(identifier) {
         });
 
         rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+        rowsHtml += rowHtml;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
@@ -3578,9 +3530,13 @@ function showDetailKeluarga(identifier) {
     document.getElementById('page-title').innerText = 'Data Pindah Masuk';
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data pindah masuk...</small></div>';
 
-    fetch(`${API_URL}?action=getTableData&sheetName=PindahMasuk&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+    fetch(`${API_URL}?action=getTableData&sheetName=PindahMasuk&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
+        if (res.status === 'error') {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+          return;
+        }
         currentHeaders = res.headers || [];
         currentRows = res.rows || [];
         renderPindahMasukCustom(res);
@@ -3600,14 +3556,14 @@ function showDetailKeluarga(identifier) {
   };
 </script>
 
-<!-- ================= MODUL PINDAH KELUAR ================= -->
+<!-- MODUL PINDAH KELUAR -->
 <script>
   let rawPindahKeluarData = [];
 
   function renderPindahKeluarCustom(data) {
     rawPindahKeluarData = data.rows || [];
-    let headers = (data.headers || []).map(h => h.toLowerCase().trim());
-    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    currentHeaders = data.headers || [];
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
 
     let html = `
       <div class="p-1 text-gray-800 font-sans">
@@ -3673,11 +3629,11 @@ function showDetailKeluarga(identifier) {
 
     let tbody = document.getElementById('pindahkeluar-table-body');
     if (!tbody) return;
-    tbody.innerHTML = '';
 
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${(currentHeaders || []).length + 2}" class="text-center p-4 text-gray-400">Tidak ada data pindah keluar.</td></tr>`;
     } else {
+      let rowsHtml = '';
       filtered.reverse().forEach((r, i) => {
         let rowId = r[idIdx] || r[0];
         let btnAksi = session.role === 'RT' 
@@ -3697,8 +3653,9 @@ function showDetailKeluarga(identifier) {
         });
 
         rowHtml += `<td class="p-3 text-center">${btnAksi}</td></tr>`;
-        tbody.innerHTML += rowHtml;
+        rowsHtml += rowHtml;
       });
+      tbody.innerHTML = rowsHtml;
     }
   }
 
@@ -3740,9 +3697,13 @@ function showDetailKeluarga(identifier) {
     document.getElementById('page-title').innerText = 'Data Pindah Keluar';
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data pindah keluar...</small></div>';
 
-    fetch(`${API_URL}?action=getTableData&sheetName=PindahKeluar&role=${encodeURIComponent(session.role)}&nik=${encodeURIComponent(session.nik)}`)
+    fetch(`${API_URL}?action=getTableData&sheetName=PindahKeluar&token=${encodeURIComponent(session.token)}`)
       .then(res => res.json())
       .then(res => {
+        if (res.status === 'error') {
+          document.getElementById('main-content').innerHTML = `<div class="alert alert-danger font-bold text-xs p-3 rounded-xl">${res.message}</div>`;
+          return;
+        }
         currentHeaders = res.headers || [];
         currentRows = res.rows || [];
         renderPindahKeluarCustom(res);
