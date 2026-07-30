@@ -148,7 +148,6 @@ function renderListBulanDatabase(rows, headers) {
     let statusLower = statusVal.toLowerCase().trim();
     let tglBayar = getVal(r, headers, 'tanggal_bayar', '-');
 
-    // Pastikan hanya mendeteksi lunas jika benar-benar lunas dan tidak mengandung kata 'belum'
     let isLunas = statusLower === 'lunas' || (statusLower.includes('lunas') && !statusLower.includes('belum'));
 
     let badgeHtml = isLunas 
@@ -220,13 +219,17 @@ async function bukaModalTambahIuranRT() {
           <option value="Lunas">Lunas</option>
         </select>
       </div>
-      <button onclick="simpanIuranBaruRT()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl font-bold shadow transition mt-2">Simpan Tagihan Iuran</button>
+      <button type="button" onclick="simpanIuranBaruRT()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl font-bold shadow transition mt-2">Simpan Tagihan Iuran</button>
     </div>
   `;
 
   document.getElementById('formModalTitle').innerText = 'Tambah Tagihan Iuran Warga';
   document.getElementById('dynamicForm').innerHTML = htmlForm;
   document.getElementById('btn-hapus-modal').style.display = 'none';
+  
+  // Sembunyikan footer modal bawaan utama supaya tombol "Simpan Data" ganda hilang
+  let modalFooter = document.querySelector('#formModal .modal-footer');
+  if (modalFooter) modalFooter.style.display = 'none';
   
   let modal = new bootstrap.Modal(document.getElementById('formModal'));
   modal.show();
@@ -263,6 +266,11 @@ async function simpanIuranBaruRT() {
     let modalEl = document.getElementById('formModal');
     let modalInstance = bootstrap.Modal.getInstance(modalEl);
     if (modalInstance) modalInstance.hide();
+    
+    // Kembalikan footer modal default
+    let modalFooter = document.querySelector('#formModal .modal-footer');
+    if (modalFooter) modalFooter.style.display = 'flex';
+
     loadIuranView();
   } else {
     alert('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'));
@@ -292,9 +300,8 @@ function switchTabBayar(type) {
     boxTf.classList.add('hidden');
   } else {
     btnTf.className = "py-2 rounded-lg bg-white text-blue-600 shadow-sm transition font-bold";
-    btnQris.className = "py-2 rounded-lg text-gray-500 transition";
-    boxTf.classList.add('hidden');
-    boxQris.classList.remove('hidden');
+    boxTf.classList.remove('hidden');
+    boxQris.classList.add('hidden');
   }
 }
 
