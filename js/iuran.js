@@ -21,7 +21,6 @@ function renderIuranCustom(data) {
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
   
-  // Hitung total belum bayar secara dinamis dari data nominal sheet
   let totalBelumBayar = 0;
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : '';
