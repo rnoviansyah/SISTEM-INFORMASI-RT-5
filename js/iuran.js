@@ -1,9 +1,29 @@
 let rawIuranData = [];
-let selectedIuranWarga = null;
+
+async function loadIuranView() {
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data iuran...</small></div>';
+  
+  const res = await callGASGet('getIuranData');
+  if (res && res.status === 'success') {
+    rawIuranData = res.rows || [];
+    renderIuranCustom(res);
+  } else {
+    document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message || 'Gagal memuat data'}</div>`;
+  }
+}
 
 function renderIuranCustom(data) {
-  rawIuranData = data.rows || [];
+  let rows = data.rows || [];
   
+  // Hitung total belum bayar khusus untuk warga
+  let totalBelumBayar = 0;
+  rows.forEach(r => {
+    let status = (r[6] || r[5] || '').toLowerCase();
+    if(status.includes('belum')) {
+      totalBelumBayar += 30000; // Asumsi iuran per bulan Rp 30.000
+    }
+  });
+
   let html = `
     <div class="p-1 text-gray-800 font-sans">
       <!-- Header Banner Status Iuran -->
@@ -12,20 +32,29 @@ function renderIuranCustom(data) {
         <p class="text-xs text-blue-100">Transparan, Cek Status & Pembayaran Bulanan RT 05</p>
       </div>
 
+      <!-- Tombol Tambah Khusus RT -->
+      ${session.role === 'RT' ? `
+        <div class="mb-4 flex justify-end">
+          <button onclick="bukaModalTambahIuranRT()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
+            <i class="bi bi-plus-circle-fill"></i> + Tambah Tagihan / Iuran Warga
+          </button>
+        </div>
+      ` : ''}
+
       <!-- Card Ringkasan Tagihan / Warga -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
         <div class="flex justify-between items-center mb-3">
           <div>
-            <h4 class="font-bold text-gray-800 text-sm" id="iuran-nama-warga">RIZKY NOVIANSYAH</h4>
-            <p class="text-[10px] text-gray-400 font-mono">Blok / Alamat RT 05</p>
+            <h4 class="font-bold text-gray-800 text-sm" id="iuran-nama-warga">${session.nama || session.nik}</h4>
+            <p class="text-[10px] text-gray-400 font-mono">NIK: ${session.nik} | Role: ${session.role}</p>
           </div>
           <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
         </div>
 
         <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between">
           <div>
-            <p class="text-[10px] text-rose-500 uppercase font-bold">Jumlah Belum Bayar</p>
-            <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp 90.000</p>
+            <p class="text-[10px] text-rose-500 uppercase font-bold">Estimasi Belum Bayar</p>
+            <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
           </div>
           <button onclick="bukaModalBayarIuran()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
             <i class="bi bi-credit-card-2-front-fill"></i> Bayar Iuran
@@ -35,7 +64,7 @@ function renderIuranCustom(data) {
 
       <!-- List Bulan Iuran -->
       <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-3 space-y-2">
-        <h3 class="font-bold text-xs text-gray-500 uppercase px-2 mb-2">Daftar Bulan Tahun 2026</h3>
+        <h3 class="font-bold text-xs text-gray-500 uppercase px-2 mb-2">${session.role === 'RT' ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga'}</h3>
         
         <div id="list-bulan-iuran" class="space-y-2">
           <!-- Render via JS -->
@@ -88,39 +117,140 @@ function renderIuranCustom(data) {
   `;
 
   document.getElementById('main-content').innerHTML = html;
-  loadListBulanDummy();
+  renderListBulanDatabase(rows);
 }
 
-function loadListBulanDummy() {
-  let bulanList = [
-    { bulan: 'Januari', status: 'Lunas', tgl: '11/01/26 15:04', oleh: 'Bendahara' },
-    { bulan: 'Februari', status: 'Lunas', tgl: '05/02/26 17:59', oleh: 'Bendahara' },
-    { bulan: 'Maret', status: 'Lunas', tgl: '09/03/26 12:40', oleh: 'Bendahara' },
-    { bulan: 'April', status: 'Belum', tgl: '-', oleh: '-' },
-    { bulan: 'Mei', status: 'Belum', tgl: '-', oleh: '-' },
-    { bulan: 'Juni', status: 'Belum', tgl: '-', oleh: '-' },
-  ];
-
+function renderListBulanDatabase(rows) {
   let container = document.getElementById('list-bulan-iuran');
   if(!container) return;
   container.innerHTML = '';
 
-  bulanList.forEach((item) => {
-    let isLunas = item.status === 'Lunas';
+  if (rows.length === 0) {
+    container.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs">Belum ada data iuran atau tagihan tercatat.</div>`;
+    return;
+  }
+
+  rows.forEach((r) => {
+    let idVal = r[0] || '-';
+    let nikVal = r[1] || '-';
+    let namaVal = r[2] || '-';
+    let bulanVal = r[4] || r[3] || '-';
+    let tahunVal = r[5] || '2026';
+    let statusVal = r[6] || r[5] || 'Belum Lunas';
+    let tglBayar = r[7] || '-';
+    let petugas = r[8] || '-';
+
+    let isLunas = statusVal.toLowerCase().includes('lunas');
+
     let badgeHtml = isLunas 
-      ? `<div class="text-right"><span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">LUNAS</span><span class="block text-[9px] text-gray-400 mt-0.5"><i class="bi bi-clock me-1"></i>${item.tgl} | <i class="bi bi-person me-1"></i>${item.oleh}</span></div>`
+      ? `<div class="text-right"><span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">LUNAS</span><span class="block text-[9px] text-gray-400 mt-0.5"><i class="bi bi-clock me-1"></i>${tglBayar}</span></div>`
       : `<button onclick="bukaModalBayarIuran()" class="bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 px-3 py-1 rounded-lg text-[11px] font-bold transition">Bayar</button>`;
 
     container.innerHTML += `
       <div class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border border-gray-100 transition">
         <div>
-          <p class="font-bold text-gray-800 text-xs">${item.bulan}</p>
-          <p class="text-[10px] text-gray-400">${isLunas ? 'Iuran bulanan tercatat' : 'Belum melakukan pembayaran'}</p>
+          <p class="font-bold text-gray-800 text-xs">${bulanVal} ${tahunVal} <span class="text-[10px] font-normal text-gray-500">(${namaVal})</span></p>
+          <p class="text-[10px] text-gray-400">ID: ${idVal} | NIK: ${nikVal}</p>
         </div>
         <div>${badgeHtml}</div>
       </div>
     `;
   });
+}
+
+async function bukaModalTambahIuranRT() {
+  const res = await callGASGet('getDaftarWargaUntukIuran');
+  let wargaOptions = '<option value="">Pilih Warga...</option>';
+  if (res && res.status === 'success') {
+    res.data.forEach(w => {
+      wargaOptions += `<option value="${w.nik}" data-nama="${w.nama}" data-kk="${w.no_kk}">${w.nama} (NIK: ${w.nik})</option>`;
+    });
+  }
+
+  let htmlForm = `
+    <div class="p-2 space-y-3 text-xs">
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Pilih Warga</label>
+        <select id="iuran-pilih-warga" class="w-full p-2 border rounded-xl bg-white" onchange="isiOtomatisWarga(this)">
+          ${wargaOptions}
+        </select>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">NIK Warga</label>
+        <input type="text" id="iuran-input-nik" class="w-full p-2 border rounded-xl bg-gray-50" readonly>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Nama Warga</label>
+        <input type="text" id="iuran-input-nama" class="w-full p-2 border rounded-xl bg-gray-50" readonly>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Nomor KK</label>
+        <input type="text" id="iuran-input-kk" class="w-full p-2 border rounded-xl bg-gray-50" readonly>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Bulan Iuran</label>
+        <select id="iuran-input-bulan" class="w-full p-2 border rounded-xl bg-white">
+          <option value="Januari">Januari</option><option value="Februari">Februari</option><option value="Maret">Maret</option>
+          <option value="April">April</option><option value="Mei">Mei</option><option value="Juni">Juni</option>
+          <option value="Juli">Juli</option><option value="Agustus">Agustus</option><option value="September">September</option>
+          <option value="Oktober">Oktober</option><option value="November">November</option><option value="Desember">Desember</option>
+        </select>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Tahun</label>
+        <input type="text" id="iuran-input-tahun" value="2026" class="w-full p-2 border rounded-xl bg-gray-50" readonly>
+      </div>
+      <div>
+        <label class="font-bold text-gray-600 mb-1 block">Status Pembayaran</label>
+        <select id="iuran-input-status" class="w-full p-2 border rounded-xl bg-white">
+          <option value="Belum Lunas">Belum Lunas</option>
+          <option value="Lunas">Lunas</option>
+        </select>
+      </div>
+      <button onclick="simpanIuranBaruRT()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl font-bold shadow transition mt-2">Simpan Tagihan Iuran</button>
+    </div>
+  `;
+
+  document.getElementById('formModalTitle').innerText = 'Tambah Tagihan Iuran Warga';
+  document.getElementById('dynamicForm').innerHTML = htmlForm;
+  document.getElementById('btn-hapus-modal').style.display = 'none';
+  
+  let modal = new bootstrap.Modal(document.getElementById('formModal'));
+  modal.show();
+}
+
+function isiOtomatisWarga(selectEl) {
+  let opt = selectEl.options[selectEl.selectedIndex];
+  document.getElementById('iuran-input-nik').value = opt.value || '';
+  document.getElementById('iuran-input-nama').value = opt.getAttribute('data-nama') || '';
+  document.getElementById('iuran-input-kk').value = opt.getAttribute('data-kk') || '';
+}
+
+async function simpanIuranBaruRT() {
+  let formData = {
+    nik: document.getElementById('iuran-input-nik').value,
+    nama: document.getElementById('iuran-input-nama').value,
+    no_kk: document.getElementById('iuran-input-kk').value,
+    bulan: document.getElementById('iuran-input-bulan').value,
+    tahun: document.getElementById('iuran-input-tahun').value,
+    status: document.getElementById('iuran-input-status').value,
+    tanggal_bayar: '-',
+    diterima_oleh: '-'
+  };
+
+  if(!formData.nik) {
+    alert('Silakan pilih warga terlebih dahulu!');
+    return;
+  }
+
+  const res = await callGASPost('simpanDataKeSheet', { sheetName: 'Iuran', formData: formData });
+  if (res && res.status === 'success') {
+    alert('Tagihan iuran berhasil ditambahkan!');
+    bootstrap.Modal.getInstance(document.getElementById('formModal')).hide();
+    loadIuranView();
+  } else {
+    alert('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'));
+  }
 }
 
 function bukaModalBayarIuran() {
@@ -153,7 +283,7 @@ function switchTabBayar(type) {
 }
 
 function kirimKonfirmasiWA() {
-  let pesan = "Halo Pengurus RT 05, saya ingin konfirmasi pembayaran iuran bulanan warga.";
+  let pesan = `Halo Pengurus RT 05, saya ${session.nama || session.nik} ingin konfirmasi pembayaran iuran bulanan warga.`;
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(pesan)}`, '_blank');
 }
 
@@ -164,11 +294,9 @@ window.loadMenu = async function(menu) {
     currentActiveMenu = menu;
     syncActiveNav(menu);
     document.getElementById('page-title').innerText = 'Iuran Warga';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data iuran...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    // Karena ini data custom, kita bisa pakai callGASGet atau render langsung
-    renderIuranCustom({ rows: [] });
+    await loadIuranView();
   } else {
     if (typeof originalLoadMenuIuran === 'function') originalLoadMenuIuran(menu);
   }
