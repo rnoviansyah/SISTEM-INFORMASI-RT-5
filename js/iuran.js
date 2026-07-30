@@ -14,7 +14,6 @@ async function loadIuranView() {
   }
 }
 
-// Helper pintar untuk ambil data berdasarkan nama kolom header
 function getVal(r, headers, colName, defaultVal = '') {
   let idx = headers.indexOf(colName.toLowerCase());
   return idx > -1 && r[idx] !== undefined && r[idx] !== "" ? r[idx] : defaultVal;
@@ -24,12 +23,14 @@ function renderIuranCustom(data) {
   let headers = (data.headers || []).map(h => h.toLowerCase().trim());
   let rows = data.rows || [];
   
-  // Hitung total belum bayar murni dari tagihan yang statusnya belum lunas
+  let nominalIdx = headers.indexOf('nominal');
+  let statusIdx = headers.indexOf('status');
+  
+  // Hitung total belum bayar hanya dari yang statusnya belum lunas
   let totalBelumBayar = 0;
   rows.forEach(r => {
-    let statusVal = getVal(r, headers, 'status', 'Belum Lunas');
-    let nominalRaw = getVal(r, headers, 'nominal', '0');
-    let nominalVal = Number(nominalRaw.toString().replace(/[^0-9]/g, '')) || 0;
+    let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
+    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
     
     if(!statusVal.toLowerCase().includes('lunas')) {
       totalBelumBayar += nominalVal;
@@ -53,7 +54,7 @@ function renderIuranCustom(data) {
         </div>
       ` : ''}
 
-      <!-- Card Ringkasan Tagihan / Warga -->
+      <!-- Card Ringkasan Tagihan (Tanpa Tombol Bayar di atas) -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
         <div class="flex justify-between items-center mb-3">
           <div>
@@ -68,9 +69,6 @@ function renderIuranCustom(data) {
             <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
             <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
           </div>
-          <button onclick="bukaModalBayarIuran()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
-            <i class="bi bi-credit-card-2-front-fill"></i> Bayar Iuran
-          </button>
         </div>
       </div>
 
@@ -152,7 +150,7 @@ function renderListBulanDatabase(rows, headers) {
 
     let badgeHtml = isLunas 
       ? `<div class="text-right"><span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">LUNAS</span><span class="block text-[9px] text-gray-400 mt-0.5"><i class="bi bi-clock me-1"></i>${tglBayar}</span></div>`
-      : `<button onclick="bukaModalBayarIuran()" class="bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 px-3 py-1 rounded-lg text-[11px] font-bold transition">Bayar</button>`;
+      : `<button onclick="bukaModalBayarIuran()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold shadow transition">Bayar</button>`;
 
     container.innerHTML += `
       <div class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border border-gray-100 transition">
