@@ -7,7 +7,7 @@ async function loadIuranView() {
   const res = await callGASGet('getIuranData');
   if (res && res.status === 'success') {
     rawIuranData = res.rows || [];
-    iuranHeaders = res.headers || [];
+    iuranHeaders = (res.headers || []).map(h => h.toLowerCase().trim());
     renderIuranCustom(res);
   } else {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message || 'Gagal memuat data'}</div>`;
@@ -21,10 +21,11 @@ function renderIuranCustom(data) {
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
   
+  // Hitung total belum bayar murni dari nominal yang diinput
   let totalBelumBayar = 0;
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : '';
-    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 30000;
+    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
     if(statusVal.toLowerCase().includes('belum')) {
       totalBelumBayar += nominalVal;
     }
@@ -78,7 +79,7 @@ function renderIuranCustom(data) {
       </div>
     </div>
 
-    <!-- MODAL PEMBAYARAN / KONFIRMASI (QRIS / TRANSFER) -->
+    <!-- MODAL PEMBAYARAN / KONFIRMASI -->
     <div id="modal-bayar-iuran" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
         <button onclick="tutupModalBayarIuran()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
@@ -87,13 +88,11 @@ function renderIuranCustom(data) {
           <h3 class="font-bold text-gray-800 text-sm"><i class="bi bi-shield-check text-blue-600 me-1"></i> Konfirmasi Pembayaran</h3>
         </div>
 
-        <!-- Tab Navigasi QRIS / Transfer -->
         <div class="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-3 text-xs font-bold text-center">
           <button id="tab-qris-btn" onclick="switchTabBayar('qris')" class="py-2 rounded-lg bg-white text-blue-600 shadow-sm transition">Scan QRIS</button>
           <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
         </div>
 
-        <!-- Konten QRIS -->
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS di bawah ini dengan e-wallet atau m-banking Anda:</p>
           <div class="bg-gray-50 p-3 rounded-xl border inline-block">
@@ -102,7 +101,6 @@ function renderIuranCustom(data) {
           <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
 
-        <!-- Konten Transfer Bank -->
         <div id="content-tf" class="hidden space-y-2 text-xs">
           <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-1">
             <p class="text-gray-500 font-bold">Bank BRI: <span class="text-blue-700 font-mono">231313</span></p>
@@ -151,7 +149,7 @@ function renderListBulanDatabase(rows, headers) {
     let namaVal = namaIdx > -1 ? r[namaIdx] : (r[2] || '-');
     let bulanVal = bulanIdx > -1 ? r[bulanIdx] : (r[4] || '-');
     let tahunVal = tahunIdx > -1 ? r[tahunIdx] : (r[5] || '2026');
-    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 30000) : 30000;
+    let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
     let statusVal = statusIdx > -1 ? r[statusIdx] : (r[6] || 'Belum Lunas');
     let tglBayar = tglBayarIdx > -1 ? r[tglBayarIdx] : (r[7] || '-');
 
@@ -217,7 +215,7 @@ async function bukaModalTambahIuranRT() {
       </div>
       <div>
         <label class="font-bold text-gray-600 mb-1 block">Nominal Tagihan (Rp)</label>
-        <input type="number" id="iuran-input-nominal" value="30000" class="w-full p-2 border rounded-xl bg-white">
+        <input type="number" id="iuran-input-nominal" value="25000" class="w-full p-2 border rounded-xl bg-white">
       </div>
       <div>
         <label class="font-bold text-gray-600 mb-1 block">Status Pembayaran</label>
@@ -252,7 +250,7 @@ async function simpanIuranBaruRT() {
     no_kk: document.getElementById('iuran-input-kk').value,
     bulan: document.getElementById('iuran-input-bulan').value,
     tahun: document.getElementById('iuran-input-tahun').value,
-    nominal: document.getElementById('iuran-input-nominal').value || '30000',
+    nominal: document.getElementById('iuran-input-nominal').value || '25000',
     status: document.getElementById('iuran-input-status').value,
     tanggal_bayar: '-',
     diterima_oleh: '-'
@@ -266,7 +264,13 @@ async function simpanIuranBaruRT() {
   const res = await callGASPost('simpanDataKeSheet', { sheetName: 'Iuran', formData: formData });
   if (res && res.status === 'success') {
     alert('Tagihan iuran berhasil ditambahkan!');
-    bootstrap.Modal.getInstance(document.getElementById('formModal')).hide();
+    
+    // Tutup modal bootstrap dengan benar agar tidak mental ke dashboard utama
+    let modalEl = document.getElementById('formModal');
+    let modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) modalInstance.hide();
+    
+    // Refresh khusus view iuran saja
     loadIuranView();
   } else {
     alert('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'));
@@ -297,8 +301,8 @@ function switchTabBayar(type) {
   } else {
     btnTf.className = "py-2 rounded-lg bg-white text-blue-600 shadow-sm transition font-bold";
     btnQris.className = "py-2 rounded-lg text-gray-500 transition";
-    boxTf.classList.remove('hidden');
-    boxQris.classList.add('hidden');
+    boxTf.classList.add('hidden');
+    boxQris.classList.remove('hidden');
   }
 }
 
