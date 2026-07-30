@@ -59,7 +59,7 @@ function renderKelahiranCustom(data) {
 }
 
 function filterDataKelahiran() {
-  let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+  let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput'].value.toLowerCase().trim() : '';
   
   let headers = currentHeaders.map(h => h.toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
@@ -145,10 +145,11 @@ function tutupDetailKelahiran() {
   document.getElementById('modal-detail-kelahiran').classList.add('hidden');
 }
 
-function loadKelahiranView() {
-  google.script.run.withSuccessHandler(res => {
-    currentHeaders = res.headers;
-    currentRows = res.rows;
+async function loadKelahiranView() {
+  const res = await callGASGet('getTableData', { sheetName: 'Kelahiran' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
     renderKelahiranCustom(res);
-  }).getTableData('Kelahiran', session.role, session.nik);
+  }
 }
