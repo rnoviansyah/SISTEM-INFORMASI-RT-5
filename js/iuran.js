@@ -26,7 +26,6 @@ function renderIuranCustom(data) {
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
   
-  // Hitung total belum bayar akurat khusus status belum lunas
   let totalBelumBayar = 0;
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
@@ -167,6 +166,15 @@ function renderListBulanDatabase(rows, headers) {
 }
 
 async function bukaModalTambahIuranRT() {
+  // Inject style khusus untuk memaksa menyembunyikan footer modal bawaan secara mutlak (!)
+  let styleId = 'hide-modal-footer-override';
+  if (!document.getElementById(styleId)) {
+    let style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `#formModal .modal-footer { display: none !important; }`;
+    document.head.appendChild(style);
+  }
+
   const res = await callGASGet('getDaftarWargaUntukIuran');
   let wargaOptions = '<option value="">Pilih Warga...</option>';
   if (res && res.status === 'success') {
@@ -219,17 +227,13 @@ async function bukaModalTambahIuranRT() {
           <option value="Lunas">Lunas</option>
         </select>
       </div>
-      <button type="button" onclick="simpanIuranBaruRT()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl font-bold shadow transition mt-2">Simpan Tagihan Iuran</button>
+      <button type="button" onclick="simpanIuranBaruRT(event)" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl font-bold shadow transition mt-2">Simpan Tagihan Iuran</button>
     </div>
   `;
 
   document.getElementById('formModalTitle').innerText = 'Tambah Tagihan Iuran Warga';
   document.getElementById('dynamicForm').innerHTML = htmlForm;
   document.getElementById('btn-hapus-modal').style.display = 'none';
-  
-  // Sembunyikan footer modal bawaan utama supaya tombol "Simpan Data" ganda hilang
-  let modalFooter = document.querySelector('#formModal .modal-footer');
-  if (modalFooter) modalFooter.style.display = 'none';
   
   let modal = new bootstrap.Modal(document.getElementById('formModal'));
   modal.show();
@@ -242,7 +246,9 @@ function isiOtomatisWarga(selectEl) {
   document.getElementById('iuran-input-kk').value = opt.getAttribute('data-kk') || '';
 }
 
-async function simpanIuranBaruRT() {
+async function simpanIuranBaruRT(event) {
+  if (event) event.preventDefault(); // Mencegah form default submit yang bikin mental/refresh
+
   let formData = {
     nik: document.getElementById('iuran-input-nik').value,
     nama: document.getElementById('iuran-input-nama').value,
@@ -267,10 +273,6 @@ async function simpanIuranBaruRT() {
     let modalInstance = bootstrap.Modal.getInstance(modalEl);
     if (modalInstance) modalInstance.hide();
     
-    // Kembalikan footer modal default
-    let modalFooter = document.querySelector('#formModal .modal-footer');
-    if (modalFooter) modalFooter.style.display = 'flex';
-
     loadIuranView();
   } else {
     alert('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'));
