@@ -177,7 +177,7 @@ function waKirimLaporan(jenis, id) {
 }
 
 const originalLoadMenuPengaduan = window.loadMenu;
-window.loadMenu = function(menu) {
+window.loadMenu = async function(menu) {
   if (menu === 'Pengaduan') {
     currentActiveMenu = menu;
     syncActiveNav(menu);
@@ -185,11 +185,12 @@ window.loadMenu = function(menu) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat pengaduan...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    google.script.run.withSuccessHandler(res => {
-      currentHeaders = res.headers;
-      currentRows = res.rows;
+    const res = await callGASGet('getTableData', { sheetName: 'Pengaduan' });
+    if (res) {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
       renderPengaduanCustom(res);
-    }).getTableData('Pengaduan', session.role, session.nik);
+    }
   } else {
     if (typeof originalLoadMenuPengaduan === 'function') originalLoadMenuPengaduan(menu);
   }
