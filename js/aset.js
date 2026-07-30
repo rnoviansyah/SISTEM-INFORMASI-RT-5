@@ -340,7 +340,7 @@ function tutupModalKelolaAset() {
   document.getElementById('formKelolaAset').reset();
 }
 
-function submitKelolaAset(e) {
+async function submitKelolaAset(e) {
   e.preventDefault();
   let id = document.getElementById('editAsetId').value;
   let nama = document.getElementById('asetNama').value;
@@ -364,44 +364,48 @@ function submitKelolaAset(e) {
   btn.innerText = 'Menyimpan...';
 
   if (isEditModeAset && id) {
-    google.script.run.withSuccessHandler(res => {
-      btn.disabled = false;
-      btn.innerText = 'Simpan Data Aset';
-      alert(res.message);
-      tutupModalKelolaAset();
-      if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
-    }).updateDataDiSheet('Aset', id, payload);
+    const res = await callGASPost('updateDataDiSheet', {
+      sheetName: 'Aset',
+      id: id,
+      formData: payload
+    });
+    btn.disabled = false;
+    btn.innerText = 'Simpan Data Aset';
+    alert(res ? res.message : 'Proses selesai');
+    tutupModalKelolaAset();
+    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
   } else {
-    google.script.run.withSuccessHandler(res => {
-      btn.disabled = false;
-      btn.innerText = 'Simpan Data Aset';
-      alert(res.message);
-      tutupModalKelolaAset();
-      if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
-    }).simpanDataKeSheet('Aset', payload);
+    const res = await callGASPost('simpanDataKeSheet', {
+      sheetName: 'Aset',
+      formData: payload
+    });
+    btn.disabled = false;
+    btn.innerText = 'Simpan Data Aset';
+    alert(res ? res.message : 'Proses selesai');
+    tutupModalKelolaAset();
+    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
   }
 }
 
-function bukaModalPinjamBarang() {
+async function bukaModalPinjamBarang() {
   if (session && session.nama) {
     document.getElementById('pinjamNama').value = session.nama;
   }
 
-  google.script.run.withSuccessHandler(res => {
-    if (res.status === 'success') {
-      listDaftarBarang = res.data;
-      let select = document.getElementById('pinjamBarangSelect');
-      select.innerHTML = '<option value="">-- Pilih Barang --</option>';
+  const res = await callGASGet('getDaftarBarangAset');
+  if (res && res.status === 'success') {
+    listDaftarBarang = res.data || [];
+    let select = document.getElementById('pinjamBarangSelect');
+    select.innerHTML = '<option value="">-- Pilih Barang --</option>';
 
-      if (listDaftarBarang.length === 0) {
-        select.innerHTML = '<option value="">-- Stok Barang Sedang Kosong --</option>';
-      } else {
-        listDaftarBarang.forEach(item => {
-          select.innerHTML += `<option value="${item.id}" data-nama="${item.nama}" data-stok="${item.stok}">${item.nama} (Sisa Stok: ${item.stok})</option>`;
-        });
-      }
+    if (listDaftarBarang.length === 0) {
+      select.innerHTML = '<option value="">-- Stok Barang Sedang Kosong --</option>';
+    } else {
+      listDaftarBarang.forEach(item => {
+        select.innerHTML += `<option value="${item.id}" data-nama="${item.nama}" data-stok="${item.stok}">${item.nama} (Sisa Stok: ${item.stok})</option>`;
+      });
     }
-  }).getDaftarBarangAset();
+  }
 
   document.getElementById('modal-form-pinjam').classList.remove('hidden');
 }
@@ -427,7 +431,7 @@ function tutupModalPinjam() {
   document.getElementById('formPinjamAset').reset();
 }
 
-function submitFormPinjam(e) {
+async function submitFormPinjam(e) {
   e.preventDefault();
   let select = document.getElementById('pinjamBarangSelect');
   let selectedOption = select.options[select.selectedIndex];
@@ -452,65 +456,63 @@ function submitFormPinjam(e) {
   btn.disabled = true;
   btn.innerText = 'Mengirim...';
 
-  google.script.run.withSuccessHandler(res => {
-    btn.disabled = false;
-    btn.innerText = 'Kirim Pengajuan';
-    alert(res.message);
-    tutupModalPinjam();
-    loadTabelRiwayat();
-    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
-  }).simpanPengajuanPeminjaman(payload);
+  const res = await callGASPost('simpanPengajuanPeminjaman', { payload: payload });
+  btn.disabled = false;
+  btn.innerText = 'Kirim Pengajuan';
+  alert(res ? res.message : 'Pengajuan dikirim');
+  tutupModalPinjam();
+  loadTabelRiwayat();
+  if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
 }
 
-function loadTabelRiwayat() {
-  google.script.run.withSuccessHandler(res => {
-    let tbody = document.getElementById('riwayat-table-body');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+async function loadTabelRiwayat() {
+  const res = await callGASGet('getRiwayatPeminjaman');
+  let tbody = document.getElementById('riwayat-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-    if (res.status === 'success' && res.data.length > 0) {
-      res.data.reverse().forEach(item => {
-        let statusText = item.status || 'Menunggu Verifikasi';
-        let badgeClass = 'bg-amber-100 text-amber-700';
-        if (statusText === 'Disetujui') badgeClass = 'bg-emerald-100 text-emerald-700';
-        if (statusText === 'Ditolak') badgeClass = 'bg-red-100 text-red-700';
-        if (statusText.includes('Selesai')) badgeClass = 'bg-gray-100 text-gray-700';
+  if (res && res.status === 'success' && res.data && res.data.length > 0) {
+    res.data.reverse().forEach(item => {
+      let statusText = item.status || 'Menunggu Verifikasi';
+      let badgeClass = 'bg-amber-100 text-amber-700';
+      if (statusText === 'Disetujui') badgeClass = 'bg-emerald-100 text-emerald-700';
+      if (statusText === 'Ditolak') badgeClass = 'bg-red-100 text-red-700';
+      if (statusText.includes('Selesai')) badgeClass = 'bg-gray-100 text-gray-700';
 
-        let aksiHtml = '<span class="text-gray-400 text-[10px]">-</span>';
+      let aksiHtml = '<span class="text-gray-400 text-[10px]">-</span>';
 
-        if (session && session.role === 'RT') {
-          if (statusText === 'Menunggu Verifikasi') {
-            aksiHtml = `
-              <button onclick="bukaModalVerifikasiRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahMinta})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Verifikasi RT</button>
-            `;
-          } else if (statusText === 'Disetujui') {
-            aksiHtml = `
-              <button onclick="bukaModalKembaliRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahAcc})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Barang Kembali</button>
-            `;
-          }
+      if (session && session.role === 'RT') {
+        if (statusText === 'Menunggu Verifikasi') {
+          aksiHtml = `
+            <button onclick="bukaModalVerifikasiRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahMinta})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Verifikasi RT</button>
+          `;
+        } else if (statusText === 'Disetujui') {
+          aksiHtml = `
+            <button onclick="bukaModalKembaliRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahAcc})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Barang Kembali</button>
+          `;
         }
+      }
 
-        let catatanRtDisplay = item.catatanRt && item.catatanRt !== '-' 
-          ? `<span class="text-blue-700 font-medium">${item.catatanRt}</span>` 
-          : '<span class="text-gray-400">-</span>';
+      let catatanRtDisplay = item.catatanRt && item.catatanRt !== '-' 
+        ? `<span class="text-blue-700 font-medium">${item.catatanRt}</span>` 
+        : '<span class="text-gray-400">-</span>';
 
-        tbody.innerHTML += `
-          <tr class="border-b hover:bg-gray-50/50 transition">
-            <td class="p-3 font-bold text-gray-800">${item.namaPeminjam}</td>
-            <td class="p-3 text-gray-700">${item.namaBarang}</td>
-            <td class="p-3 text-center font-bold text-gray-600">${item.jumlahMinta}</td>
-            <td class="p-3 text-center font-extrabold text-blue-600">${item.jumlahAcc || 0}</td>
-            <td class="p-3 text-gray-500">${item.keterangan || '-'}</td>
-            <td class="p-3">${catatanRtDisplay}</td>
-            <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${statusText}</span></td>
-            <td class="p-3 text-center">${aksiHtml}</td>
-          </tr>
-        `;
-      });
-    } else {
-      tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
-    }
-  }).getRiwayatPeminjaman();
+      tbody.innerHTML += `
+        <tr class="border-b hover:bg-gray-50/50 transition">
+          <td class="p-3 font-bold text-gray-800">${item.namaPeminjam}</td>
+          <td class="p-3 text-gray-700">${item.namaBarang}</td>
+          <td class="p-3 text-center font-bold text-gray-600">${item.jumlahMinta}</td>
+          <td class="p-3 text-center font-extrabold text-blue-600">${item.jumlahAcc || 0}</td>
+          <td class="p-3 text-gray-500">${item.keterangan || '-'}</td>
+          <td class="p-3">${catatanRtDisplay}</td>
+          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${statusText}</span></td>
+          <td class="p-3 text-center">${aksiHtml}</td>
+        </tr>
+      `;
+    });
+  } else {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
+  }
 }
 
 function bukaModalVerifikasiRT(idPinjam, namaPeminjam, namaBarang, jumlahMinta) {
@@ -529,7 +531,7 @@ function tutupModalVerifikasiRT() {
   document.getElementById('modal-verifikasi-rt').classList.add('hidden');
 }
 
-function kirimVerifikasiRT(status) {
+async function kirimVerifikasiRT(status) {
   if (!activeVerifikasiData) return;
 
   let qtyAcc = document.getElementById('verifJumlahAcc').value;
@@ -540,12 +542,17 @@ function kirimVerifikasiRT(status) {
     return;
   }
 
-  google.script.run.withSuccessHandler(res => {
-    alert(res.message);
-    tutupModalVerifikasiRT();
-    loadTabelRiwayat();
-    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
-  }).verifikasiPeminjamanRT(activeVerifikasiData.idPinjam, status, qtyAcc, catatanRt);
+  const res = await callGASPost('verifikasiPeminjamanRT', {
+    idPinjam: activeVerifikasiData.idPinjam,
+    status: status,
+    qtyAcc: qtyAcc,
+    catatanRt: catatanRt
+  });
+
+  alert(res ? res.message : 'Verifikasi dikirim');
+  tutupModalVerifikasiRT();
+  loadTabelRiwayat();
+  if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
 }
 
 function bukaModalKembaliRT(idPinjam, namaPeminjam, namaBarang, qtyAcc) {
@@ -564,7 +571,7 @@ function tutupModalKembaliRT() {
   document.getElementById('modal-kembali-rt').classList.add('hidden');
 }
 
-function kirimPengembalianRT() {
+async function kirimPengembalianRT() {
   if (!activeKembaliData) return;
 
   let qtyKembali = document.getElementById('kembaliJumlahBalik').value;
@@ -575,16 +582,20 @@ function kirimPengembalianRT() {
     return;
   }
 
-  google.script.run.withSuccessHandler(res => {
-    alert(res.message);
-    tutupModalKembaliRT();
-    loadTabelRiwayat();
-    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
-  }).prosesPengembalianAsetRT(activeKembaliData.idPinjam, qtyKembali, catatanRt);
+  const res = await callGASPost('prosesPengembalianAsetRT', {
+    idPinjam: activeKembaliData.idPinjam,
+    qtyKembali: qtyKembali,
+    catatanRt: catatanRt
+  });
+
+  alert(res ? res.message : 'Pengembalian diproses');
+  tutupModalKembaliRT();
+  loadTabelRiwayat();
+  if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
 }
 
 const originalLoadMenuAset = window.loadMenu;
-window.loadMenu = function(menu) {
+window.loadMenu = async function(menu) {
   if (menu === 'Aset') {
     currentActiveMenu = menu;
     syncActiveNav(menu);
@@ -592,11 +603,12 @@ window.loadMenu = function(menu) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    google.script.run.withSuccessHandler(res => {
-      currentHeaders = res.headers;
-      currentRows = res.rows;
+    const res = await callGASGet('getTableData', { sheetName: 'Aset' });
+    if (res) {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
       renderAsetCustom(res);
-    }).getTableData('Aset', session.role, session.nik);
+    }
   } else {
     if (typeof originalLoadMenuAset === 'function') originalLoadMenuAset(menu);
   }
