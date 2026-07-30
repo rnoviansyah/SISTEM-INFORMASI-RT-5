@@ -138,6 +138,7 @@ function showDetailPindahKeluar(id) {
   }
   document.getElementById('pindahkeluar-action-buttons').innerHTML = actionHtml;
 
+  document.getElementById('modal-detail-pindahkeluar').classList.add('hidden'); // wait, let's keep it consistent
   document.getElementById('modal-detail-pindahkeluar').classList.remove('hidden');
 }
 
@@ -145,10 +146,11 @@ function tutupDetailPindahKeluar() {
   document.getElementById('modal-detail-pindahkeluar').classList.add('hidden');
 }
 
-function loadPindahKeluarView() {
-  google.script.run.withSuccessHandler(res => {
-    currentHeaders = res.headers;
-    currentRows = res.rows;
+async function loadPindahKeluarView() {
+  const res = await callGASGet('getTableData', { sheetName: 'PindahKeluar' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
     renderPindahKeluarCustom(res);
-  }).getTableData('PindahKeluar', session.role, session.nik);
+  }
 }
