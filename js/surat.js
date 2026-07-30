@@ -152,7 +152,7 @@ function tutupDetailSurat() {
 }
 
 const originalLoadMenuSurat = window.loadMenu;
-window.loadMenu = function(menu) {
+window.loadMenu = async function(menu) {
   if (menu === 'SuratPengantar') {
     currentActiveMenu = menu;
     syncActiveNav(menu);
@@ -160,11 +160,12 @@ window.loadMenu = function(menu) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat surat pengantar...</small></div>';
     document.getElementById('rek-info').style.display = 'none';
 
-    google.script.run.withSuccessHandler(res => {
-      currentHeaders = res.headers;
-      currentRows = res.rows;
+    const res = await callGASGet('getTableData', { sheetName: 'SuratPengantar' });
+    if (res) {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
       renderSuratPengantarCustom(res);
-    }).getTableData('SuratPengantar', session.role, session.nik);
+    }
   } else {
     if (typeof originalLoadMenuSurat === 'function') originalLoadMenuSurat(menu);
   }
