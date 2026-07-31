@@ -11,14 +11,10 @@ let bootstrapNotifModalInstance = null;
 let rawNotifData = [];
 let notifTimer = null;
 
-// ==========================================================
-// ==== GLOBAL CACHE STORAGE (PENGEMBALIAN DATA INSTAN) =====
-// ==========================================================
+// Safe dummy function agar pemanggilan clearAppCache() di file lain tidak error
 window.appCache = {};
-
 function clearAppCache() {
   window.appCache = {};
-  console.log("🧹 Seluruh cache aplikasi telah dibersihkan.");
 }
 
 // ==========================================================
@@ -57,49 +53,23 @@ async function callGASPost(actionName, extraPayload = {}) {
   }
 }
 
-// --- HELPER FETCH GET (SISTEM CACHE OTOMATIS) ---
-async function callGASGet(actionName, params = {}, forceRefresh = false) {
-  let cacheKey = actionName;
-  if (params.sheetName) cacheKey += '_' + params.sheetName;
-
-  if (!forceRefresh && window.appCache && window.appCache[cacheKey]) {
-    console.log(`⚡ [Cache Hit] Memuat ${cacheKey} secara instan dari memori!`);
-    return window.appCache[cacheKey];
-  }
-
+// --- HELPER FETCH GET (REAL-TIME TANPA CACHE) ---
+async function callGASGet(actionName, params = {}) {
   try {
     let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
     for (let key in params) {
       query += `&${key}=${encodeURIComponent(params[key])}`;
     }
-    console.log(`📡 [Fetch Network] Mengambil ${cacheKey} dari Google Apps Script...`);
+    // Tambah timestamp unik agar browser/network tidak pernah nge-cache
+    query += `&_t=${new Date().getTime()}`;
+
+    console.log(`📡 [Real-Time Fetch] Mengambil data ${actionName} langsung dari Google Sheets...`);
     const response = await fetch(GAS_API_URL + query, { method: 'GET' });
-    const data = await response.json();
-
-    if (data && (data.status === 'success' || data.headers || Array.isArray(data.rows))) {
-      if (!window.appCache) window.appCache = {};
-      window.appCache[cacheKey] = data;
-    }
-
-    return data;
+    return await response.json();
   } catch (err) {
     console.error('Fetch Error (GET):', err);
     return { status: 'error', message: 'Gagal memuat data server: ' + err.message };
   }
-}
-
-// --- FUNGSI PRELOADER BACKGROUND (DIAM-DIAM TARIK DATA PAS LOGIN) ---
-function preloadDataBackground() {
-  if (!session.token) return;
-  console.log("🚀 Memulai background preload data untuk semua menu...");
-
-  callGASGet('getIuranData');
-  callGASGet('getTableData', { sheetName: 'Warga' });
-  callGASGet('getTableData', { sheetName: 'Pengaduan' });
-  callGASGet('getTableData', { sheetName: 'Aset' });
-  callGASGet('getTableData', { sheetName: 'Keuangan' });
-  callGASGet('getTableData', { sheetName: 'SuratPengantar' });
-  callGASGet('getTableData', { sheetName: 'Sumbangan' });
 }
 
 // --- FUNGSI AUTHENTICATION & SESSION ---
@@ -151,7 +121,6 @@ function applySessionUI() {
   
   loadMenu('Dashboard');
   fetchNotifikasi();
-  preloadDataBackground();
 
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(function() {
@@ -311,10 +280,7 @@ async function loadMenu(menu) {
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
-  let isCached = window.appCache && window.appCache['getTableData_' + menu];
-  if (!isCached) {
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
-  }
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data terbaru...</small></div>';
 
   const res = await callGASGet('getTableData', { sheetName: menu });
   if (res) {
@@ -576,7 +542,6 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
-        clearAppCache();
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -599,7 +564,6 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-        clearAppCache();
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -626,7 +590,6 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
-      clearAppCache();
       loadMenu(currentActiveMenu);
       fetchNotifikasi();
     } else {
