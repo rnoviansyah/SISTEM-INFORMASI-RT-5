@@ -2,6 +2,11 @@ let rawKelahiranData = [];
 let selectedKelahiranRow = null;
 
 function renderKelahiranCustom(data) {
+  if (!data || !data.headers) {
+    document.getElementById('main-content').innerHTML = '<div class="alert alert-warning text-center p-4">Belum ada data kelahiran.</div>';
+    return;
+  }
+
   rawKelahiranData = data.rows || [];
   let headers = data.headers.map(h => h.toLowerCase().trim());
 
@@ -59,15 +64,16 @@ function renderKelahiranCustom(data) {
 }
 
 function filterDataKelahiran() {
-  let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput'].value.toLowerCase().trim() : '';
+  let searchInp = document.getElementById('searchInput');
+  let searchVal = searchInp ? searchInp.value.toLowerCase().trim() : '';
   
-  let headers = currentHeaders.map(h => h.toLowerCase().trim());
+  let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let namaIdx = headers.findIndex(h => h.includes('nama'));
 
   let filtered = [...rawKelahiranData].filter(row => {
-    let rowId = (row[idIdx] || '').toLowerCase();
-    let namaText = (row[namaIdx] || '').toLowerCase();
+    let rowId = (row[idIdx] || '').toString().toLowerCase();
+    let namaText = (namaIdx > -1 && row[namaIdx] ? row[namaIdx] : '').toString().toLowerCase();
     return rowId.includes(searchVal) || namaText.includes(searchVal);
   });
 
@@ -76,10 +82,9 @@ function filterDataKelahiran() {
   tbody.innerHTML = '';
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kelahiran yang cocok.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${headers.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kelahiran yang cocok.</td></tr>`;
   } else {
     filtered.reverse().forEach((r, i) => {
-      let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
       let rowId = r[idIdx];
 
       let btnAksi = session.role === 'RT' 
@@ -90,11 +95,11 @@ function filterDataKelahiran() {
       rowHtml += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
       
       r.forEach((val, idx) => {
-        let headName = currentHeaders[idx].toLowerCase();
+        let headName = currentHeaders[idx] ? currentHeaders[idx].toLowerCase() : '';
         if (headName.includes('foto') || headName.includes('bukti')) {
           rowHtml += `<td class="p-3">${val && val !== '***Rahasia***' ? `<img src="${val}" class="w-10 h-10 object-cover rounded-lg border shadow-sm" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
         } else {
-          rowHtml += `<td class="p-3 font-medium text-gray-800">${val}</td>`;
+          rowHtml += `<td class="p-3 font-medium text-gray-800">${val || '-'}</td>`;
         }
       });
 
@@ -105,7 +110,7 @@ function filterDataKelahiran() {
 }
 
 function showDetailKelahiran(id) {
-  let headers = currentHeaders.map(h => h.toLowerCase().trim());
+  let headers = (currentHeaders || []).map(h => h.toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   
   let row = rawKelahiranData.find(r => r[idIdx] === id);
@@ -119,7 +124,7 @@ function showDetailKelahiran(id) {
     : '';
 
   let detailHtml = '';
-  currentHeaders.forEach((h, idx) => {
+  (currentHeaders || []).forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
     detailHtml += `
@@ -142,7 +147,8 @@ function showDetailKelahiran(id) {
 }
 
 function tutupDetailKelahiran() {
-  document.getElementById('modal-detail-kelahiran').classList.add('hidden');
+  let modal = document.getElementById('modal-detail-kelahiran');
+  if (modal) modal.classList.add('hidden');
 }
 
 async function loadKelahiranView() {
