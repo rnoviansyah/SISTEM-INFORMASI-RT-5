@@ -1,4 +1,4 @@
-var SPREADSHEET_ID = 'MASUKKAN_ID_SPREADSHEET';
+var SPREADSHEET_ID = 'MASUKKAN_ID_SPREADSHIT!';
 var SESSION_DURATION_HOURS = 24; // Durasi masa aktif token session (24 jam)
 
 // ==========================================
@@ -486,7 +486,14 @@ function simpanDataKeSheet(sheetName, formData, session) {
         }
       } else if (hLower === 'status') {
         var valStatus = formData[header] !== undefined ? formData[header] : formData['status'];
-        newRow.push(valStatus || 'Belum Lunas');
+        if (!valStatus) {
+          if (sheetName === 'Iuran') {
+            valStatus = 'Belum Lunas';
+          } else {
+            valStatus = 'Menunggu Verifikasi';
+          }
+        }
+        newRow.push(valStatus);
       } else if (hLower === 'saldo') {
         newRow.push(''); 
       } else {
@@ -677,7 +684,7 @@ function getNotifications(role, userNik) {
         if (cleanRole === 'rt') {
           if (sName === 'Peminjaman' && statusLower.includes('menunggu')) {
             notifications.push({ id: rowId, menu: 'Aset', pesan: `<b>${rowNama}</b> mengajukan pinjam aset <b>${rowBarang}</b> (${rowQty} unit)`, type: 'warning', tanggal: displayJam, timestamp: rawTimestamp, rowIndex: i });
-          } else if (sName !== 'Peminjaman' && statusLower.includes('belum')) {
+          } else if (sName !== 'Peminjaman' && (statusLower.includes('belum') || statusLower.includes('menunggu'))) {
             notifications.push({ id: rowId, menu: sName, pesan: `<b>${rowNama}</b> membuat laporan baru di menu <b>${sName}</b> (ID: ${rowId})`, type: 'warning', tanggal: displayJam, timestamp: rawTimestamp, rowIndex: i });
           }
         } else {
@@ -685,7 +692,7 @@ function getNotifications(role, userNik) {
             var badgeBg = statusLower.includes('setuju') ? 'bg-success' : (statusLower.includes('tolak') ? 'bg-danger' : 'bg-secondary');
             var noteText = (rowCatatanRt && rowCatatanRt !== '-') ? `<br><small class="text-muted">Ket RT: ${rowCatatanRt}</small>` : '';
             notifications.push({ id: rowId, menu: 'Aset', pesan: `Pengajuan pinjam <b>${rowBarang}</b> Anda (ID: ${rowId}) telah diverifikasi RT: <span class="badge ${badgeBg}">${rowStatus}</span>${noteText}`, type: 'info', tanggal: displayJam, timestamp: rawTimestamp, rowIndex: i });
-          } else if (sName !== 'Peminjaman' && rowNik === userNik.toString().trim() && !statusLower.includes('belum') && rowStatus !== '') {
+          } else if (sName !== 'Peminjaman' && rowNik === userNik.toString().trim() && !statusLower.includes('belum') && !statusLower.includes('menunggu') && rowStatus !== '') {
             notifications.push({ id: rowId, menu: sName, pesan: `Laporan <b>${sName}</b> Anda (ID: ${rowId}) telah diverifikasi RT. Status: <span class="badge bg-success">${rowStatus}</span>`, type: 'info', tanggal: displayJam, timestamp: rawTimestamp, rowIndex: i });
           }
         }
@@ -951,6 +958,11 @@ function getIuranDataForUser(userNik, role) {
     var data = sheet.getDataRange().getDisplayValues();
     var headers = data[0] || [];
     var rows = data.length > 1 ? data.slice(1) : [];
+
+    // Filter baris kosong total agar tidak ikut terbaca
+    rows = rows.filter(function(row) {
+      return row.some(function(cell) { return cell.toString().trim() !== ""; });
+    });
 
     var cleanRole = role.toString().trim().toLowerCase();
     
