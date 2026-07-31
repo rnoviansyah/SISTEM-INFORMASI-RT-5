@@ -10,6 +10,7 @@ let bootstrapImageModalInstance = null;
 let bootstrapNotifModalInstance = null;
 let rawNotifData = [];
 let notifTimer = null;
+let lastInfoWargaText = ''; // Penyimpanan status teks info warga sebelumnya
 
 // Safe dummy function agar pemanggilan clearAppCache() di file lain tidak error
 window.appCache = {};
@@ -122,14 +123,22 @@ function applySessionUI() {
   loadMenu('Dashboard');
   fetchNotifikasi();
 
-  // 🔴 1. POLLING CEPAT (5 Detik): Khusus Notifikasi & Info Warga
+  // 🔴 1. POLLING CEPAT (5 Detik): Notifikasi aktif, Info Warga cuma refresh jika ada perubahan teks
   if (notifTimer) clearInterval(notifTimer);
-  notifTimer = setInterval(function() {
+  notifTimer = setInterval(async function() {
     if (session.token && document.visibilityState === "visible") {
       fetchNotifikasi();
-      // Refetch Info Warga jika sedang berada di Dashboard
+
       if (currentActiveMenu === 'Dashboard' && typeof loadDashboardView === 'function') {
-        loadDashboardView();
+        const res = await callGASGet('getInfoWarga');
+        if (res && res.status === 'success') {
+          let currentText = res.data || '';
+          if (currentText !== lastInfoWargaText) {
+            lastInfoWargaText = currentText;
+            loadDashboardView();
+            console.log("📢 Info Warga diperbarui di server, me-refresh dashboard...");
+          }
+        }
       }
     }
   }, 5000); // 5000 ms = 5 detik
