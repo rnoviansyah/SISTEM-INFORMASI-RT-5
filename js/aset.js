@@ -138,7 +138,7 @@ function renderAsetCustom(data) {
         <form id="formPinjamAset" onsubmit="submitFormPinjam(event)" class="space-y-3">
           <div>
             <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA PEMINJAM</label>
-            <input type="text" id="pinjamNama" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama peminjam...">
+            <input type="text" id="pinjamNama" readonly style="background-color: #f1f5f9; cursor: not-allowed;" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama peminjam...">
           </div>
 
           <div>
