@@ -27,7 +27,6 @@ function renderIuranCustom(data) {
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
   
-  // Hitung total belum bayar (termasuk yang belum lunas/menunggu verifikasi)
   let totalBelumBayar = 0;
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
@@ -190,7 +189,16 @@ function renderListBulanDatabase(rows, headers) {
           </div>`;
       }
     } else {
-      badgeHtml = `<button onclick="bukaModalBayarIuran('${rowId}', '${bulanVal}', '${tahunVal}', '${nominalVal}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-[11px] font-bold shadow transition">Bayar</button>`;
+      // STATUS: BELUM LUNAS
+      if (session.role === 'RT') {
+        badgeHtml = `
+          <div class="text-right flex flex-col items-end gap-1">
+            <span class="bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Belum Lunas</span>
+            <button onclick="verifikasiPembayaranRT('${rowId}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-xl text-[10px] font-bold shadow transition">+ Tandai Lunas</button>
+          </div>`;
+      } else {
+        badgeHtml = `<button onclick="bukaModalBayarIuran('${rowId}', '${bulanVal}', '${tahunVal}', '${nominalVal}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-[11px] font-bold shadow transition">Bayar</button>`;
+      }
     }
 
     container.innerHTML += `
