@@ -12,24 +12,21 @@ let rawNotifData = [];
 let notifTimer = null;
 
 // ==========================================================
-// ==== GLOBAL CACHE STORAGE (MEKANISME LOADING CEPAT) ======
+// ==== GLOBAL CACHE STORAGE (PENGEMBALIAN DATA INSTAN) =====
 // ==========================================================
-window.appCache = {
-  Iuran: null,
-  Pengaduan: null,
-  SuratPengantar: null,
-  Keuangan: null,
-  Sumbangan: null,
-  Aset: null,
-  Warga: null
-};
+window.appCache = {};
+
+function clearAppCache() {
+  window.appCache = {};
+  console.log("🧹 Seluruh cache aplikasi telah dibersihkan.");
+}
 
 // ==========================================================
 // ==== URL DEPLOY GOOGLE APPS SCRIPT (WEB APP API) =========
 // ==========================================================
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec'; 
 
-// --- HELPER FETCH UNTUK MENGGANTIKAN google.script.run ---
+// --- HELPER FETCH POST ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
     const response = await fetch(GAS_API_URL, {
@@ -48,38 +45,54 @@ async function callGASPost(actionName, extraPayload = {}) {
   }
 }
 
-async function callGASGet(actionName, params = {}) {
+// --- HELPER FETCH GET (SISTEM CACHE OTOMATIS) ---
+async function callGASGet(actionName, params = {}, forceRefresh = false) {
+  // Buat Kunci Unik Cache berdasarkan Action & SheetName
+  let cacheKey = actionName;
+  if (params.sheetName) cacheKey += '_' + params.sheetName;
+
+  // 1. Jika Data Sudah Ada di Cache & Tidak Dipaksa Refresh -> KEMBALIKAN INSTAN (0 ms)!
+  if (!forceRefresh && window.appCache && window.appCache[cacheKey]) {
+    console.log(`⚡ [Cache Hit] Memuat ${cacheKey} secara instan dari memori!`);
+    return window.appCache[cacheKey];
+  }
+
+  // 2. Jika Belum Ada di Cache -> Tarik dari Server Google
   try {
     let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
     for (let key in params) {
       query += `&${key}=${encodeURIComponent(params[key])}`;
     }
+    console.log(`📡 [Fetch Network] Mengambil ${cacheKey} dari Google Apps Script...`);
     const response = await fetch(GAS_API_URL + query, { method: 'GET' });
-    return await response.json();
+    const data = await response.json();
+
+    // Simpan Ke Cache
+    if (data && (data.status === 'success' || data.headers || Array.isArray(data.rows))) {
+      if (!window.appCache) window.appCache = {};
+      window.appCache[cacheKey] = data;
+    }
+
+    return data;
   } catch (err) {
     console.error('Fetch Error (GET):', err);
     return { status: 'error', message: 'Gagal memuat data server: ' + err.message };
   }
 }
 
-// --- FUNGSI PRELOADER BACKGROUND (DIAM-DIAM TARIK DATA) ---
+// --- FUNGSI PRELOADER BACKGROUND (DIAM-DIAM TARIK DATA PAS LOGIN) ---
 function preloadDataBackground() {
   if (!session.token) return;
-  const targetMenus = ['Iuran', 'Pengaduan', 'Aset', 'Keuangan', 'SuratPengantar', 'Sumbangan'];
-  
-  targetMenus.forEach(async (menu) => {
-    try {
-      let action = (menu === 'Iuran') ? 'getIuranData' : 'getTableData';
-      let params = (menu === 'Iuran') ? {} : { sheetName: menu };
-      
-      let res = await callGASGet(action, params);
-      if (res && (res.status === 'success' || res.headers)) {
-        window.appCache[menu] = res;
-      }
-    } catch(e) {
-      console.warn('Preload silent error:', e);
-    }
-  });
+  console.log("🚀 Memulai background preload data untuk semua menu...");
+
+  // Daftar data yang akan ditarik secara paralel tanpa mengganggu user
+  callGASGet('getIuranData');
+  callGASGet('getTableData', { sheetName: 'Warga' });
+  callGASGet('getTableData', { sheetName: 'Pengaduan' });
+  callGASGet('getTableData', { sheetName: 'Aset' });
+  callGASGet('getTableData', { sheetName: 'Keuangan' });
+  callGASGet('getTableData', { sheetName: 'SuratPengantar' });
+  callGASGet('getTableData', { sheetName: 'Sumbangan' });
 }
 
 // --- FUNGSI AUTHENTICATION & SESSION ---
@@ -128,15 +141,17 @@ function applySessionUI() {
   } else {
     document.querySelectorAll('.rt-only').forEach(el => el.style.display = 'block');
   }
-  loadMenu('Dashboard');
   
+  loadMenu('Dashboard');
   fetchNotifikasi();
-  preloadDataBackground(); // Tarik data menu lain di background secara diam-diam
+  
+  // Tarik semua data menu secara rahasia di background pas awal masuk
+  preloadDataBackground();
 
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(function() {
     fetchNotifikasi();
-  }, 10000); // Polling setiap 10 detik
+  }, 10000);
 }
 
 function doLogout() {
@@ -146,11 +161,7 @@ function doLogout() {
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
 
-    // Hapus Cache memori
-    for (let key in window.appCache) {
-      window.appCache[key] = null;
-    }
-
+    clearAppCache();
     localStorage.removeItem('rt_user_session');
     location.reload();
   }
@@ -277,15 +288,14 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-// --- FUNGSI NAVIGASI MENU (BERBASIS CACHE NGEBUT) ---
-async function loadMenu(menu, forceRefresh = false) {
+// --- FUNGSI NAVIGASI MENU ---
+async function loadMenu(menu) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
   document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
 
-  // 1. Panggil Handler Khusus View
   switch(menu) {
     case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
     case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); return;
@@ -296,27 +306,14 @@ async function loadMenu(menu, forceRefresh = false) {
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
-  // 2. Jika ada di Cache Memori & Tidak Dipaksa Refresh -> RENDER INSTAN!
-  if (!forceRefresh && window.appCache && window.appCache[menu]) {
-    console.log(`⚡ Load ${menu} dari Cache Memori (Instan!)`);
-    let res = window.appCache[menu];
-    currentHeaders = res.headers || [];
-    currentRows = res.rows || [];
-    renderTable(res, menu);
-    return;
+  // Cek ketersediaan Spinner jika belum ada di Cache
+  let isCached = window.appCache && window.appCache['getTableData_' + menu];
+  if (!isCached) {
+    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
   }
 
-  // 3. Jika belum ada di Cache, Panggil Server GAS
-  console.log(`📡 Fetching data ${menu} dari server...`);
-  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
-
-  let action = (menu === 'Iuran') ? 'getIuranData' : 'getTableData';
-  let params = (menu === 'Iuran') ? {} : { sheetName: menu };
-
-  const res = await callGASGet(action, params);
+  const res = await callGASGet('getTableData', { sheetName: menu });
   if (res) {
-    if (!window.appCache) window.appCache = {};
-    window.appCache[menu] = res; // Simpan ke Cache
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderTable(res, menu);
@@ -363,7 +360,7 @@ function renderTable(data, menu) {
 
     html += `<td class="text-center">${getTombolAksi(menu, row, data.headers)}</td></tr>`;
   });
-  html += '</tbody></table></div></div>';
+  html += '</tbody>mtable></div></div>';
   document.getElementById('main-content').innerHTML = html;
 }
 
@@ -572,8 +569,8 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
-        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
-        loadMenu(currentActiveMenu, true);
+        clearAppCache(); // Reset cache agar data terupdate
+        loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
         alert('Gagal memperbarui: ' + (res ? res.message : 'Error'));
@@ -595,8 +592,8 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
-        loadMenu(currentActiveMenu, true);
+        clearAppCache(); // Reset cache agar data baru nampil
+        loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
         alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
@@ -622,8 +619,8 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
-      if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
-      loadMenu(currentActiveMenu, true);
+      clearAppCache(); // Reset cache agar data terhapus hilang
+      loadMenu(currentActiveMenu);
       fetchNotifikasi();
     } else {
       alert('Gagal menghapus: ' + (res ? res.message : 'Error'));
