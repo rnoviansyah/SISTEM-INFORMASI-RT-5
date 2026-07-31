@@ -12,7 +12,7 @@ let rawNotifData = [];
 let notifTimer = null;
 let lastInfoWargaText = '';
 
-// Safe dummy function agar pemanggilan clearAppCache() di file lain tidak error
+// Sistem Cache Lokal (Memory Caching untuk Anti-Delay)
 window.appCache = {};
 function clearAppCache() {
   window.appCache = {};
@@ -54,7 +54,7 @@ async function callGASPost(actionName, extraPayload = {}) {
   }
 }
 
-// --- HELPER FETCH GET (REAL-TIME TANPA CACHE) ---
+// --- HELPER FETCH GET ---
 async function callGASGet(actionName, params = {}) {
   try {
     let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
@@ -276,7 +276,7 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-// --- FUNGSI NAVIGASI MENU ---
+// --- FUNGSI NAVIGASI MENU DENGAN CACHE LOKAL (ANTI-DELAY) ---
 async function loadMenu(menu) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
@@ -294,13 +294,28 @@ async function loadMenu(menu) {
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
-  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data terbaru...</small></div>';
+  // ⚡ CEK CACHE: Jika menu ini sudah pernah dibuka, langsung render seketika!
+  if (window.appCache && window.appCache[menu]) {
+    console.log(`⚡ [Cache Hit] Memuat ${menu} secara instan dari memori lokal...`);
+    let cachedData = window.appCache[menu];
+    currentHeaders = cachedData.headers || [];
+    currentRows = cachedData.rows || [];
+    renderTable(cachedData, menu);
+    return;
+  }
+
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
 
   const res = await callGASGet('getTableData', { sheetName: menu });
-  if (res) {
+  if (res && res.status === 'success') {
+    if (!window.appCache) window.appCache = {};
+    window.appCache[menu] = res; // Simpan ke cache
+
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderTable(res, menu);
+  } else {
+    document.getElementById('main-content').innerHTML = '<div class="alert alert-danger text-center my-3">Gagal memuat data dari server.</div>';
   }
 }
 
@@ -309,12 +324,14 @@ function renderTable(data, menu) {
   
   let bolehTambah = false;
   if (session.role === 'RT') bolehTambah = true; 
-  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset'].includes(menu)) bolehTambah = true;
+  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset', 'Aspirasi'].includes(menu)) bolehTambah = true;
   
   if (bolehTambah) {
     let labelTombol = session.role === 'RT' ? '+ Tambah Data Baru' : '+ Buat Pengajuan / Form Baru';
     if (menu === 'Aset') {
       labelTombol = session.role === 'RT' ? '+ Tambah Data Barang Baru' : '+ Buat Form Peminjaman Aset Baru';
+    } else if (menu === 'Aspirasi') {
+      labelTombol = '+ Tulis Aspirasi Anonim';
     }
     html += `<button class="btn btn-success fw-bold mb-3 shadow-sm px-3 py-2" onclick="bukaModalForm()"><i class="bi bi-plus-circle me-2"></i>${labelTombol}</button>`;
   }
@@ -507,7 +524,7 @@ function generateFormInputs(rowData) {
   });
 }
 
-// --- FUNGSI SUBMIT FORM & HAPUS DATA ---
+// --- FUNGSI SUBMIT FORM & HAPUS DATA (DENGAN INVALIDASI CACHE) ---
 function submitFormBaru() {
   let inputs = document.querySelectorAll('.dynamic-input');
   let fileInputs = document.querySelectorAll('.dynamic-file-input');
@@ -552,6 +569,7 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
+        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache biar ambil data baru
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -574,6 +592,7 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
+        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache biar ambil data baru
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -600,6 +619,7 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
+      if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
       loadMenu(currentActiveMenu);
       fetchNotifikasi();
     } else {
@@ -666,13 +686,16 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // ==========================================================
-// ==== TAB FOCUS REFRESH (AMAN & TIDAK MENGGANGGU) =========
+// ==== TAB FOCUS REFRESH ===================================
 // ==========================================================
 
 document.addEventListener("visibilitychange", function() {
   if (document.visibilityState === "visible" && session.token) {
     fetchNotifikasi();
-    if (currentActiveMenu) loadMenu(currentActiveMenu);
+    if (currentActiveMenu) {
+      if (window.appCache) window.appCache[currentActiveMenu] = null; // Refresh background saat tab dibuka kembali
+      loadMenu(currentActiveMenu);
+    }
   }
 });
 
