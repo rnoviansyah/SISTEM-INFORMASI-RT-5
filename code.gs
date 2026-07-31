@@ -71,6 +71,17 @@ function createJsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function convertToImageLink(url) {
+  if (!url) return "";
+  if (url.includes("drive.google.com") || url.includes("googleusercontent")) {
+    var idMatch = url.match(/[-\w]{25,}/);
+    if (idMatch) {
+      return "https://lh3.googleusercontent.com/d/" + idMatch[0];
+    }
+  }
+  return url;
+}
+
 // ==========================================
 // ==== HANDLER REST API GET & POST =========
 // ==========================================
@@ -246,17 +257,6 @@ function processLogin(username, password) {
   }
 }
 
-function convertToImageLink(url) {
-  if (!url) return "";
-  if (url.includes("drive.google.com") || url.includes("googleusercontent")) {
-    var idMatch = url.match(/[-\w]{25,}/);
-    if (idMatch) {
-      return "https://lh3.googleusercontent.com/d/" + idMatch[0];
-    }
-  }
-  return url;
-}
-
 function getProfileData(userNik) {
   try {
     var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -276,7 +276,7 @@ function getProfileData(userNik) {
     for (var i = 1; i < wargaData.length; i++) {
       if (wargaData[i][nikIdx].toString().trim() === userNik.toString().trim()) {
         myData = {};
-        headers.forEach((header, idx) => { myData[header] = wargaData[i][idx]; });
+        headers.forEach(function(header, idx) { myData[header] = wargaData[i][idx]; });
         if (kkIdx > -1) myKk = wargaData[i][kkIdx].toString().trim();
         break;
       }
@@ -292,16 +292,16 @@ function getProfileData(userNik) {
         
         if (rowKk === myKk && rowNik !== userNik.toString().trim()) {
           var member = {};
-          headers.forEach((header, idx) => { member[header] = wargaData[j][idx]; });
+          headers.forEach(function(header, idx) { member[header] = wargaData[j][idx]; });
           keluarga.push(member);
         }
       }
     }
     
-    headers.forEach((h) => {
+    headers.forEach(function(h) {
       if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
         myData[h] = convertToImageLink(myData[h]);
-        keluarga.forEach(m => { m[h] = convertToImageLink(m[h]); });
+        keluarga.forEach(function(m) { m[h] = convertToImageLink(m[h]); });
       }
     });
     
@@ -328,7 +328,7 @@ function getTableData(sheetName, role, userNik) {
     
     if (pemIndex > -1 && pengIndex > -1 && salIndex > -1) {
       var runningSaldo = 0;
-      rows = rows.map(row => {
+      rows = rows.map(function(row) {
         var pem = Number(row[pemIndex].replace(/[^0-9]/g, '')) || 0;
         var peng = Number(row[pengIndex].replace(/[^0-9]/g, '')) || 0;
         runningSaldo += (pem - peng);
@@ -339,13 +339,13 @@ function getTableData(sheetName, role, userNik) {
   }
 
   var photoIndexes = [];
-  lowerHeaders.forEach((h, idx) => {
+  lowerHeaders.forEach(function(h, idx) {
     if (h.includes('foto') || h.includes('bukti')) photoIndexes.push(idx);
   });
 
   if (photoIndexes.length > 0 && rows.length > 0) {
-    rows = rows.map(row => {
-      photoIndexes.forEach(idx => { row[idx] = convertToImageLink(row[idx]); });
+    rows = rows.map(function(row) {
+      photoIndexes.forEach(function(idx) { row[idx] = convertToImageLink(row[idx]); });
       return row;
     });
   }
@@ -367,13 +367,13 @@ function getTableData(sheetName, role, userNik) {
         }
       }
 
-      rows = rows.map(row => {
+      rows = rows.map(function(row) {
         var rowKk = kkIndex > -1 ? row[kkIndex].toString().trim() : "";
         if (kkIndex > -1 && userKk && rowKk === userKk) {
           return row;
         } else {
           var filteredRow = [];
-          lowerHeaders.forEach((h, idx) => {
+          lowerHeaders.forEach(function(h, idx) {
             if (['no', 'nama_lengkap', 'nama_panggilan', 'jenis_kelamin', 'no_hp', 'foto_url', 'alamat'].includes(h)) {
               filteredRow.push(row[idx]);
             } else {
@@ -457,7 +457,7 @@ function simpanDataKeSheet(sheetName, formData, session) {
         var blob = Utilities.newBlob(Utilities.base64Decode(rawData), contentType, fileData.name);
         var file = DriveApp.createFile(blob);
         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        formData[key] = file.getUrl();
+        formData[key] = convertToImageLink(file.getUrl());
       } else {
         formData[key] = sanitizeInput(formData[key]);
       }
@@ -497,7 +497,6 @@ function simpanDataKeSheet(sheetName, formData, session) {
       } else if (hLower === 'saldo') {
         newRow.push(''); 
       } else {
-        // Cari value di formData secara case-insensitive
         var val = undefined;
         for (var k in formData) {
           if (k.toLowerCase().trim() === hLower) {
@@ -546,7 +545,7 @@ function updateDataDiSheet(sheetName, id, formData, session) {
         var blob = Utilities.newBlob(Utilities.base64Decode(rawData), contentType, fileData.name);
         var file = DriveApp.createFile(blob);
         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        formData[key] = file.getUrl();
+        formData[key] = convertToImageLink(file.getUrl());
       } else {
         formData[key] = sanitizeInput(formData[key]);
       }
@@ -555,14 +554,23 @@ function updateDataDiSheet(sheetName, id, formData, session) {
     headers.forEach(function(header, idx) {
       var hLower = header.toString().toLowerCase().trim();
       if (['id', 'no', 'saldo'].includes(hLower)) return;
-      if (formData[header] !== undefined) {
-        if (formData[header] === '' && (hLower.includes('foto') || hLower.includes('bukti'))) return;
+
+      var matchVal = undefined;
+      for (var k in formData) {
+        if (k.toLowerCase().trim() === hLower) {
+          matchVal = formData[k];
+          break;
+        }
+      }
+
+      if (matchVal !== undefined) {
+        if (matchVal === '' && (hLower.includes('foto') || hLower.includes('bukti'))) return;
         
-        if (hLower === 'tanggal' && formData[header]) {
-          var dateParts = formData[header].split('-');
+        if (hLower === 'tanggal' && matchVal) {
+          var dateParts = matchVal.split('-');
           sheet.getRange(rowIndex, idx + 1).setValue(dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0]);
         } else {
-          sheet.getRange(rowIndex, idx + 1).setValue(formData[header]);
+          sheet.getRange(rowIndex, idx + 1).setValue(matchVal);
         }
       }
     });
@@ -946,12 +954,17 @@ function getIuranDataForUser(userNik, role) {
     
     if (!sheet) {
       sheet = ss.insertSheet('Iuran');
-      sheet.appendRow(['ID', 'NIK', 'Nama', 'No_KK', 'Bulan', 'Tahun', 'Nominal', 'Status', 'Tanggal_Bayar', 'Diterima_Oleh']);
+      sheet.appendRow(['ID', 'NIK', 'Nama', 'No_KK', 'Bulan', 'Tahun', 'Nominal', 'Status', 'Tanggal_Bayar', 'Diterima_Oleh', 'Bukti_Transfer']);
     } else {
       var dataCheck = sheet.getDataRange().getDisplayValues();
       if (dataCheck.length === 0 || dataCheck[0][0] === '') {
         sheet.clear();
-        sheet.appendRow(['ID', 'NIK', 'Nama', 'No_KK', 'Bulan', 'Tahun', 'Nominal', 'Status', 'Tanggal_Bayar', 'Diterima_Oleh']);
+        sheet.appendRow(['ID', 'NIK', 'Nama', 'No_KK', 'Bulan', 'Tahun', 'Nominal', 'Status', 'Tanggal_Bayar', 'Diterima_Oleh', 'Bukti_Transfer']);
+      } else {
+        var existingHeaders = dataCheck[0].map(function(h) { return h.toLowerCase().trim(); });
+        if (existingHeaders.indexOf('bukti_transfer') === -1) {
+          sheet.getRange(1, existingHeaders.length + 1).setValue('Bukti_Transfer');
+        }
       }
     }
 
@@ -959,10 +972,25 @@ function getIuranDataForUser(userNik, role) {
     var headers = data[0] || [];
     var rows = data.length > 1 ? data.slice(1) : [];
 
-    // Filter baris kosong total agar tidak ikut terbaca
     rows = rows.filter(function(row) {
       return row.some(function(cell) { return cell.toString().trim() !== ""; });
     });
+
+    // Otomatis ubah link Drive pada kolom foto/bukti ke format lh3.googleusercontent.com
+    var lowerHeaders = headers.map(function(h) { return h.toLowerCase().trim(); });
+    var photoIndexes = [];
+    lowerHeaders.forEach(function(h, idx) {
+      if (h.includes('foto') || h.includes('bukti')) photoIndexes.push(idx);
+    });
+
+    if (photoIndexes.length > 0 && rows.length > 0) {
+      rows = rows.map(function(row) {
+        photoIndexes.forEach(function(idx) {
+          row[idx] = convertToImageLink(row[idx]);
+        });
+        return row;
+      });
+    }
 
     var cleanRole = role.toString().trim().toLowerCase();
     
