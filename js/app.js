@@ -26,6 +26,18 @@ function clearAppCache() {
 // ==========================================================
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec'; 
 
+// Helper Konversi URL Google Drive ke Direct Image LH3
+function convertToImageLink(url) {
+  if (!url) return "";
+  if (url.includes("drive.google.com") || url.includes("googleusercontent")) {
+    var idMatch = url.match(/[-\w]{25,}/);
+    if (idMatch) {
+      return "https://lh3.googleusercontent.com/d/" + idMatch[0];
+    }
+  }
+  return url;
+}
+
 // --- HELPER FETCH POST ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
@@ -47,17 +59,14 @@ async function callGASPost(actionName, extraPayload = {}) {
 
 // --- HELPER FETCH GET (SISTEM CACHE OTOMATIS) ---
 async function callGASGet(actionName, params = {}, forceRefresh = false) {
-  // Buat Kunci Unik Cache berdasarkan Action & SheetName
   let cacheKey = actionName;
   if (params.sheetName) cacheKey += '_' + params.sheetName;
 
-  // 1. Jika Data Sudah Ada di Cache & Tidak Dipaksa Refresh -> KEMBALIKAN INSTAN (0 ms)!
   if (!forceRefresh && window.appCache && window.appCache[cacheKey]) {
     console.log(`⚡ [Cache Hit] Memuat ${cacheKey} secara instan dari memori!`);
     return window.appCache[cacheKey];
   }
 
-  // 2. Jika Belum Ada di Cache -> Tarik dari Server Google
   try {
     let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
     for (let key in params) {
@@ -67,7 +76,6 @@ async function callGASGet(actionName, params = {}, forceRefresh = false) {
     const response = await fetch(GAS_API_URL + query, { method: 'GET' });
     const data = await response.json();
 
-    // Simpan Ke Cache
     if (data && (data.status === 'success' || data.headers || Array.isArray(data.rows))) {
       if (!window.appCache) window.appCache = {};
       window.appCache[cacheKey] = data;
@@ -85,7 +93,6 @@ function preloadDataBackground() {
   if (!session.token) return;
   console.log("🚀 Memulai background preload data untuk semua menu...");
 
-  // Daftar data yang akan ditarik secara paralel tanpa mengganggu user
   callGASGet('getIuranData');
   callGASGet('getTableData', { sheetName: 'Warga' });
   callGASGet('getTableData', { sheetName: 'Pengaduan' });
@@ -144,8 +151,6 @@ function applySessionUI() {
   
   loadMenu('Dashboard');
   fetchNotifikasi();
-  
-  // Tarik semua data menu secara rahasia di background pas awal masuk
   preloadDataBackground();
 
   if (notifTimer) clearInterval(notifTimer);
@@ -306,7 +311,6 @@ async function loadMenu(menu) {
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
-  // Cek ketersediaan Spinner jika belum ada di Cache
   let isCached = window.appCache && window.appCache['getTableData_' + menu];
   if (!isCached) {
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
@@ -352,7 +356,8 @@ function renderTable(data, menu) {
     row.forEach((val, idx) => {
       let headName = data.headers[idx].toLowerCase();
       if (headName.includes('foto') || headName.includes('bukti')) {
-        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${val}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
+        let directUrl = convertToImageLink(val);
+        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${directUrl}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
       } else {
         html += `<td>${val}</td>`;
       }
@@ -360,12 +365,13 @@ function renderTable(data, menu) {
 
     html += `<td class="text-center">${getTombolAksi(menu, row, data.headers)}</td></tr>`;
   });
-  html += '</tbody>mtable></div></div>';
+  html += '</tbody></table></div></div>';
   document.getElementById('main-content').innerHTML = html;
 }
 
 function bukaPopUpFoto(urlImg) {
-  document.getElementById('modalPreviewImg').src = urlImg;
+  var directUrl = convertToImageLink(urlImg);
+  document.getElementById('modalPreviewImg').src = directUrl;
   if(!bootstrapImageModalInstance) {
     bootstrapImageModalInstance = new bootstrap.Modal(document.getElementById('imageModal'));
   }
@@ -498,8 +504,9 @@ function generateFormInputs(rowData) {
           <option value="KONTRAK" ${val.toUpperCase() === 'KONTRAK' ? 'selected' : ''}>KONTRAK</option>
         </select>`;
     } else if (nameLower.includes('foto') || nameLower.includes('bukti')) {
+      let imgDirect = convertToImageLink(val);
       inputHtml = `
-        ${val && !val.includes('***') ? `<div class="mb-1"><small class="text-muted">File saat ini:</small><br><img src="${val}" class="img-table mb-2" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
+        ${val && !val.includes('***') ? `<div class="mb-1"><small class="text-muted">File saat ini:</small><br><img src="${imgDirect}" class="img-table mb-2" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
         <input type="file" class="form-control dynamic-file-input" data-key="${h}" accept="image/*">`;
     } else {
       let isReadonly = '';
@@ -569,7 +576,7 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
-        clearAppCache(); // Reset cache agar data terupdate
+        clearAppCache();
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -592,7 +599,7 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-        clearAppCache(); // Reset cache agar data baru nampil
+        clearAppCache();
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -619,7 +626,7 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
-      clearAppCache(); // Reset cache agar data terhapus hilang
+      clearAppCache();
       loadMenu(currentActiveMenu);
       fetchNotifikasi();
     } else {
@@ -685,7 +692,6 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 });
 
-// PWA SERVICE WORKER REGISTRATION & PROMPT INSTALL
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const baseUrl = window.location.href.split('?')[0];
