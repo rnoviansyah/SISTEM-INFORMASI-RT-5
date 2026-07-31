@@ -122,15 +122,31 @@ function applySessionUI() {
   loadMenu('Dashboard');
   fetchNotifikasi();
 
+  // 🔴 1. POLLING CEPAT (5 Detik): Khusus Notifikasi & Info Warga
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(function() {
-    fetchNotifikasi();
-  }, 10000);
+    if (session.token && document.visibilityState === "visible") {
+      fetchNotifikasi();
+      // Refetch Info Warga jika sedang berada di Dashboard
+      if (currentActiveMenu === 'Dashboard' && typeof loadDashboardView === 'function') {
+        loadDashboardView();
+      }
+    }
+  }, 5000); // 5000 ms = 5 detik
+
+  // 🔵 2. POLLING SEDANG (15 Detik): Khusus Data Utama Menu Lainnya
+  if (window.mainDataTimer) clearInterval(window.mainDataTimer);
+  window.mainDataTimer = setInterval(function() {
+    if (session.token && document.visibilityState === "visible") {
+      refreshDataUtamaMenu();
+    }
+  }, 15000); // 15000 ms = 15 detik
 }
 
 function doLogout() {
   if (confirm('Apakah lu yakin ingin logout?')) {
     if (notifTimer) clearInterval(notifTimer);
+    if (window.mainDataTimer) clearInterval(window.mainDataTimer);
     
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
@@ -654,6 +670,31 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 });
+
+// ==========================================================
+// ==== AUTO REFRESH REAL-TIME (POLLING & TAB FOCUS) ========
+// ==========================================================
+
+// Auto-refresh instan saat user balik fokus ke tab browser
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "visible" && session.token) {
+    fetchNotifikasi();
+    refreshDataUtamaMenu();
+  }
+});
+
+// Helper untuk memperbarui data utama menu (non-dashboard)
+function refreshDataUtamaMenu() {
+  if (!currentActiveMenu || currentActiveMenu === 'Dashboard') return;
+  
+  if (currentActiveMenu === 'Iuran Warga' || currentActiveMenu === 'Iuran') {
+    if (typeof loadIuranView === 'function') loadIuranView();
+  } else if (currentActiveMenu === 'Profil') {
+    if (typeof loadProfilView === 'function') loadProfilView();
+  } else {
+    loadMenu(currentActiveMenu);
+  }
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
