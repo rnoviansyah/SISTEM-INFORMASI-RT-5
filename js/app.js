@@ -12,6 +12,19 @@ let rawNotifData = [];
 let notifTimer = null;
 
 // ==========================================================
+// ==== GLOBAL CACHE STORAGE (MEKANISME LOADING CEPAT) ======
+// ==========================================================
+window.appCache = {
+  Iuran: null,
+  Pengaduan: null,
+  SuratPengantar: null,
+  Keuangan: null,
+  Sumbangan: null,
+  Aset: null,
+  Warga: null
+};
+
+// ==========================================================
 // ==== URL DEPLOY GOOGLE APPS SCRIPT (WEB APP API) =========
 // ==========================================================
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec'; 
@@ -47,6 +60,26 @@ async function callGASGet(actionName, params = {}) {
     console.error('Fetch Error (GET):', err);
     return { status: 'error', message: 'Gagal memuat data server: ' + err.message };
   }
+}
+
+// --- FUNGSI PRELOADER BACKGROUND (DIAM-DIAM TARIK DATA) ---
+function preloadDataBackground() {
+  if (!session.token) return;
+  const targetMenus = ['Iuran', 'Pengaduan', 'Aset', 'Keuangan', 'SuratPengantar', 'Sumbangan'];
+  
+  targetMenus.forEach(async (menu) => {
+    try {
+      let action = (menu === 'Iuran') ? 'getIuranData' : 'getTableData';
+      let params = (menu === 'Iuran') ? {} : { sheetName: menu };
+      
+      let res = await callGASGet(action, params);
+      if (res && (res.status === 'success' || res.headers)) {
+        window.appCache[menu] = res;
+      }
+    } catch(e) {
+      console.warn('Preload silent error:', e);
+    }
+  });
 }
 
 // --- FUNGSI AUTHENTICATION & SESSION ---
@@ -98,6 +131,7 @@ function applySessionUI() {
   loadMenu('Dashboard');
   
   fetchNotifikasi();
+  preloadDataBackground(); // Tarik data menu lain di background secara diam-diam
 
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(function() {
@@ -111,6 +145,11 @@ function doLogout() {
     
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
+
+    // Hapus Cache memori
+    for (let key in window.appCache) {
+      window.appCache[key] = null;
+    }
 
     localStorage.removeItem('rt_user_session');
     location.reload();
@@ -238,30 +277,49 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-// --- FUNGSI NAVIGASI MENU ---
-async function loadMenu(menu) {
+// --- FUNGSI NAVIGASI MENU (BERBASIS CACHE NGEBUT) ---
+async function loadMenu(menu, forceRefresh = false) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
   document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
-  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
-  document.getElementById('searchInput').value = "";
+  if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
 
+  // 1. Panggil Handler Khusus View
   switch(menu) {
-    case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); break;
-    case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); break;
-    case 'Warga': if(typeof loadWargaView === 'function') loadWargaView(); break;
-    case 'Kelahiran': if(typeof loadKelahiranView === 'function') loadKelahiranView(); break;
-    case 'Kematian': if(typeof loadKematianView === 'function') loadKematianView(); break;
-    case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') loadPindahMasukView(); break;
-    case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') loadPindahKeluarView(); break;
-    default:
-      const res = await callGASGet('getTableData', { sheetName: menu });
-      if (res) {
-        currentHeaders = res.headers || [];
-        currentRows = res.rows || [];
-        renderTable(res, menu);
-      }
+    case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
+    case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); return;
+    case 'Warga': if(typeof loadWargaView === 'function') { loadWargaView(); return; } break;
+    case 'Kelahiran': if(typeof loadKelahiranView === 'function') { loadKelahiranView(); return; } break;
+    case 'Kematian': if(typeof loadKematianView === 'function') { loadKematianView(); return; } break;
+    case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') { loadPindahMasukView(); return; } break;
+    case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
+  }
+
+  // 2. Jika ada di Cache Memori & Tidak Dipaksa Refresh -> RENDER INSTAN!
+  if (!forceRefresh && window.appCache && window.appCache[menu]) {
+    console.log(`⚡ Load ${menu} dari Cache Memori (Instan!)`);
+    let res = window.appCache[menu];
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderTable(res, menu);
+    return;
+  }
+
+  // 3. Jika belum ada di Cache, Panggil Server GAS
+  console.log(`📡 Fetching data ${menu} dari server...`);
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data...</small></div>';
+
+  let action = (menu === 'Iuran') ? 'getIuranData' : 'getTableData';
+  let params = (menu === 'Iuran') ? {} : { sheetName: menu };
+
+  const res = await callGASGet(action, params);
+  if (res) {
+    if (!window.appCache) window.appCache = {};
+    window.appCache[menu] = res; // Simpan ke Cache
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderTable(res, menu);
   }
 }
 
@@ -514,7 +572,8 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
-        loadMenu(currentActiveMenu);
+        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
+        loadMenu(currentActiveMenu, true);
         fetchNotifikasi();
       } else {
         alert('Gagal memperbarui: ' + (res ? res.message : 'Error'));
@@ -536,7 +595,8 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-        loadMenu(currentActiveMenu);
+        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
+        loadMenu(currentActiveMenu, true);
         fetchNotifikasi();
       } else {
         alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
@@ -562,7 +622,8 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
-      loadMenu(currentActiveMenu);
+      if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
+      loadMenu(currentActiveMenu, true);
       fetchNotifikasi();
     } else {
       alert('Gagal menghapus: ' + (res ? res.message : 'Error'));
