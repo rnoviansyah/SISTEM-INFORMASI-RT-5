@@ -120,13 +120,11 @@ async function callGASPost(actionName, extraPayload = {}) {
           const safeWarga = makeCaseInsensitive(listWarga);
           
           if (safeWarga && safeWarga.length > 0) {
-            // Cari berdasarkan NIK/KTP universal
             let matchedWarga = safeWarga.find(w => {
               let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
               return wNik && wNik === nikUser;
             });
 
-            // Jika tidak ketemu via NIK, cari via Username / Nama
             if (!matchedWarga) {
               matchedWarga = safeWarga.find(w => {
                 let wNama = cariNilaiKolom(w, ['nama', 'name']);
@@ -167,7 +165,11 @@ async function callGASPost(actionName, extraPayload = {}) {
       let formData = { ...extraPayload.formData };
 
       if (!formData.id) {
-        formData.id = 'ID-' + new Date().getTime();
+        formData.id = sheetName.substring(0,3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
+      }
+
+      if (session.role !== 'RT' && sheetName !== 'Iuran') {
+        formData['nik'] = session.nik;
       }
 
       for (let k in formData) {
@@ -202,6 +204,7 @@ async function callGASPost(actionName, extraPayload = {}) {
 
     // 4. Hapus Data
     if (actionName === 'hapusDataDariSheet') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
       const sheetName = extraPayload.sheetName;
       const id = extraPayload.id;
 
@@ -213,6 +216,7 @@ async function callGASPost(actionName, extraPayload = {}) {
 
     // 5. Simpan Info Warga
     if (actionName === 'simpanInfoWarga') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan memperbarui info warga!' };
       const teksBaru = extraPayload.teksBaru;
       const { error } = await db.from('Pengaturan').upsert([{ kunci: 'info_warga', nilai: teksBaru }], { onConflict: 'kunci' });
       if (error) return { status: 'error', message: error.message };
@@ -229,11 +233,11 @@ async function callGASPost(actionName, extraPayload = {}) {
 // --- HELPER FETCH GET (SUPABASE BRIDGE) ---
 async function callGASGet(actionName, params = {}) {
   try {
-    // 1. Get Table Data standard
+    // 1. Get Table Data standard dengan Filter Role (Sesuai code.gs)
     if (actionName === 'getTableData') {
       const sheetName = params.sheetName;
       const { data, error } = await db.from(sheetName).select('*');
-      const safeData = makeCaseInsensitive(data);
+      let safeData = makeCaseInsensitive(data);
       
       if (error) {
         console.error('Supabase Fetch Error:', error);
@@ -244,17 +248,106 @@ async function callGASGet(actionName, params = {}) {
         return { status: 'success', headers: [], rows: [] };
       }
 
+      const cleanRole = (session.role || 'warga').toLowerCase();
+      if (cleanRole === 'warga' && session.nik) {
+        if (sheetName.toLowerCase() === 'warga') {
+          // Cari No_KK warga yang sedang login
+          let userKk = '';
+          const targetWarga = safeData.find(w => {
+            let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+            return wNik && wNik.toString().trim() === session.nik.toString().trim();
+          });
+          if (targetWarga) {
+            userKk = cariNilaiKolom(targetWarga, ['kk', 'no_kk']);
+          }
+
+          if (userKk) {
+            safeData = safeData.filter(w => {
+              let wKk = cariNilaiKolom(w, ['kk', 'no_kk']);
+              let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+              return (wKk && wKk === userKk) || (wNik && wNik === session.nik);
+            });
+          } else {
+            safeData = safeData.filter(w => {
+              let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+              return wNik && wNik === session.nik;
+            });
+          }
+        } else {
+          // Untuk sheet lain, filter berdasarkan NIK
+          safeData = safeData.filter(row => {
+            let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
+            return rNik && rNik.toString().trim() === session.nik.toString().trim();
+          });
+        }
+      }
+
+      if (!safeData || safeData.length === 0) {
+        const headers = Object.keys(data[0] || {});
+        return { status: 'success', headers: headers, rows: [] };
+      }
+
       const headers = Object.keys(safeData[0]);
       const rows = safeData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
 
       return { status: 'success', headers: headers, rows: rows };
     }
 
-    // 2. Get Notifications
+    // 2. Get Iuran Data (Sesuai getIuranDataForUser di code.gs)
+    if (actionName === 'getIuranData') {
+      const { data, error } = await db.from('Iuran').select('*');
+      let safeData = makeCaseInsensitive(data);
+      if (error || !safeData) {
+        return { status: 'success', headers: [], rows: [] };
+      }
+
+      const cleanRole = (session.role || 'warga').toLowerCase();
+      if (cleanRole !== 'rt' && session.nik) {
+        let userKk = '';
+        const { data: wargaData } = await db.from('Warga').select('*');
+        const safeWarga = makeCaseInsensitive(wargaData);
+        if (safeWarga) {
+          const targetWarga = safeWarga.find(w => {
+            let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+            return wNik && wNik.toString().trim() === session.nik.toString().trim();
+          });
+          if (targetWarga) {
+            userKk = cariNilaiKolom(targetWarga, ['kk', 'no_kk']);
+          }
+        }
+
+        safeData = safeData.filter(row => {
+          let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
+          let rKk = cariNilaiKolom(row, ['kk', 'no_kk']);
+          return (rNik && rNik.toString().trim() === session.nik.toString().trim()) || (userKk && rKk && rKk === userKk);
+        });
+      }
+
+      if (safeData.length === 0) {
+        const headers = data && data.length > 0 ? Object.keys(data[0]) : ['ID', 'NIK', 'Nama', 'No_KK', 'Bulan', 'Tahun', 'Nominal', 'Status', 'Tanggal_Bayar', 'Diterima_Oleh', 'Bukti_Transfer'];
+        return { status: 'success', headers: headers, rows: [] };
+      }
+
+      const headers = Object.keys(safeData[0]);
+      const rows = safeData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+      return { status: 'success', headers: headers, rows: rows };
+    }
+
+    // 3. Get Notifications
     if (actionName === 'getNotifications') {
-      const { data } = await db.from('Pengaduan').select('id, jenis_aduan, status').limit(5);
-      const safeData = makeCaseInsensitive(data);
-      let notifs = (safeData || []).map(item => ({
+      const { data: wargaList } = await db.from('Pengaduan').select('id, jenis_aduan, status, nik');
+      const safeData = makeCaseInsensitive(wargaList);
+      
+      const cleanRole = (session.role || 'warga').toLowerCase();
+      let filtered = safeData || [];
+      if (cleanRole !== 'rt') {
+        filtered = filtered.filter(item => {
+          let rNik = cariNilaiKolom(item, ['nik']);
+          return rNik && rNik.toString().trim() === session.nik.toString().trim();
+        });
+      }
+
+      let notifs = filtered.slice(0, 5).map(item => ({
         id: item.id || 'NOTIF-' + Math.random(),
         menu: 'Pengaduan',
         pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}`
@@ -262,33 +355,58 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: notifs };
     }
 
-    // 3. Get Info Warga
+    // 4. Get Info Warga
     if (actionName === 'getInfoWarga') {
       const { data } = await db.from('Pengaturan').select('nilai').eq('kunci', 'info_warga').maybeSingle();
       const safeData = makeCaseInsensitive(data);
       return { status: 'success', data: safeData ? safeData.nilai : '' };
     }
 
-    // 4. Get Dashboard Summary
+    // 5. Get Dashboard Summary (Sesuai getDashboardSummary di code.gs)
     if (actionName === 'getDashboardSummary') {
-      const { count: totalWarga } = await db.from('Warga').select('*', { count: 'exact', head: true });
-      const { count: totalAduan } = await db.from('Pengaduan').select('*', { count: 'exact', head: true });
-      const { count: totalKeuangan } = await db.from('Keuangan').select('*', { count: 'exact', head: true });
-      const { count: totalSurat } = await db.from('SuratPengantar').select('*', { count: 'exact', head: true });
-      const { count: totalSumbangan } = await db.from('Sumbangan').select('*', { count: 'exact', head: true });
+      const cleanRole = (session.role || 'warga').toLowerCase();
+      if (cleanRole === 'rt') {
+        const { count: wargaCount } = await db.from('Warga').select('*', { count: 'exact', head: true });
+        const { count: aduanCount } = await db.from('Pengaduan').select('*', { count: 'exact', head: true });
+        const { count: keuCount } = await db.from('Keuangan').select('*', { count: 'exact', head: true });
+        const { count: suratCount } = await db.from('SuratPengantar').select('*', { count: 'exact', head: true });
+        const { count: sumbCount } = await db.from('Sumbangan').select('*', { count: 'exact', head: true });
 
-      return {
-        status: 'success',
-        role: session.role || 'Warga',
-        warga: totalWarga || 0,
-        aduan: totalAduan || 0,
-        keuangan: totalKeuangan || 0,
-        surat: totalSurat || 0,
-        sumbangan: totalSumbangan || 0
-      };
+        return {
+          status: 'success',
+          role: 'RT',
+          warga: wargaCount || 0,
+          aduan: aduanCount || 0,
+          keuangan: keuCount || 0,
+          surat: suratCount || 0,
+          sumbangan: sumbCount || 0
+        };
+      } else {
+        const countByNik = async (tableName) => {
+          const { data } = await db.from(tableName).select('*');
+          const safeData = makeCaseInsensitive(data);
+          if (!safeData) return 0;
+          return safeData.filter(row => {
+            let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
+            return rNik && rNik.toString().trim() === session.nik.toString().trim();
+          }).length;
+        };
+
+        const aduanCount = await countByNik('Pengaduan');
+        const suratCount = await countByNik('SuratPengantar');
+        const sumbanganCount = await countByNik('Sumbangan');
+
+        return {
+          status: 'success',
+          role: 'Warga',
+          aduan: aduanCount,
+          surat: suratCount,
+          sumbangan: sumbanganCount
+        };
+      }
     }
 
-    // 5. Khusus Tarik Daftar Warga untuk Form Iuran RT
+    // 6. Tarik Daftar Warga untuk Form Iuran RT
     if (actionName === 'getDaftarWargaUntukIuran') {
       const { data, error } = await db.from('Warga').select('*');
       const safeData = makeCaseInsensitive(data);
@@ -298,49 +416,73 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: safeData || [] };
     }
 
-    // 6. Smart Profil Data Getter (Universal & Kebal Nama Kolom)
+    // 7. Get Profile Data (Sesuai getProfileData di code.gs)
     if (actionName.toLowerCase().includes('profil') || actionName.toLowerCase().includes('profile')) {
       const nikCari = params.nik || session.nik || session.nama;
       
       const { data: listWarga, error } = await db.from('Warga').select('*');
       const safeWarga = makeCaseInsensitive(listWarga);
 
-      if (error) {
-        console.error('Supabase Profil Error:', error);
-        return { status: 'error', message: error.message };
+      if (error || !safeWarga) {
+        return { status: 'error', message: error ? error.message : 'Data warga tidak ditemukan' };
       }
 
-      let matchedWarga = null;
-      if (safeWarga && safeWarga.length > 0) {
-        if (nikCari && /^\d+$/.test(nikCari)) {
-          matchedWarga = safeWarga.find(w => {
-            let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
-            return wNik && wNik === String(nikCari).trim();
-          });
-        }
-        if (!matchedWarga && nikCari) {
-          matchedWarga = safeWarga.find(w => {
-            let wNama = cariNilaiKolom(w, ['nama', 'name']);
-            return wNama && wNama.toLowerCase().includes(String(nikCari).toLowerCase());
-          });
-        }
-        if (!matchedWarga && session.nama) {
-          matchedWarga = safeWarga.find(w => {
-            let wNama = cariNilaiKolom(w, ['nama', 'name']);
-            return wNama && wNama.toLowerCase().includes(String(session.nama).toLowerCase());
-          });
+      let myData = null;
+      let myKk = '';
+
+      for (let w of safeWarga) {
+        let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+        if (wNik && wNik.toString().trim() === String(nikCari).trim()) {
+          myData = w;
+          myKk = cariNilaiKolom(w, ['kk', 'no_kk']);
+          break;
         }
       }
+
+      if (!myData && nikCari) {
+        myData = safeWarga.find(w => {
+          let wNama = cariNilaiKolom(w, ['nama', 'name']);
+          return wNama && wNama.toLowerCase().includes(String(nikCari).toLowerCase());
+        });
+        if (myData) {
+          myKk = cariNilaiKolom(myData, ['kk', 'no_kk']);
+        }
+      }
+
+      if (!myData) {
+        return { status: 'error', message: 'Profil Anda belum terdaftar!' };
+      }
+
+      let keluarga = [];
+      if (myKk) {
+        keluarga = safeWarga.filter(w => {
+          let wKk = cariNilaiKolom(w, ['kk', 'no_kk']);
+          let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+          let targetNik = cariNilaiKolom(myData, ['nik', 'ktp']);
+          return wKk && wKk === myKk && wNik !== targetNik;
+        });
+      }
+
+      const headers = Object.keys(myData);
+      headers.forEach(h => {
+        if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
+          myData[h] = convertToImageLink(myData[h]);
+          keluarga.forEach(m => { m[h] = convertToImageLink(m[h]); });
+        }
+      });
 
       return {
         status: 'success',
-        data: matchedWarga || {},
-        row: matchedWarga || {},
-        user: matchedWarga || {}
+        pribadi: myData,
+        keluarga: keluarga,
+        headers: headers,
+        data: myData,
+        row: myData,
+        user: myData
       };
     }
 
-    // 7. Smart Dynamic Getter untuk aksi seperti getIuranData, getKeuanganData, dll.
+    // 8. Smart Dynamic Getter
     if (actionName.toLowerCase().startsWith('get') && actionName.toLowerCase().endsWith('data')) {
       let rawName = actionName.replace(/^get/i, '').replace(/data$/i, '');
       let tableName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
