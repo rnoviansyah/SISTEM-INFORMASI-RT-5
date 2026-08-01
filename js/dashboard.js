@@ -1,6 +1,7 @@
 const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri RT 05. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
 
 let infoWargaTimer = null;
+let dashboardCache = null; // Memory cache agar perpindahan menu instan
 
 function linkify(text) {
   if (!text) return '';
@@ -25,26 +26,26 @@ async function simpanInfoWarga() {
   let textarea = document.getElementById('editInfoTextarea');
   let textBaru = textarea ? textarea.value : '';
   
-  if(textBaru) {
+  if (textBaru) {
     let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
-    if(btnSimpan) {
+    if (btnSimpan) {
       btnSimpan.innerText = 'Menyimpan...';
       btnSimpan.disabled = true;
     }
 
     const res = await callGASPost('simpanInfoWarga', { teksBaru: textBaru });
 
-    if(btnSimpan) {
+    if (btnSimpan) {
       btnSimpan.innerText = 'Simpan Perubahan';
       btnSimpan.disabled = false;
     }
     
-    if(res && res.status === 'success') {
+    if (res && res.status === 'success') {
       alert('Informasi Warga berhasil diperbarui!');
       let modalEl = document.getElementById('modalEditInfo');
       if (modalEl) {
         let modalInstance = bootstrap.Modal.getInstance(modalEl);
-        if(modalInstance) modalInstance.hide();
+        if (modalInstance) modalInstance.hide();
       }
       
       // Cleanup backdrop sisa agar layar tidak freeze
@@ -66,7 +67,7 @@ async function bukaModalEditInfo() {
   let modalEl = document.getElementById('modalEditInfo');
   if (!modalEl) return;
 
-  // Pindahkan elemen modal ke body agar tidak terhalang stacking context / z-index dari #main-content
+  // Pindahkan elemen modal ke body agar tidak terhalang z-index/stacking context dari #main-content
   if (modalEl.parentElement !== document.body) {
     document.body.appendChild(modalEl);
   }
@@ -95,13 +96,49 @@ async function bukaModalEditInfo() {
 }
 
 async function loadDashboardView() {
+  currentActiveMenu = 'Dashboard';
+  if (typeof syncActiveNav === 'function') syncActiveNav('Dashboard');
+  
+  let titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.innerText = 'Dashboard Utama';
+  if (document.getElementById('rek-info')) document.getElementById('rek-info').style.display = 'none';
+
   // Hapus modal duplikat jika ada di document.body dari render sebelumnya
   let oldModal = document.getElementById('modalEditInfo');
   if (oldModal) oldModal.remove();
 
-  const res = await callGASGet('getDashboardSummary');
-  if (!res) return;
+  // 1. TAMPILKAN INSTAN JIKA ADA CACHE MEMORI
+  if (dashboardCache) {
+    renderDashboardLayout(dashboardCache);
+    fetchFreshDashboardData(); // Refresh diam-diam di background
+    return;
+  }
 
+  // 2. TAMPILKAN SKELETON LOADING BILA PERTAMA KALI BUKA (0 ms Delay Sensation)
+  document.getElementById('main-content').innerHTML = `
+    <div class="p-2 space-y-4">
+      <div class="animate-pulse bg-blue-100/60 h-24 rounded-2xl w-full mb-3"></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
+        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
+        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
+        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
+      </div>
+    </div>
+  `;
+
+  await fetchFreshDashboardData();
+}
+
+async function fetchFreshDashboardData() {
+  const res = await callGASGet('getDashboardSummary');
+  if (res && res.status === 'success') {
+    dashboardCache = res;
+    renderDashboardLayout(res);
+  }
+}
+
+function renderDashboardLayout(res) {
   let htmlLayout = '';
   
   if (res.role === 'RT') {
