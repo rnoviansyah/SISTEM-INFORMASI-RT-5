@@ -22,7 +22,7 @@ function clearAppCache() {
 // ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
 const SUPABASE_URL = 'https://kcuuylpqhxagcradfmon.supabase.co';
-const SUPABASE_KEY = 'PASTE_PUBLISHABLE_ANON_KEY_LU_DI_SINI'; // Tempel API Key (anon public) dari Project Settings > API
+const SUPABASE_KEY = 'sb_publishable_M_PYShznizS5amNBFQpHYA_zKWVAj_D'; // Tempel API Key (anon public) dari Project Settings > API
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
