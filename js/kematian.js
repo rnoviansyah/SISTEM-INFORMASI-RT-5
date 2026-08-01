@@ -1,24 +1,16 @@
 let rawKematianData = [];
 let selectedKematianRow = null;
 
-// Header Fallback jika tabel Kematian di Supabase masih 0 baris
-const DEFAULT_KEMATIAN_HEADERS = ['nik', 'nama', 'tanggal_kematian', 'penyebab', 'tempat_pemakaman', 'keterangan'];
-
 function renderKematianCustom(data) {
   rawKematianData = data.rows || [];
-  
-  // Jika headers kosong (tabel 0 baris), gunakan default headers
-  if (!data.headers || data.headers.length === 0) {
-    data.headers = DEFAULT_KEMATIAN_HEADERS;
-  }
-  currentHeaders = data.headers;
+  let headers = data.headers.map(h => h.toLowerCase().trim());
 
   let html = `
     <div class="p-1 text-gray-800 font-sans">
       <div class="flex justify-between items-center mb-4">
         <h2 class="font-bold text-base text-gray-800"><i class="bi bi-heartbreak-fill me-2 text-primary"></i>Data Kematian RT 05</h2>
         ${session.role === 'RT' ? `
-          <button onclick="tambahKematianBaru()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+          <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
             + Tambah Kematian Baru
           </button>
         ` : ''}
@@ -30,7 +22,7 @@ function renderKematianCustom(data) {
             <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
               <tr>
                 <th class="p-3 text-center">No</th>`;
-  data.headers.forEach(h => html += `<th class="p-3">${h.replace(/_/g, ' ').toUpperCase()}</th>`);
+  data.headers.forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
   html += `
                 <th class="p-3 text-center">Aksi</th>
               </tr>
@@ -69,7 +61,7 @@ function renderKematianCustom(data) {
 function filterDataKematian() {
   let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
   
-  let headers = (currentHeaders && currentHeaders.length > 0 ? currentHeaders : DEFAULT_KEMATIAN_HEADERS).map(h => h.toLowerCase().trim());
+  let headers = currentHeaders.map(h => h.toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let namaIdx = headers.findIndex(h => h.includes('nama'));
 
@@ -84,10 +76,11 @@ function filterDataKematian() {
   tbody.innerHTML = '';
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${headers.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kematian yang cocok.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kematian yang cocok.</td></tr>`;
   } else {
     filtered.reverse().forEach((r, i) => {
-      let rowId = r[idIdx] || r[0];
+      let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+      let rowId = r[idIdx];
 
       let btnAksi = session.role === 'RT' 
         ? `<button onclick="event.stopPropagation(); bukaModalEdit('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
@@ -97,11 +90,11 @@ function filterDataKematian() {
       rowHtml += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
       
       r.forEach((val, idx) => {
-        let headName = (headers[idx] || '').toLowerCase();
+        let headName = currentHeaders[idx].toLowerCase();
         if (headName.includes('foto') || headName.includes('bukti')) {
           rowHtml += `<td class="p-3">${val && val !== '***Rahasia***' ? `<img src="${val}" class="w-10 h-10 object-cover rounded-lg border shadow-sm" onclick="event.stopPropagation(); bukaPopUpFoto('${val}')">` : '-'}</td>`;
         } else {
-          rowHtml += `<td class="p-3 font-medium text-gray-800">${val || '-'}</td>`;
+          rowHtml += `<td class="p-3 font-medium text-gray-800">${val}</td>`;
         }
       });
 
@@ -111,20 +104,11 @@ function filterDataKematian() {
   }
 }
 
-// Handler Khusus Tambah Kematian Baru
-function tambahKematianBaru() {
-  currentActiveMenu = 'Kematian';
-  if (!currentHeaders || currentHeaders.length === 0) {
-    currentHeaders = DEFAULT_KEMATIAN_HEADERS;
-  }
-  bukaModalForm();
-}
-
 function showDetailKematian(id) {
-  let headers = (currentHeaders && currentHeaders.length > 0 ? currentHeaders : DEFAULT_KEMATIAN_HEADERS).map(h => h.toLowerCase().trim());
+  let headers = currentHeaders.map(h => h.toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   
-  let row = rawKematianData.find(r => r[idIdx] === id || r[0] === id);
+  let row = rawKematianData.find(r => r[idIdx] === id);
   if (!row) return;
 
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
@@ -135,7 +119,7 @@ function showDetailKematian(id) {
     : '';
 
   let detailHtml = '';
-  headers.forEach((h, idx) => {
+  currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
     detailHtml += `
@@ -172,10 +156,7 @@ window.loadMenu = async function(menu) {
 
     const res = await callGASGet('getTableData', { sheetName: 'Kematian' });
     if (res) {
-      if (!res.headers || res.headers.length === 0) {
-        res.headers = DEFAULT_KEMATIAN_HEADERS;
-      }
-      currentHeaders = res.headers;
+      currentHeaders = res.headers || [];
       currentRows = res.rows || [];
       renderKematianCustom(res);
     }
