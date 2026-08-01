@@ -3,12 +3,18 @@ let selectedWargaRow = null;
 
 function renderWargaCustom(data) {
   rawWargaData = data.rows || [];
-  let headers = data.headers.map(h => h.toLowerCase().trim());
+  currentHeaders = data.headers || [];
+  currentRows = data.rows || [];
+  
+  let headers = currentHeaders.map(h => (h || '').toLowerCase().trim());
   
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let nikIdx = headers.indexOf('nik');
-  let namaIdx = headers.findIndex(h => h.includes('nama'));
-  let alamatIdx = headers.findIndex(h => h.includes('alamat'));
+  if (nikIdx === -1) nikIdx = headers.findIndex(h => h.includes('nik') || h.includes('ktp'));
+  if (nikIdx === -1) nikIdx = 0;
+
+  let namaIdx = headers.findIndex(h => h.includes('nama') || h.includes('name'));
+  if (namaIdx === -1) namaIdx = headers.length > 1 ? 1 : 0;
 
   let html = `
     <div class="p-1 text-gray-800 font-sans">
@@ -69,14 +75,19 @@ function renderWargaCustom(data) {
 function filterDataWarga() {
   let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
   
-  let headers = currentHeaders.map(h => h.toLowerCase().trim());
+  let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
   let nikIdx = headers.indexOf('nik');
-  let namaIdx = headers.findIndex(h => h.includes('nama'));
+  if (nikIdx === -1) nikIdx = headers.findIndex(h => h.includes('nik') || h.includes('ktp'));
+  if (nikIdx === -1) nikIdx = 0;
+
+  let namaIdx = headers.findIndex(h => h.includes('nama') || h.includes('name'));
+  if (namaIdx === -1) namaIdx = headers.length > 1 ? 1 : 0;
+
+  let alamatIdx = headers.findIndex(h => h.includes('alamat') || h.includes('address'));
 
   let filtered = [...rawWargaData].filter(row => {
-    let nikText = (row[nikIdx] || '').toLowerCase();
-    let namaText = (row[namaIdx] || '').toLowerCase();
-    return nikText.includes(searchVal) || namaText.includes(searchVal);
+    if (!searchVal) return true;
+    return row.some(val => String(val || '').toLowerCase().includes(searchVal));
   });
 
   let tbody = document.getElementById('warga-table-body');
@@ -87,10 +98,9 @@ function filterDataWarga() {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
   } else {
     filtered.forEach((r, i) => {
-      let nikVal = r[nikIdx] || '-';
-      let namaVal = r[namaIdx] || '-';
-      let alamatIdx = headers.findIndex(h => h.includes('alamat'));
-      let alamatVal = alamatIdx > -1 ? r[alamatIdx] : '-';
+      let nikVal = r[nikIdx] !== undefined ? r[nikIdx] : (r[0] || '-');
+      let namaVal = r[namaIdx] !== undefined ? r[namaIdx] : (r[1] || '-');
+      let alamatVal = alamatIdx > -1 && r[alamatIdx] !== undefined ? r[alamatIdx] : '-';
       let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
       let rowId = r[idIdx] || nikVal;
 
@@ -111,11 +121,12 @@ function filterDataWarga() {
 }
 
 function showDetailWarga(id) {
-  let headers = currentHeaders.map(h => h.toLowerCase().trim());
+  let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let nikIdx = headers.indexOf('nik');
+  if (nikIdx === -1) nikIdx = 0;
   
-  let row = rawWargaData.find(r => (r[idIdx] === id || r[nikIdx] === id));
+  let row = rawWargaData.find(r => (String(r[idIdx]) === String(id) || String(r[nikIdx]) === String(id)));
   if (!row) return;
 
   selectedWargaRow = row;
@@ -128,7 +139,7 @@ function showDetailWarga(id) {
 
   let detailHtml = '';
   currentHeaders.forEach((h, idx) => {
-    let hLower = h.toLowerCase().trim();
+    let hLower = (h || '').toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
     detailHtml += `
       <div class="border-b pb-1">
@@ -157,9 +168,11 @@ function tutupDetailWarga() {
 
 async function loadWargaView() {
   const res = await callGASGet('getTableData', { sheetName: 'Warga' });
-  if (res) {
+  if (res && res.status === 'success') {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderWargaCustom(res);
+  } else {
+    document.getElementById('main-content').innerHTML = `<div class="alert alert-danger text-center my-3">${res ? res.message : 'Gagal memuat data warga'}</div>`;
   }
 }
