@@ -101,7 +101,7 @@ function renderIuranCustom(data) {
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS di bawah ini dengan e-wallet atau m-banking Anda:</p>
           <div class="bg-gray-50 p-3 rounded-xl border inline-block">
-            <img src="https://lh3.googleusercontent.com/d/1CK3yF3Y7YMkDpiv2urCLxP5fpuqmD7zC" class="w-36 h-36 mx-auto rounded-lg">
+            <img src="https://lh3.googleusercontent.com/d/1CK3yF3Y7YMkDpiv2urCLxP5fpuqmD7zC" class="w-48 h-auto mx-auto rounded-lg object-contain">
           </div>
           <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
@@ -338,7 +338,6 @@ async function bukaModalTambahIuranRT() {
   
   if (res && res.status === 'success' && res.data) {
     res.data.forEach(w => {
-      // Menggunakan helper cariNilaiKolom agar aman terhadap skema nama kolom Supabase
       let wNik = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['nik', 'ktp']) : '') || w.nik || w.NIK || '';
       let wNama = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['nama_lengkap', 'nama', 'name', 'nama_panggilan']) : '') || w.nama || w.Nama || '';
       let wKk = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['no_kk', 'kk', 'nomor_kk']) : '') || w.no_kk || w.KK || '';
@@ -412,7 +411,6 @@ function isiOtomatisWarga(selectEl) {
   let nama = opt.getAttribute('data-nama') || '';
   let kk = opt.getAttribute('data-kk') || '';
 
-  // Mencegah string 'undefined' masuk ke dalam input form
   if (nik === 'undefined') nik = '';
   if (nama === 'undefined') nama = '';
   if (kk === 'undefined') kk = '';
