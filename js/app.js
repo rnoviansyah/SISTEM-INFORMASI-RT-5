@@ -41,30 +41,36 @@ function convertToImageLink(url) {
 // --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    // 1. Process Login (Terpusat di Tabel Users & Aman Tipe Data)
+    // 1. Process Login (Super Tangguh & Fleksibel)
     if (actionName === 'processLogin') {
-      const { username, password } = extraPayload;
-      try {
-        let query = db.from('Users').select('*');
+      const uClean = extraPayload.username ? extraPayload.username.toString().trim() : '';
+      const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
 
-        // Jika input hanya berisi angka (NIK), cari di username ATAU nik
-        // Jika input mengandung huruf (seperti 'adminrt'), cari di username saja
-        const isNumeric = /^\d+$/.test(username);
+      try {
+        const isNumeric = /^\d+$/.test(uClean);
+        let query = db.from('Users').select('*');
+        
         if (isNumeric) {
-          query = query.or(`username.eq.${username},nik.eq.${username}`);
+          query = query.or(`username.ilike.${uClean},nik.eq.${uClean}`);
         } else {
-          query = query.eq('username', username);
+          query = query.ilike('username', uClean);
         }
 
-        const { data: user, error } = await query.eq('password', password).maybeSingle();
+        const { data: users, error } = await query;
 
         if (error) {
           console.error('Supabase Login Error:', error);
           return { status: 'error', message: 'Error Database: ' + error.message };
         }
 
+        if (!users || users.length === 0) {
+          return { status: 'error', message: 'Username / NIK tidak ditemukan!' };
+        }
+
+        const user = users.find(x => x.password !== null && x.password !== undefined && String(x.password).trim() === pClean);
+
         if (!user) {
-          return { status: 'error', message: 'Username / NIK atau Password salah!' };
+          return { status: 'error', message: 'Password salah!' };
         }
 
         const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
@@ -206,7 +212,45 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    return { status: 'error', message: 'Aksi GET tidak dikenal' };
+    // 5. Get Profil Data (Untuk Menu Profil Saya)
+    if (actionName === 'getProfilData' || actionName === 'getProfil' || actionName === 'getProfilWarga') {
+      const nikCari = params.nik || session.nik || session.nama;
+      
+      let query = db.from('Warga').select('*');
+      if (/^\d+$/.test(nikCari)) {
+        query = query.eq('nik', nikCari);
+      } else {
+        query = query.ilike('nama', `%${nikCari}%`);
+      }
+
+      const { data, error } = await query.maybeSingle();
+
+      if (error) {
+        console.error('Supabase Profil Error:', error);
+        return { status: 'error', message: error.message };
+      }
+
+      return {
+        status: 'success',
+        data: data || {},
+        row: data || {},
+        user: data || {}
+      };
+    }
+
+    // Fallback Otomatis: Jika actionName berupa nama tabel langsung
+    try {
+      const { data, error } = await db.from(actionName).select('*');
+      if (!error && data) {
+        const headers = data.length > 0 ? Object.keys(data[0]) : [];
+        const rows = data.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+        return { status: 'success', headers: headers, rows: rows, data: data };
+      }
+    } catch (e) {
+      // abaikan error fallback
+    }
+
+    return { status: 'error', message: 'Aksi GET tidak dikenal: ' + actionName };
   } catch (err) {
     console.error('Fetch Error (GET):', err);
     return { status: 'error', message: 'Gagal memuat data Supabase: ' + err.message };
