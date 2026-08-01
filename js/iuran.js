@@ -100,10 +100,27 @@ function renderIuranCustom(data) {
 
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
-          <div class="bg-gray-50 p-3 rounded-xl border inline-block">
-            <img id="qris-dynamic-img" src="" class="w-48 h-auto mx-auto rounded-lg object-contain">
+          
+          <!-- FRAME QRIS CUSTOM ELEGAN -->
+          <div class="bg-gradient-to-b from-red-600 to-blue-800 p-1 rounded-2xl shadow-md inline-block my-1">
+            <div class="bg-white p-3 rounded-xl space-y-1">
+              <div class="flex justify-between items-center px-1 border-b pb-1">
+                <span class="font-black text-[10px] tracking-widest text-red-600 italic">QRIS</span>
+                <span class="text-[9px] font-bold text-gray-500">QUICK RESPONSE CODE INDONESIA STANDARD</span>
+              </div>
+              
+              <div class="py-1">
+                <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
+              </div>
+              
+              <div class="border-t pt-1">
+                <p class="text-[10px] font-extrabold text-gray-800">SHN GROUP / KAS RT 05</p>
+                <p class="text-[9px] text-blue-600 font-bold">A.N RIZKY NOVIANSYAH</p>
+              </div>
+            </div>
           </div>
-          <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
+          
+          <p class="text-[9px] text-gray-400">Didukung oleh DANA / QRIS Nasional</p>
         </div>
 
         <div id="content-tf" class="hidden space-y-2 text-xs">
@@ -266,10 +283,8 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   let fileInp = document.getElementById('iuran-bukti-file');
   if (fileInp) fileInp.value = '';
 
-  // String QRIS asli dari lu
   let baseStaticQris = "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
   
-  // Generate QRIS Dinamis berdasarkan nominal tagihan
   let qrisDinamisString = generateDynamicQRIS(baseStaticQris, nominal);
   
   let qrImgEl = document.getElementById('qris-dynamic-img');
