@@ -22,7 +22,7 @@ function clearAppCache() {
 // ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
 const SUPABASE_URL = 'https://kcuuylpqhxagcradfmon.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXV5bHBxaHhhZ2NyYWRmbW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NjI5NTEsImV4cCI6MjEwMTEzODk1MX0.kI7sP46AIOLsJKyAg4DWQTNhCWCh22PwFMDogXoUlyg'; // Tempel API Key (anon public) dari Project Settings > API
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXV5bHBxaHhhZ2NyYWRmbW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NjI5NTEsImV4cCI6MjEwMTEzODk1MX0.kI7sP46AIOLsJKyAg4DWQTNhCWCh22PwFMDogXoUlyg'; // API Key (anon public)
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -41,42 +41,45 @@ function convertToImageLink(url) {
 // --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    // 1. Process Login
+    // 1. Process Login (Terpusat di Tabel Users & Aman Tipe Data)
     if (actionName === 'processLogin') {
       const { username, password } = extraPayload;
-      let user = null;
+      try {
+        let query = db.from('Users').select('*');
 
-      const { data: userData } = await db.from('Users')
-        .select('*')
-        .or(`username.eq.${username},nik.eq.${username}`)
-        .eq('password', password)
-        .maybeSingle();
-      
-      if (userData) {
-        user = userData;
-      } else {
-        const { data: wargaData } = await db.from('Warga')
-          .select('*')
-          .eq('nik', username)
-          .eq('password', password)
-          .maybeSingle();
-        if (wargaData) user = wargaData;
+        // Jika input hanya berisi angka (NIK), cari di username ATAU nik
+        // Jika input mengandung huruf (seperti 'adminrt'), cari di username saja
+        const isNumeric = /^\d+$/.test(username);
+        if (isNumeric) {
+          query = query.or(`username.eq.${username},nik.eq.${username}`);
+        } else {
+          query = query.eq('username', username);
+        }
+
+        const { data: user, error } = await query.eq('password', password).maybeSingle();
+
+        if (error) {
+          console.error('Supabase Login Error:', error);
+          return { status: 'error', message: 'Error Database: ' + error.message };
+        }
+
+        if (!user) {
+          return { status: 'error', message: 'Username / NIK atau Password salah!' };
+        }
+
+        const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
+        return {
+          status: 'success',
+          token: 'token-' + (user.username || user.nik || Date.now()),
+          role: (roleClean === 'rt') ? 'RT' : 'Warga',
+          nik: user.nik || user.username || '',
+          nama: user.nama || user.username || 'Warga',
+          alamat: user.alamat || '',
+          noHp: user.no_hp || user.nohp || ''
+        };
+      } catch (err) {
+        return { status: 'error', message: 'Gagal login: ' + err.message };
       }
-
-      if (!user) {
-        return { status: 'error', message: 'Username / NIK atau Password salah!' };
-      }
-
-      const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
-      return {
-        status: 'success',
-        token: 'token-' + (user.nik || user.username || Date.now()),
-        role: (roleClean === 'rt') ? 'RT' : 'Warga',
-        nik: user.nik || '',
-        nama: user.nama || user.nama_lengkap || '',
-        alamat: user.alamat || '',
-        noHp: user.no_hp || user.nohp || user.no_wa || ''
-      };
     }
 
     // 2. Simpan Data Baru
