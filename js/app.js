@@ -176,7 +176,7 @@ async function callGASPost(actionName, extraPayload = {}) {
 // --- HELPER FETCH GET (SUPABASE BRIDGE) ---
 async function callGASGet(actionName, params = {}) {
   try {
-    // 1. Get Table Data
+    // 1. Get Table Data standard
     if (actionName === 'getTableData') {
       const sheetName = params.sheetName;
       const { data, error } = await db.from(sheetName).select('*');
@@ -232,14 +232,23 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    // 5. Get Profil Data
-    if (actionName === 'getProfilData' || actionName === 'getProfileData' || actionName === 'getProfil' || actionName === 'getProfilWarga') {
+    // 5. Khusus Tarik Daftar Warga untuk Form Iuran RT
+    if (actionName === 'getDaftarWargaUntukIuran') {
+      const { data, error } = await db.from('Warga').select('*');
+      if (error) {
+        return { status: 'error', message: error.message };
+      }
+      return { status: 'success', data: data || [] };
+    }
+
+    // 6. Smart Profil Data Getter
+    if (actionName.toLowerCase().includes('profil') || actionName.toLowerCase().includes('profile')) {
       const nikCari = params.nik || session.nik || session.nama;
       
       let query = db.from('Warga').select('*');
-      if (/^\d+$/.test(nikCari)) {
+      if (nikCari && /^\d+$/.test(nikCari)) {
         query = query.eq('nik', nikCari);
-      } else {
+      } else if (nikCari) {
         query = query.ilike('nama', `%${nikCari}%`);
       }
 
@@ -258,16 +267,17 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    // Fallback Otomatis: Jika actionName berupa nama tabel langsung
-    try {
-      const { data, error } = await db.from(actionName).select('*');
+    // 7. Smart Dynamic Getter untuk aksi seperti getIuranData, getKeuanganData, dll.
+    if (actionName.toLowerCase().startsWith('get') && actionName.toLowerCase().endsWith('data')) {
+      let rawName = actionName.replace(/^get/i, '').replace(/data$/i, '');
+      let tableName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+      
+      const { data, error } = await db.from(tableName).select('*');
       if (!error && data) {
         const headers = data.length > 0 ? Object.keys(data[0]) : [];
         const rows = data.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
         return { status: 'success', headers: headers, rows: rows, data: data };
       }
-    } catch (e) {
-      // abaikan error fallback
     }
 
     return { status: 'error', message: 'Aksi GET tidak dikenal: ' + actionName };
@@ -480,7 +490,7 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-// --- FUNGSI NAVIGASI MENU (LANGSUNG FETCH DARI SERVER) ---
+// --- FUNGSI NAVIGASI MENU ---
 async function loadMenu(menu) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
