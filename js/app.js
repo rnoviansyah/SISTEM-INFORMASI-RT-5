@@ -614,28 +614,29 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: target ? target.nilai : '' };
     }
 
-    // 7. Get Dashboard Summary
+    // 7. Get Dashboard Summary (Optimized Parallel Fetch)
     if (actionName === 'getDashboardSummary') {
       const cleanRole = (session.role || 'warga').toLowerCase();
       if (cleanRole === 'rt') {
-        const { data: wList } = await safeSupabaseSelect('Warga');
-        const { data: aList } = await safeSupabaseSelect('Pengaduan');
-        const { data: kList } = await safeSupabaseSelect('Keuangan');
-        const { data: sList } = await safeSupabaseSelect('SuratPengantar');
-        const { data: sumList } = await safeSupabaseSelect('Sumbangan');
+        const [wRes, aRes, kRes, sRes, sumRes] = await Promise.all([
+          safeSupabaseSelect('Warga'),
+          safeSupabaseSelect('Pengaduan'),
+          safeSupabaseSelect('Keuangan'),
+          safeSupabaseSelect('SuratPengantar'),
+          safeSupabaseSelect('Sumbangan')
+        ]);
 
         return {
           status: 'success',
           role: 'RT',
-          warga: wList.length,
-          aduan: aList.length,
-          keuangan: kList.length,
-          surat: sList.length,
-          sumbangan: sumList.length
+          warga: wRes.data ? wRes.data.length : 0,
+          aduan: aRes.data ? aRes.data.length : 0,
+          keuangan: kRes.data ? kRes.data.length : 0,
+          surat: sRes.data ? sRes.data.length : 0,
+          sumbangan: sumRes.data ? sumRes.data.length : 0
         };
       } else {
-        const countByNik = async (tableName) => {
-          const { data: safeData } = await safeSupabaseSelect(tableName);
+        const countByNik = (safeData) => {
           if (!safeData) return 0;
           return safeData.filter(row => {
             let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
@@ -643,16 +644,18 @@ async function callGASGet(actionName, params = {}) {
           }).length;
         };
 
-        const aduanCount = await countByNik('Pengaduan');
-        const suratCount = await countByNik('SuratPengantar');
-        const sumbanganCount = await countByNik('Sumbangan');
+        const [aRes, sRes, sumRes] = await Promise.all([
+          safeSupabaseSelect('Pengaduan'),
+          safeSupabaseSelect('SuratPengantar'),
+          safeSupabaseSelect('Sumbangan')
+        ]);
 
         return {
           status: 'success',
           role: 'Warga',
-          aduan: aduanCount,
-          surat: suratCount,
-          sumbangan: sumbanganCount
+          aduan: countByNik(aRes.data),
+          surat: countByNik(sRes.data),
+          sumbangan: countByNik(sumRes.data)
         };
       }
     }
@@ -802,19 +805,18 @@ function applySessionUI() {
     if (session.token && document.visibilityState === "visible") {
       fetchNotifikasi();
 
-      if (currentActiveMenu === 'Dashboard' && typeof loadDashboardView === 'function') {
-        const res = await callGASGet('getInfoWarga');
-        if (res && res.status === 'success') {
-          let currentText = res.data || '';
-          if (currentText !== lastInfoWargaText) {
-            lastInfoWargaText = currentText;
-            loadDashboardView();
-            console.log("📢 Info Warga diperbarui di server, me-refresh dashboard...");
-          }
+      // HANYA UPDATE TEKS INFO WARGA SECARA PASIF (TETAP AMAN & TIDAK ME-RELOAD DASHBOARD)
+      if (currentActiveMenu === 'Dashboard' && typeof muatInfoWargaRealtime === 'function') {
+        let isModalOpen = document.body.classList.contains('modal-open') || 
+                          document.querySelector('.modal.show') || 
+                          document.querySelector('#modal-kelola-aset:not(.hidden)');
+        
+        if (!isModalOpen) {
+          muatInfoWargaRealtime();
         }
       }
     }
-  }, 5000);
+  }, 10000);
 }
 
 function doLogout() {
@@ -1163,7 +1165,9 @@ async function generateFormInputs(rowData) {
 }
 
 // --- FUNGSI SUBMIT FORM & HAPUS DATA ---
-function submitFormBaru() {
+function submitFormBaru(e) {
+  if (e) e.preventDefault();
+
   let inputs = document.querySelectorAll('.dynamic-input');
   let fileInputs = document.querySelectorAll('.dynamic-file-input');
   let payload = {};
@@ -1309,6 +1313,11 @@ function filterTable() {
 document.addEventListener("DOMContentLoaded", function() {
   checkExistingSession();
 
+  // Mencegah reload halaman secara otomatis saat tombol Enter ditekan pada form
+  document.addEventListener('submit', function(e) {
+    e.preventDefault();
+  });
+
   window.copySingleRek = function(nomor) {
     navigator.clipboard.writeText(nomor).then(() => {
       alert("Nomor rekening " + nomor + " berhasil disalin ke clipboard!");
@@ -1319,15 +1328,13 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // ==========================================================
-// ==== TAB FOCUS REFRESH ===================================
+// ==== TAB FOCUS REFRESH (TANPA RE-RENDER MENU KESELURUHAN) =
 // ==========================================================
 
 document.addEventListener("visibilitychange", function() {
+  // Hanya perbarui notifikasi secara silent tanpa me-reload layar/menu utama
   if (document.visibilityState === "visible" && session.token) {
     fetchNotifikasi();
-    if (currentActiveMenu) {
-      loadMenu(currentActiveMenu);
-    }
   }
 });
 
