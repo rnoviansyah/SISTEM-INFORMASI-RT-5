@@ -68,23 +68,31 @@ async function callGASPost(actionName, extraPayload = {}) {
           return { status: 'error', message: 'Password salah!' };
         }
 
-        // 🔍 Cari Data Nama Lengkap Asli di Tabel Warga berdasarkan NIK / Username
-        let namaLengkap = user.username;
+        // 🔍 Cari Data Nama Lengkap Asli di Tabel Warga secara Aman & Pasti Nemu
+        let namaLengkap = '';
         let alamatLengkap = '';
         let noHpLengkap = '';
 
-        const userNik = user.nik || user.username;
-        if (userNik) {
-          const { data: dataWarga } = await db.from('Warga')
-            .select('*')
-            .or(`nik.eq.${userNik},nama.ilike.%${user.username}%`)
-            .maybeSingle();
-
-          if (dataWarga) {
-            namaLengkap = dataWarga.nama || dataWarga.nama_lengkap || user.username;
-            alamatLengkap = dataWarga.alamat || '';
-            noHpLengkap = dataWarga.no_hp || dataWarga.nohp || dataWarga.no_wa || '';
+        const userNik = (user.nik || user.username || '').toString().trim();
+        
+        // Tarik semua data Warga lalu cocokan via JS (100% anti gagal kueri)
+        const { data: listWarga } = await db.from('Warga').select('*');
+        if (listWarga && listWarga.length > 0) {
+          let matchedWarga = listWarga.find(w => w.nik && String(w.nik).trim() === userNik);
+          if (!matchedWarga) {
+            matchedWarga = listWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
           }
+
+          if (matchedWarga) {
+            namaLengkap = matchedWarga.nama || matchedWarga.nama_lengkap || '';
+            alamatLengkap = matchedWarga.alamat || '';
+            noHpLengkap = matchedWarga.no_hp || matchedWarga.nohp || matchedWarga.no_wa || '';
+          }
+        }
+
+        // Fallback terakhir kalau di tabel Warga beneran gak ada
+        if (!namaLengkap) {
+          namaLengkap = user.username || 'Warga';
         }
 
         const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
@@ -93,7 +101,7 @@ async function callGASPost(actionName, extraPayload = {}) {
           token: 'token-' + (user.username || user.nik || Date.now()),
           role: (roleClean === 'rt') ? 'RT' : 'Warga',
           nik: user.nik || user.username || '',
-          nama: namaLengkap, // 👈 Ambil nama asli dari tabel Warga!
+          nama: namaLengkap, // 👈 Nama asli dari tabel Warga!
           alamat: alamatLengkap,
           noHp: noHpLengkap
         };
