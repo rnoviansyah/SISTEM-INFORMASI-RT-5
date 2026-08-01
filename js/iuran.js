@@ -99,9 +99,9 @@ function renderIuranCustom(data) {
         </div>
 
         <div id="content-qris" class="text-center space-y-2">
-          <p class="text-[10px] text-gray-500">Scan QRIS di bawah ini dengan e-wallet atau m-banking Anda:</p>
+          <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-gray-50 p-3 rounded-xl border inline-block">
-            <img src="https://lh3.googleusercontent.com/d/1CK3yF3Y7YMkDpiv2urCLxP5fpuqmD7zC" class="w-48 h-auto mx-auto rounded-lg object-contain">
+            <img id="qris-dynamic-img" src="" class="w-48 h-auto mx-auto rounded-lg object-contain">
           </div>
           <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
@@ -189,7 +189,6 @@ function renderListBulanDatabase(rows, headers) {
           </div>`;
       }
     } else {
-      // STATUS: BELUM LUNAS
       if (session.role === 'RT') {
         badgeHtml = `
           <div class="text-right flex flex-col items-end gap-1">
@@ -213,14 +212,70 @@ function renderListBulanDatabase(rows, headers) {
   });
 }
 
+// --- FUNGSI GENERATOR QRIS DINAMIS ---
+function calculateCRC16(str) {
+  let crc = 0xFFFF;
+  for (let c = 0; c < str.length; c++) {
+    crc ^= str.charCodeAt(c) << 8;
+    for (let i = 0; i < 8; i++) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  let hex = (crc & 0xFFFF).toString(16).toUpperCase();
+  while (hex.length < 4) hex = '0' + hex;
+  return hex;
+}
+
+function generateDynamicQRIS(staticQris, nominal) {
+  let qris = staticQris.trim();
+  
+  if (qris.includes('010211')) {
+    qris = qris.replace('010211', '010212');
+  }
+  
+  if (qris.includes('6304')) {
+    qris = qris.split('6304')[0];
+  }
+  
+  let amountStr = Math.round(nominal).toString();
+  let lenStr = amountStr.length < 10 ? '0' + amountStr.length : amountStr.length.toString();
+  let tag54 = '54' + lenStr + amountStr;
+  
+  if (qris.includes('5802ID')) {
+    qris = qris.replace('5802ID', tag54 + '5802ID');
+  } else {
+    qris += tag54;
+  }
+  
+  qris += '6304';
+  let crc = calculateCRC16(qris);
+  return qris + crc;
+}
+
 function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   activeBayarId = id;
   let infoEl = document.getElementById('info-bayar-target');
   if (infoEl) {
     infoEl.innerText = `Iuran ${bulan} ${tahun} - Rp ${Number(nominal).toLocaleString('id-ID')}`;
   }
+  
   let fileInp = document.getElementById('iuran-bukti-file');
   if (fileInp) fileInp.value = '';
+
+  // String QRIS asli dari lu
+  let baseStaticQris = "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
+  
+  // Generate QRIS Dinamis berdasarkan nominal tagihan
+  let qrisDinamisString = generateDynamicQRIS(baseStaticQris, nominal);
+  
+  let qrImgEl = document.getElementById('qris-dynamic-img');
+  if (qrImgEl) {
+    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrisDinamisString)}`;
+  }
 
   let modal = document.getElementById('modal-bayar-iuran');
   if (modal) modal.classList.remove('hidden');
