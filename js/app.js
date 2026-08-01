@@ -20,7 +20,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Helper Case-Insensitive Objek Supabase (Anti pusing beda huruf besar/kecil di kolom DB)
+// Helper Case-Insensitive Objek Supabase
 function caseInsensitiveObj(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   return new Proxy(obj, {
@@ -41,6 +41,23 @@ function makeCaseInsensitive(data) {
   return data;
 }
 
+// Helper Universal Cari Data Warga (Kebal Nama Kolom Supabase)
+function cariNilaiKolom(row, keywords) {
+  if (!row) return '';
+  for (let key of Object.keys(row)) {
+    let kLower = key.toLowerCase();
+    for (let kw of keywords) {
+      if (kLower.includes(kw)) {
+        let val = row[key];
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
+          return String(val).trim();
+        }
+      }
+    }
+  }
+  return '';
+}
+
 // Helper Konversi URL Google Drive ke Direct Image LH3
 function convertToImageLink(url) {
   if (!url) return "";
@@ -56,7 +73,7 @@ function convertToImageLink(url) {
 // --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    // 1. Process Login (Penanganan Khusus Admin & Warga)
+    // 1. Process Login (Pencocokan Universal Akun Warga & RT)
     if (actionName === 'processLogin') {
       const uClean = extraPayload.username ? extraPayload.username.toString().trim() : '';
       const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
@@ -78,7 +95,10 @@ async function callGASPost(actionName, extraPayload = {}) {
           return { status: 'error', message: 'Username / NIK tidak ditemukan!' };
         }
 
-        const user = safeUsers.find(x => x.password !== null && x.password !== undefined && String(x.password).trim() === pClean);
+        const user = safeUsers.find(x => {
+          let pass = x.password || x.pass || x.pwd || '';
+          return String(pass).trim() === pClean;
+        });
 
         if (!user) {
           return { status: 'error', message: 'Password salah!' };
@@ -87,41 +107,51 @@ async function callGASPost(actionName, extraPayload = {}) {
         let namaLengkap = '';
         let alamatLengkap = '';
         let noHpLengkap = '';
+        let nikUser = cariNilaiKolom(user, ['nik', 'ktp']) || uClean;
 
-        const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
+        const roleClean = (user.role || '').toString().trim().toLowerCase();
 
-        if (roleClean === 'rt' || user.username.toLowerCase() === 'adminrt') {
+        if (roleClean === 'rt' || uClean.toLowerCase() === 'adminrt') {
           namaLengkap = 'Administrator RT 05';
           alamatLengkap = 'Wilayah RT 05';
           noHpLengkap = noWaAdmin;
         } else {
-          const userNik = (user.nik || user.username || '').toString().trim();
           const { data: listWarga } = await db.from('Warga').select('*');
           const safeWarga = makeCaseInsensitive(listWarga);
           
           if (safeWarga && safeWarga.length > 0) {
-            let matchedWarga = safeWarga.find(w => w.nik && String(w.nik).trim() === userNik);
+            // Cari berdasarkan NIK/KTP universal
+            let matchedWarga = safeWarga.find(w => {
+              let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+              return wNik && wNik === nikUser;
+            });
+
+            // Jika tidak ketemu via NIK, cari via Username / Nama
             if (!matchedWarga) {
-              matchedWarga = safeWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
+              matchedWarga = safeWarga.find(w => {
+                let wNama = cariNilaiKolom(w, ['nama', 'name']);
+                return wNama && wNama.toLowerCase().includes(uClean.toLowerCase());
+              });
             }
 
             if (matchedWarga) {
-              namaLengkap = matchedWarga.nama || matchedWarga.nama_lengkap || '';
-              alamatLengkap = matchedWarga.alamat || '';
-              noHpLengkap = matchedWarga.no_hp || matchedWarga.nohp || matchedWarga.no_wa || '';
+              namaLengkap = cariNilaiKolom(matchedWarga, ['nama', 'name']);
+              alamatLengkap = cariNilaiKolom(matchedWarga, ['alamat', 'address']);
+              noHpLengkap = cariNilaiKolom(matchedWarga, ['hp', 'wa', 'telp', 'phone']);
+              nikUser = cariNilaiKolom(matchedWarga, ['nik', 'ktp']) || nikUser;
             }
           }
         }
 
         if (!namaLengkap) {
-          namaLengkap = user.username || 'Warga';
+          namaLengkap = uClean || 'Warga';
         }
 
         return {
           status: 'success',
-          token: 'token-' + (user.username || user.nik || Date.now()),
-          role: (roleClean === 'rt') ? 'RT' : 'Warga',
-          nik: user.nik || user.username || '',
+          token: 'token-' + (uClean || Date.now()),
+          role: (roleClean === 'rt' || uClean.toLowerCase() === 'adminrt') ? 'RT' : 'Warga',
+          nik: nikUser,
           nama: namaLengkap,
           alamat: alamatLengkap,
           noHp: noHpLengkap
@@ -268,30 +298,45 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: safeData || [] };
     }
 
-    // 6. Smart Profil Data Getter
+    // 6. Smart Profil Data Getter (Universal & Kebal Nama Kolom)
     if (actionName.toLowerCase().includes('profil') || actionName.toLowerCase().includes('profile')) {
       const nikCari = params.nik || session.nik || session.nama;
       
-      let query = db.from('Warga').select('*');
-      if (nikCari && /^\d+$/.test(nikCari)) {
-        query = query.eq('nik', nikCari);
-      } else if (nikCari) {
-        query = query.ilike('nama', `%${nikCari}%`);
-      }
-
-      const { data, error } = await query.maybeSingle();
-      const safeData = makeCaseInsensitive(data);
+      const { data: listWarga, error } = await db.from('Warga').select('*');
+      const safeWarga = makeCaseInsensitive(listWarga);
 
       if (error) {
         console.error('Supabase Profil Error:', error);
         return { status: 'error', message: error.message };
       }
 
+      let matchedWarga = null;
+      if (safeWarga && safeWarga.length > 0) {
+        if (nikCari && /^\d+$/.test(nikCari)) {
+          matchedWarga = safeWarga.find(w => {
+            let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
+            return wNik && wNik === String(nikCari).trim();
+          });
+        }
+        if (!matchedWarga && nikCari) {
+          matchedWarga = safeWarga.find(w => {
+            let wNama = cariNilaiKolom(w, ['nama', 'name']);
+            return wNama && wNama.toLowerCase().includes(String(nikCari).toLowerCase());
+          });
+        }
+        if (!matchedWarga && session.nama) {
+          matchedWarga = safeWarga.find(w => {
+            let wNama = cariNilaiKolom(w, ['nama', 'name']);
+            return wNama && wNama.toLowerCase().includes(String(session.nama).toLowerCase());
+          });
+        }
+      }
+
       return {
         status: 'success',
-        data: safeData || {},
-        row: safeData || {},
-        user: safeData || {}
+        data: matchedWarga || {},
+        row: matchedWarga || {},
+        user: matchedWarga || {}
       };
     }
 
