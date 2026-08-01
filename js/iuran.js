@@ -111,8 +111,9 @@ function renderIuranCustom(data) {
 
         <div id="content-tf" class="hidden space-y-2 text-xs">
           <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-1">
-            <p class="text-gray-500 font-bold">Bank BRI: <span class="text-blue-700 font-mono">231313</span></p>
+            <p class="text-gray-500 font-bold">Bank BRI: <span class="text-blue-700 font-mono">026101100276505</span></p>
             <p class="text-gray-500 font-bold">DANA: <span class="text-blue-700 font-mono">08973366667</span></p>
+            <p class="text-gray-500 font-bold">GoPay: <span class="text-blue-700 font-mono">08973366667</span></p>
             <p class="text-[10px] text-gray-400">Atas Nama: RIZKY NOVIANSYAH</p>
           </div>
         </div>
