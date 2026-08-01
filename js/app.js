@@ -223,96 +223,6 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Informasi warga berhasil diperbarui!' };
     }
 
-    // 6. Simpan Pengajuan Peminjaman Barang oleh Warga
-    if (actionName === 'simpanPengajuanPeminjaman') {
-      let p = extraPayload.payload || extraPayload;
-      let newId = 'PMJ-' + Math.floor(1000 + Math.random() * 9000);
-
-      let insertObj = {
-        id: newId,
-        nama_peminjam: p.namaPeminjam || session.nama,
-        id_barang: p.idBarang || p.id_barang || '',
-        nama_barang: p.namaBarang || '',
-        jumlah: p.jumlah || 1,
-        jumlah_minta: p.jumlah || 1,
-        jumlah_acc: 0,
-        keterangan: p.keterangan || '',
-        catatan_rt: '-',
-        status: 'Menunggu Verifikasi',
-        nik: p.nik || session.nik
-      };
-
-      const { error } = await db.from('Peminjaman').insert([insertObj]);
-      if (error) return { status: 'error', message: error.message };
-
-      return { status: 'success', message: 'Pengajuan peminjaman berhasil dikirim ke RT!', id: newId };
-    }
-
-    // 7. Verifikasi Peminjaman oleh RT (Setujui / Tolak) - Stok Berkurang Akurat
-    if (actionName === 'verifikasiPeminjamanRT') {
-      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan!' };
-      let { idPinjam, status, qtyAcc, catatanRt } = extraPayload;
-
-      let updateData = {
-        status: status === 'Disetujui' ? 'Disetujui' : 'Ditolak',
-        jumlah_acc: parseInt(qtyAcc) || 0,
-        catatan_rt: catatanRt || '-'
-      };
-
-      const { error } = await db.from('Peminjaman').update(updateData).eq('id', idPinjam);
-      if (error) return { status: 'error', message: error.message };
-
-      if (status === 'Disetujui') {
-        const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
-        let safePinjam = caseInsensitiveObj(pinjamData);
-        if (safePinjam) {
-          let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id']);
-          if (idBarang) {
-            const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
-            let safeAset = makeCaseInsensitive(asetData);
-            if (safeAset) {
-              let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-              let sisaStok = Math.max(0, currentStok - parseInt(qtyAcc));
-              await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
-            }
-          }
-        }
-      }
-
-      return { status: 'success', message: 'Status peminjaman berhasil diperbarui!' };
-    }
-
-    // 8. Proses Pengembalian Barang oleh RT - Stok Kembali Akurat
-    if (actionName === 'prosesPengembalianAsetRT') {
-      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan!' };
-      let { idPinjam, qtyKembali, catatanRt } = extraPayload;
-
-      let updateData = {
-        status: 'Selesai (Dikembalikan)',
-        catatan_rt: `Dikembalikan ${qtyKembali} unit. ` + (catatanRt || '')
-      };
-
-      const { error } = await db.from('Peminjaman').update(updateData).eq('id', idPinjam);
-      if (error) return { status: 'error', message: error.message };
-
-      const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
-      let safePinjam = caseInsensitiveObj(pinjamData);
-      if (safePinjam) {
-        let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id']);
-        if (idBarang) {
-          const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
-          let safeAset = makeCaseInsensitive(asetData);
-          if (safeAset) {
-            let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-            let stokBaru = currentStok + parseInt(qtyKembali || 0);
-            await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
-          }
-        }
-      }
-
-      return { status: 'success', message: 'Pengembalian barang berhasil dicatat & stok dikembalikan!' };
-    }
-
     return { status: 'error', message: 'Aksi POST tidak dikenal' };
   } catch (err) {
     console.error('Fetch Error (POST):', err);
@@ -346,6 +256,7 @@ async function callGASGet(actionName, params = {}) {
         let sheetLower = sheetName.toLowerCase();
         
         if (sheetLower === 'warga') {
+          // Cari No_KK warga yang sedang login
           let userKk = '';
           const targetWarga = safeData.find(w => {
             let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
@@ -357,6 +268,7 @@ async function callGASGet(actionName, params = {}) {
 
           const kkIdx = lowerHeaders.findIndex(h => h.includes('kk') || h.includes('no_kk'));
 
+          // Petakan row satu per satu dengan sensor untuk warga luar KK
           let rows = safeData.map(rowObj => {
             let rowArr = headers.map(h => rowObj[h] !== null && rowObj[h] !== undefined ? rowObj[h] : '');
             let rowKk = kkIdx > -1 ? String(rowObj[headers[kkIdx]] || '').trim() : '';
@@ -377,8 +289,9 @@ async function callGASGet(actionName, params = {}) {
 
           return { status: 'success', headers: headers, rows: rows };
         } else if (['keuangan', 'aset', 'peminjaman', 'sumbangan', 'aspirasi'].includes(sheetLower)) {
-          // Menu publik transparan tidak difilter NIK
+          // Menu publik transparan (Keuangan, Aset, Peminjaman, Sumbangan, Aspirasi) tidak difilter NIK
         } else {
+          // Untuk sheet privat, filter berdasarkan NIK
           safeData = safeData.filter(row => {
             let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
             return rNik && rNik.toString().trim() === session.nik.toString().trim();
@@ -394,7 +307,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', headers: headers, rows: rows };
     }
 
-    // 2. Get Iuran Data
+    // 2. Get Iuran Data (Sesuai getIuranDataForUser di code.gs)
     if (actionName === 'getIuranData') {
       const { data, error } = await db.from('Iuran').select('*');
       let safeData = makeCaseInsensitive(data);
@@ -463,7 +376,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: safeData ? safeData.nilai : '' };
     }
 
-    // 5. Get Dashboard Summary
+    // 5. Get Dashboard Summary (Sesuai getDashboardSummary di code.gs)
     if (actionName === 'getDashboardSummary') {
       const cleanRole = (session.role || 'warga').toLowerCase();
       if (cleanRole === 'rt') {
@@ -517,51 +430,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: safeData || [] };
     }
 
-    // 7. Get Daftar Barang Aset untuk Dropdown Peminjaman Warga
-    if (actionName === 'getDaftarBarangAset') {
-      const { data, error } = await db.from('Aset').select('*');
-      const safeAset = makeCaseInsensitive(data);
-      if (error || !safeAset) return { status: 'success', data: [] };
-
-      let listBarang = safeAset.map(item => ({
-        id: cariNilaiKolom(item, ['id']) || item.id || '',
-        nama: cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']) || '',
-        stok: cariNilaiKolom(item, ['jumlah', 'stok', 'stock']) || '0'
-      }));
-      return { status: 'success', data: listBarang };
-    }
-
-    // 8. Get Riwayat Peminjaman Warga & RT
-    if (actionName === 'getRiwayatPeminjaman') {
-      const { data, error } = await db.from('Peminjaman').select('*');
-      const safeData = makeCaseInsensitive(data);
-      if (error || !safeData) return { status: 'success', data: [] };
-
-      let cleanRole = (session.role || 'warga').toLowerCase();
-      let filtered = safeData;
-      if (cleanRole !== 'rt') {
-        filtered = safeData.filter(item => {
-          let rNik = cariNilaiKolom(item, ['nik']);
-          return rNik && rNik.toString().trim() === session.nik.toString().trim();
-        });
-      }
-
-      let riwayat = filtered.map(item => ({
-        idPinjam: cariNilaiKolom(item, ['id']) || '',
-        namaPeminjam: cariNilaiKolom(item, ['nama_peminjam', 'nama']) || '',
-        idBarang: cariNilaiKolom(item, ['id_barang', 'idbarang', 'barang_id']) || '',
-        namaBarang: cariNilaiKolom(item, ['nama_barang', 'namabarang']) || '',
-        jumlahMinta: parseInt(cariNilaiKolom(item, ['jumlah', 'jumlah_minta', 'minta']) || '0'),
-        jumlahAcc: parseInt(cariNilaiKolom(item, ['jumlah_acc', 'acc']) || '0'),
-        keterangan: cariNilaiKolom(item, ['keterangan', 'ket']) || '-',
-        catatanRt: cariNilaiKolom(item, ['catatan_rt', 'catatanrt', 'lokasi']) || '-',
-        status: cariNilaiKolom(item, ['status']) || 'Menunggu Verifikasi'
-      }));
-
-      return { status: 'success', data: riwayat };
-    }
-
-    // 9. Get Profile Data
+    // 7. Get Profile Data (Sesuai getProfileData di code.gs)
     if (actionName.toLowerCase().includes('profil') || actionName.toLowerCase().includes('profile')) {
       const nikCari = params.nik || session.nik || session.nama;
       
@@ -627,7 +496,7 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    // 10. Smart Dynamic Getter
+    // 8. Smart Dynamic Getter
     if (actionName.toLowerCase().startsWith('get') && actionName.toLowerCase().endsWith('data')) {
       let rawName = actionName.replace(/^get/i, '').replace(/data$/i, '');
       let tableName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
@@ -863,6 +732,7 @@ async function loadMenu(menu) {
     case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
     case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); return;
     case 'Warga': if(typeof loadWargaView === 'function') { loadWargaView(); return; } break;
+    case 'Aset': loadAsetView('barang'); return;
     case 'Kelahiran': if(typeof loadKelahiranView === 'function') { loadKelahiranView(); return; } break;
     case 'Kematian': if(typeof loadKematianView === 'function') { loadKematianView(); return; } break;
     case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') { loadPindahMasukView(); return; } break;
@@ -881,12 +751,88 @@ async function loadMenu(menu) {
   }
 }
 
+// --- FUNGSI CUSTOM VIEW ASET & INVENTARIS (TABBED) ---
+async function loadAsetView(tab = 'barang') {
+  currentActiveMenu = tab === 'barang' ? 'Aset' : 'Peminjaman';
+  syncActiveNav('Aset');
+  document.getElementById('page-title').innerText = 'Aset & Inventaris';
+  document.getElementById('rek-info').style.display = 'none';
+  if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
+
+  let mainContent = document.getElementById('main-content');
+  
+  mainContent.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <button class="btn ${tab === 'barang' ? 'btn-primary' : 'btn-outline-primary'} fw-bold me-2 shadow-sm" onclick="loadAsetView('barang')">
+          <i class="bi bi-box-seam me-1"></i> Daftar Barang Aset RT
+        </button>
+        <button class="btn ${tab === 'riwayat' ? 'btn-primary' : 'btn-outline-primary'} fw-bold shadow-sm" onclick="loadAsetView('riwayat')">
+          <i class="bi bi-clock-history me-1"></i> Riwayat Peminjaman Warga
+        </button>
+      </div>
+      <button class="btn btn-success fw-bold shadow-sm px-3 py-2" onclick="bukaModalForm()">
+        <i class="bi bi-plus-circle me-2"></i> ${session.role === 'RT' && tab === 'barang' ? '+ Tambah Barang Baru' : '+ Buat Form Peminjaman Aset'}
+      </button>
+    </div>
+    <div id="asetTableContainer">
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <br><small class="text-muted mt-2 d-block">Memuat data dari server...</small>
+      </div>
+    </div>
+  `;
+
+  let targetTable = tab === 'barang' ? 'Aset' : 'Peminjaman';
+
+  const res = await callGASGet('getTableData', { sheetName: targetTable });
+  if (res && res.status === 'success') {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderTableToContainer(res, targetTable, 'asetTableContainer');
+  } else {
+    document.getElementById('asetTableContainer').innerHTML = '<div class="alert alert-danger text-center my-3">Gagal memuat data dari server.</div>';
+  }
+}
+
+function renderTableToContainer(data, menu, containerId) {
+  let html = '';
+  if(!data || !data.rows || data.rows.length === 0) {
+    html += '<div class="card card-custom p-4 text-center"><div class="alert alert-light border text-muted my-2"><i class="bi bi-folder-x fs-4 d-block mb-2"></i>Belum ada data untuk tab ini.</div></div>';
+    document.getElementById(containerId).innerHTML = html;
+    return;
+  }
+
+  html += '<div class="card card-custom"><div class="table-responsive"><table class="table table-hover align-middle mb-0" id="dataTable">';
+  html += '<thead class="table-light"><tr>';
+  data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size: 0.85rem; letter-spacing: 0.5px;">${h.toUpperCase()}</th>`);
+  html += '<th class="py-3 text-secondary text-center" style="font-size: 0.85rem;">AKSI</th></tr></thead><tbody>';
+
+  let reversedRows = [...data.rows].reverse();
+  reversedRows.forEach(row => {
+    html += '<tr>';
+    row.forEach((val, idx) => {
+      let headName = data.headers[idx].toLowerCase();
+      if (headName.includes('foto') || headName.includes('bukti')) {
+        let directUrl = convertToImageLink(val);
+        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${directUrl}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
+      } else {
+        html += `<td>${val}</td>`;
+      }
+    });
+
+    html += `<td class="text-center">${getTombolAksi(menu, row, data.headers)}</td></tr>`;
+  });
+  html += '</tbody></table></div></div>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
 function renderTable(data, menu) {
   let html = '';
   
   let bolehTambah = false;
   if (session.role === 'RT') bolehTambah = true; 
-  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset', 'Aspirasi'].includes(menu)) bolehTambah = true;
+  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset', 'Peminjaman', 'Aspirasi'].includes(menu)) bolehTambah = true;
   
   if (bolehTambah) {
     let labelTombol = session.role === 'RT' ? '+ Tambah Data Baru' : '+ Buat Pengajuan / Form Baru';
@@ -937,11 +883,11 @@ function bukaPopUpFoto(urlImg) {
   bootstrapImageModalInstance.show();
 }
 
-function bukaModalForm() {
+async function bukaModalForm() {
   editingId = null;
   document.getElementById('formModalTitle').innerText = "Form Input Menu: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = 'none';
-  generateFormInputs(null);
+  await generateFormInputs(null);
   
   if(!bootstrapModalInstance) {
     bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -949,7 +895,7 @@ function bukaModalForm() {
   bootstrapModalInstance.show();
 }
 
-function bukaModalEdit(id) {
+async function bukaModalEdit(id) {
   editingId = id;
   document.getElementById('formModalTitle').innerText = "Edit / Ubah Status Data: " + currentActiveMenu;
   
@@ -960,7 +906,7 @@ function bukaModalEdit(id) {
   }
   
   let rowData = currentRows.find(r => r[0] === id);
-  generateFormInputs(rowData);
+  await generateFormInputs(rowData);
   
   if(!bootstrapModalInstance) {
     bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -968,26 +914,27 @@ function bukaModalEdit(id) {
   bootstrapModalInstance.show();
 }
 
-function generateFormInputs(rowData) {
+async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
   formBody.innerHTML = '';
   
-  currentHeaders.forEach((h, idx) => {
-    if(['id', 'no', 'saldo'].includes(h.toLowerCase()) && currentActiveMenu !== 'Aset') return;
+  for (let idx = 0; idx < currentHeaders.length; idx++) {
+    let h = currentHeaders[idx];
+    if(['id', 'no', 'saldo'].includes(h.toLowerCase())) continue;
     
     let nameLower = h.toLowerCase().trim();
     
-    if (currentActiveMenu === 'Aset') {
-      if (session.role === 'Warga') {
-        if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama'].includes(nameLower)) return;
+    if (currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') {
+      if (session.role === 'Warga' && currentActiveMenu === 'Peminjaman') {
+        if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama', 'keterangan', 'keterangan_warga', 'tanggal_pinjam'].includes(nameLower)) continue;
       }
     }
     
     let labelText = h.replace('_', ' ').toUpperCase();
-    if (currentActiveMenu === 'Aset' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
-      labelText = 'ID BARANG';
+    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+      labelText = 'NAMA BARANG';
     }
-    if (currentActiveMenu === 'Aset' && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
+    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
       labelText = 'NAMA PEMINJAM';
     }
     
@@ -995,7 +942,7 @@ function generateFormInputs(rowData) {
     let inputHtml = '';
     
     if (nameLower === 'status' || nameLower.includes('penyelesaian') || nameLower.includes('penyelsaian') || nameLower.includes('admin')) {
-      if (session.role !== 'RT' || !rowData) return;
+      if (session.role !== 'RT' || !rowData) continue;
     }
     
     if (session.role === 'Warga' && !rowData) {
@@ -1012,7 +959,32 @@ function generateFormInputs(rowData) {
       }
     }
     
-    if (nameLower === 'status' && currentActiveMenu === 'Aset') {
+    // Dynamic Dropdown Nama Barang untuk Peminjaman
+    if (currentActiveMenu === 'Peminjaman' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+      let barangOpts = '<option value="">-- Pilih Barang --</option>';
+      try {
+        const { data: asetList } = await db.from('Aset').select('*');
+        const safeAset = makeCaseInsensitive(asetList);
+        if (safeAset) {
+          safeAset.forEach(item => {
+            let bNama = cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']);
+            let bJumlah = cariNilaiKolom(item, ['jumlah', 'stok', 'stock']) || '0';
+            if (bNama) {
+              let isSelected = (val && val.toLowerCase() === bNama.toLowerCase()) ? 'selected' : '';
+              barangOpts += `<option value="${bNama}" ${isSelected} data-stok="${bJumlah}">${bNama} (Stok Tersedia: ${bJumlah})</option>`;
+            }
+          });
+        }
+      } catch(e) {
+        console.error('Gagal mengambil data aset:', e);
+      }
+
+      inputHtml = `
+        <select class="form-select dynamic-input" data-key="${h}" onchange="document.getElementById('info-stok').innerText = 'Maksimal Stok: ' + (this.selectedOptions[0].getAttribute('data-stok') || '-')">
+          ${barangOpts}
+        </select>
+        <small class="text-success fw-bold d-block mt-1" id="info-stok">Maksimal Stok: -</small>`;
+    } else if (nameLower === 'status' && currentActiveMenu === 'Aset') {
       inputHtml = `
         <select class="form-select dynamic-input" data-key="${h}">
           <option value="Belum diverifikasi" ${val === 'Belum diverifikasi' || val === 'Belum di verifikasi' || !val ? 'selected' : ''}>Belum diverifikasi</option>
@@ -1020,7 +992,7 @@ function generateFormInputs(rowData) {
           <option value="Ditolak" ${val === 'Ditolak' ? 'selected' : ''}>Ditolak</option>
           <option value="Diterima sebagian" ${val === 'Diterima sebagian' ? 'selected' : ''}>Diterima sebagian</option>
         </select>`;
-    } else if (nameLower === 'status' && (currentActiveMenu === 'Pengaduan' || currentActiveMenu === 'SuratPengantar' || currentActiveMenu === 'Sumbangan')) {
+    } else if (nameLower === 'status' && (currentActiveMenu === 'Pengaduan' || currentActiveMenu === 'SuratPengantar' || currentActiveMenu === 'Sumbangan' || currentActiveMenu === 'Peminjaman')) {
       inputHtml = `
         <select class="form-select dynamic-input" data-key="${h}">
           <option value="Belum di verifikasi" ${val === 'Belum di verifikasi' ? 'selected' : ''}>Belum di verifikasi</option>
@@ -1083,7 +1055,7 @@ function generateFormInputs(rowData) {
         <label class="form-label font-weight-bold small text-secondary">${labelText}</label>
         ${inputHtml}
       </div>`;
-  });
+  }
 }
 
 // --- FUNGSI SUBMIT FORM & HAPUS DATA ---
