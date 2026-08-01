@@ -20,6 +20,27 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Helper Case-Insensitive Objek Supabase (Anti pusing beda huruf besar/kecil di kolom DB)
+function caseInsensitiveObj(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  return new Proxy(obj, {
+    get(target, prop) {
+      if (typeof prop !== 'string' || prop in target || prop === 'then') return target[prop];
+      const foundKey = Object.keys(target).find(k => k.toLowerCase() === prop.toLowerCase());
+      return foundKey ? target[foundKey] : undefined;
+    }
+  });
+}
+
+function makeCaseInsensitive(data) {
+  if (Array.isArray(data)) {
+    return data.map(item => caseInsensitiveObj(item));
+  } else if (data && typeof data === 'object') {
+    return caseInsensitiveObj(data);
+  }
+  return data;
+}
+
 // Helper Konversi URL Google Drive ke Direct Image LH3
 function convertToImageLink(url) {
   if (!url) return "";
@@ -51,12 +72,13 @@ async function callGASPost(actionName, extraPayload = {}) {
         }
 
         const { data: users, error } = await query;
+        const safeUsers = makeCaseInsensitive(users);
 
-        if (error || !users || users.length === 0) {
+        if (error || !safeUsers || safeUsers.length === 0) {
           return { status: 'error', message: 'Username / NIK tidak ditemukan!' };
         }
 
-        const user = users.find(x => x.password !== null && x.password !== undefined && String(x.password).trim() === pClean);
+        const user = safeUsers.find(x => x.password !== null && x.password !== undefined && String(x.password).trim() === pClean);
 
         if (!user) {
           return { status: 'error', message: 'Password salah!' };
@@ -75,11 +97,12 @@ async function callGASPost(actionName, extraPayload = {}) {
         } else {
           const userNik = (user.nik || user.username || '').toString().trim();
           const { data: listWarga } = await db.from('Warga').select('*');
+          const safeWarga = makeCaseInsensitive(listWarga);
           
-          if (listWarga && listWarga.length > 0) {
-            let matchedWarga = listWarga.find(w => w.nik && String(w.nik).trim() === userNik);
+          if (safeWarga && safeWarga.length > 0) {
+            let matchedWarga = safeWarga.find(w => w.nik && String(w.nik).trim() === userNik);
             if (!matchedWarga) {
-              matchedWarga = listWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
+              matchedWarga = safeWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
             }
 
             if (matchedWarga) {
@@ -180,18 +203,19 @@ async function callGASGet(actionName, params = {}) {
     if (actionName === 'getTableData') {
       const sheetName = params.sheetName;
       const { data, error } = await db.from(sheetName).select('*');
+      const safeData = makeCaseInsensitive(data);
       
       if (error) {
         console.error('Supabase Fetch Error:', error);
         return { status: 'error', message: error.message };
       }
 
-      if (!data || data.length === 0) {
+      if (!safeData || safeData.length === 0) {
         return { status: 'success', headers: [], rows: [] };
       }
 
-      const headers = Object.keys(data[0]);
-      const rows = data.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+      const headers = Object.keys(safeData[0]);
+      const rows = safeData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
 
       return { status: 'success', headers: headers, rows: rows };
     }
@@ -199,7 +223,8 @@ async function callGASGet(actionName, params = {}) {
     // 2. Get Notifications
     if (actionName === 'getNotifications') {
       const { data } = await db.from('Pengaduan').select('id, jenis_aduan, status').limit(5);
-      let notifs = (data || []).map(item => ({
+      const safeData = makeCaseInsensitive(data);
+      let notifs = (safeData || []).map(item => ({
         id: item.id || 'NOTIF-' + Math.random(),
         menu: 'Pengaduan',
         pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}`
@@ -210,7 +235,8 @@ async function callGASGet(actionName, params = {}) {
     // 3. Get Info Warga
     if (actionName === 'getInfoWarga') {
       const { data } = await db.from('Pengaturan').select('nilai').eq('kunci', 'info_warga').maybeSingle();
-      return { status: 'success', data: data ? data.nilai : '' };
+      const safeData = makeCaseInsensitive(data);
+      return { status: 'success', data: safeData ? safeData.nilai : '' };
     }
 
     // 4. Get Dashboard Summary
@@ -235,10 +261,11 @@ async function callGASGet(actionName, params = {}) {
     // 5. Khusus Tarik Daftar Warga untuk Form Iuran RT
     if (actionName === 'getDaftarWargaUntukIuran') {
       const { data, error } = await db.from('Warga').select('*');
+      const safeData = makeCaseInsensitive(data);
       if (error) {
         return { status: 'error', message: error.message };
       }
-      return { status: 'success', data: data || [] };
+      return { status: 'success', data: safeData || [] };
     }
 
     // 6. Smart Profil Data Getter
@@ -253,6 +280,7 @@ async function callGASGet(actionName, params = {}) {
       }
 
       const { data, error } = await query.maybeSingle();
+      const safeData = makeCaseInsensitive(data);
 
       if (error) {
         console.error('Supabase Profil Error:', error);
@@ -261,9 +289,9 @@ async function callGASGet(actionName, params = {}) {
 
       return {
         status: 'success',
-        data: data || {},
-        row: data || {},
-        user: data || {}
+        data: safeData || {},
+        row: safeData || {},
+        user: safeData || {}
       };
     }
 
@@ -273,10 +301,11 @@ async function callGASGet(actionName, params = {}) {
       let tableName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
       
       const { data, error } = await db.from(tableName).select('*');
-      if (!error && data) {
-        const headers = data.length > 0 ? Object.keys(data[0]) : [];
-        const rows = data.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
-        return { status: 'success', headers: headers, rows: rows, data: data };
+      const safeData = makeCaseInsensitive(data);
+      if (!error && safeData) {
+        const headers = safeData.length > 0 ? Object.keys(safeData[0]) : [];
+        const rows = safeData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+        return { status: 'success', headers: headers, rows: rows, data: safeData };
       }
     }
 
