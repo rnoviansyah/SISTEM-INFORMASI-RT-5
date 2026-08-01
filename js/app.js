@@ -382,7 +382,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: listBarang };
     }
 
-    // 2. Get Riwayat Peminjaman
+    // 2. Get Riwayat Peminjaman (SEMUA WARGA BISA LIAT FULL TRANSPARAN TANPA FILTER)
     if (actionName === 'getRiwayatPeminjaman') {
       const { data: safeRiwayat } = await safeSupabaseSelect('Peminjaman');
 
@@ -403,17 +403,6 @@ async function callGASGet(actionName, params = {}) {
           nik: cariNilaiKolom(item, ['nik'])
         };
       });
-
-      const cleanRole = (session.role || 'warga').toLowerCase();
-      if (cleanRole !== 'rt' && session.nik) {
-        listRiwayat = listRiwayat.filter(r => {
-          let rNik = (r.nik || '').toString().trim();
-          let sNik = (session.nik || '').toString().trim();
-          let rNama = (r.namaPeminjam || '').toLowerCase().trim();
-          let sNama = (session.nama || '').toLowerCase().trim();
-          return (rNik && rNik === sNik) || (rNama && sNama && rNama.includes(sNama));
-        });
-      }
 
       return { status: 'success', data: listRiwayat };
     }
