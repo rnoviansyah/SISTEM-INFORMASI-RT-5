@@ -226,11 +226,12 @@ async function callGASPost(actionName, extraPayload = {}) {
     // 6. Simpan Pengajuan Peminjaman Barang oleh Warga
     if (actionName === 'simpanPengajuanPeminjaman') {
       let p = extraPayload.payload || extraPayload;
-      let idBarangVal = p.idBarang || '';
+      let newId = 'PMJ-' + Math.floor(1000 + Math.random() * 9000);
 
       let insertObj = {
-        id: idBarangVal,
+        id: newId,
         nama_peminjam: p.namaPeminjam || session.nama,
+        id_barang: p.idBarang || p.id_barang || '',
         nama_barang: p.namaBarang || '',
         jumlah: p.jumlah || 1,
         jumlah_minta: p.jumlah || 1,
@@ -244,7 +245,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       const { error } = await db.from('Peminjaman').insert([insertObj]);
       if (error) return { status: 'error', message: error.message };
 
-      return { status: 'success', message: 'Pengajuan peminjaman berhasil dikirim ke RT!', id: idBarangVal };
+      return { status: 'success', message: 'Pengajuan peminjaman berhasil dikirim ke RT!', id: newId };
     }
 
     // 7. Verifikasi Peminjaman oleh RT (Setujui / Tolak) - Stok Berkurang Akurat
@@ -262,12 +263,19 @@ async function callGASPost(actionName, extraPayload = {}) {
       if (error) return { status: 'error', message: error.message };
 
       if (status === 'Disetujui') {
-        const { data: asetData } = await db.from('Aset').select('*').eq('id', idPinjam).maybeSingle();
-        let safeAset = makeCaseInsensitive(asetData);
-        if (safeAset) {
-          let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-          let sisaStok = Math.max(0, currentStok - parseInt(qtyAcc));
-          await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', idPinjam);
+        const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
+        let safePinjam = caseInsensitiveObj(pinjamData);
+        if (safePinjam) {
+          let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id']);
+          if (idBarang) {
+            const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
+            let safeAset = makeCaseInsensitive(asetData);
+            if (safeAset) {
+              let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
+              let sisaStok = Math.max(0, currentStok - parseInt(qtyAcc));
+              await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
+            }
+          }
         }
       }
 
@@ -287,12 +295,19 @@ async function callGASPost(actionName, extraPayload = {}) {
       const { error } = await db.from('Peminjaman').update(updateData).eq('id', idPinjam);
       if (error) return { status: 'error', message: error.message };
 
-      const { data: asetData } = await db.from('Aset').select('*').eq('id', idPinjam).maybeSingle();
-      let safeAset = makeCaseInsensitive(asetData);
-      if (safeAset) {
-        let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-        let stokBaru = currentStok + parseInt(qtyKembali || 0);
-        await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', idPinjam);
+      const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
+      let safePinjam = caseInsensitiveObj(pinjamData);
+      if (safePinjam) {
+        let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id']);
+        if (idBarang) {
+          const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
+          let safeAset = makeCaseInsensitive(asetData);
+          if (safeAset) {
+            let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
+            let stokBaru = currentStok + parseInt(qtyKembali || 0);
+            await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
+          }
+        }
       }
 
       return { status: 'success', message: 'Pengembalian barang berhasil dicatat & stok dikembalikan!' };
@@ -534,7 +549,7 @@ async function callGASGet(actionName, params = {}) {
       let riwayat = filtered.map(item => ({
         idPinjam: cariNilaiKolom(item, ['id']) || '',
         namaPeminjam: cariNilaiKolom(item, ['nama_peminjam', 'nama']) || '',
-        idBarang: cariNilaiKolom(item, ['id']) || '',
+        idBarang: cariNilaiKolom(item, ['id_barang', 'idbarang', 'barang_id']) || '',
         namaBarang: cariNilaiKolom(item, ['nama_barang', 'namabarang']) || '',
         jumlahMinta: parseInt(cariNilaiKolom(item, ['jumlah', 'jumlah_minta', 'minta']) || '0'),
         jumlahAcc: parseInt(cariNilaiKolom(item, ['jumlah_acc', 'acc']) || '0'),
@@ -958,7 +973,7 @@ function generateFormInputs(rowData) {
   formBody.innerHTML = '';
   
   currentHeaders.forEach((h, idx) => {
-    if(['id', 'no', 'saldo'].includes(h.toLowerCase())) return;
+    if(['id', 'no', 'saldo'].includes(h.toLowerCase()) && currentActiveMenu !== 'Aset') return;
     
     let nameLower = h.toLowerCase().trim();
     
