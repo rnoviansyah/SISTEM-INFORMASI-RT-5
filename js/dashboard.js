@@ -22,7 +22,9 @@ async function muatInfoWargaRealtime() {
 }
 
 async function simpanInfoWarga() {
-  let textBaru = document.getElementById('editInfoTextarea').value;
+  let textarea = document.getElementById('editInfoTextarea');
+  let textBaru = textarea ? textarea.value : '';
+  
   if(textBaru) {
     let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
     if(btnSimpan) {
@@ -40,9 +42,19 @@ async function simpanInfoWarga() {
     if(res && res.status === 'success') {
       alert('Informasi Warga berhasil diperbarui!');
       let modalEl = document.getElementById('modalEditInfo');
-      let modalInstance = bootstrap.Modal.getInstance(modalEl);
-      if(modalInstance) modalInstance.hide();
+      if (modalEl) {
+        let modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if(modalInstance) modalInstance.hide();
+      }
       
+      // Cleanup backdrop sisa agar layar tidak freeze
+      setTimeout(() => {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }, 300);
+
       muatInfoWargaRealtime();
     } else {
       alert('Gagal menyimpan: ' + (res ? res.message : 'Respon kosong'));
@@ -51,18 +63,42 @@ async function simpanInfoWarga() {
 }
 
 async function bukaModalEditInfo() {
+  let modalEl = document.getElementById('modalEditInfo');
+  if (!modalEl) return;
+
+  // Pindahkan elemen modal ke body agar tidak terhalang stacking context / z-index dari #main-content
+  if (modalEl.parentElement !== document.body) {
+    document.body.appendChild(modalEl);
+  }
+
+  // Bersihkan sisa backdrop yang bikin freeze/layar hitam
+  document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+
   let textarea = document.getElementById('editInfoTextarea');
-  textarea.value = "Memuat data dari database...";
+  if (textarea) textarea.value = "Memuat data dari database...";
   
-  let modal = new bootstrap.Modal(document.getElementById('modalEditInfo'));
-  modal.show();
+  let modalInstance = bootstrap.Modal.getInstance(modalEl);
+  if (modalInstance) {
+    modalInstance.dispose();
+  }
+  modalInstance = new bootstrap.Modal(modalEl);
+  modalInstance.show();
 
   const teks = await callGASGet('getInfoWarga');
   let rawText = (typeof teks === 'string') ? teks : (teks && teks.data ? teks.data : '');
-  textarea.value = (rawText && rawText.trim() !== '') ? rawText : defaultInfoText;
+  if (textarea) {
+    textarea.value = (rawText && rawText.trim() !== '') ? rawText : defaultInfoText;
+  }
 }
 
 async function loadDashboardView() {
+  // Hapus modal duplikat jika ada di document.body dari render sebelumnya
+  let oldModal = document.getElementById('modalEditInfo');
+  if (oldModal) oldModal.remove();
+
   const res = await callGASGet('getDashboardSummary');
   if (!res) return;
 
