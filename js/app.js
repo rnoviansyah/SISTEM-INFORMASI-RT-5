@@ -12,12 +12,6 @@ let rawNotifData = [];
 let notifTimer = null;
 let lastInfoWargaText = '';
 
-// Sistem Cache Lokal (Memory Caching untuk Anti-Delay)
-window.appCache = {};
-function clearAppCache() {
-  window.appCache = {};
-}
-
 // ==========================================================
 // ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
@@ -238,7 +232,7 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    // 5. Get Profil Data (Mendukung Berbagai Varian Nama Aksi)
+    // 5. Get Profil Data
     if (actionName === 'getProfilData' || actionName === 'getProfileData' || actionName === 'getProfil' || actionName === 'getProfilWarga') {
       const nikCari = params.nik || session.nik || session.nama;
       
@@ -360,7 +354,6 @@ function doLogout() {
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
 
-    clearAppCache();
     localStorage.removeItem('rt_user_session');
     location.reload();
   }
@@ -487,7 +480,7 @@ function syncActiveNav(menu) {
   if(mEl) mEl.classList.add('active');
 }
 
-// --- FUNGSI NAVIGASI MENU DENGAN CACHE LOKAL (ANTI-DELAY) ---
+// --- FUNGSI NAVIGASI MENU (LANGSUNG FETCH DARI SERVER) ---
 async function loadMenu(menu) {
   currentActiveMenu = menu;
   syncActiveNav(menu);
@@ -505,23 +498,10 @@ async function loadMenu(menu) {
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
-  // ⚡ CEK CACHE: Jika menu ini sudah pernah dibuka, langsung render seketika!
-  if (window.appCache && window.appCache[menu]) {
-    console.log(`⚡ [Cache Hit] Memuat ${menu} secara instan dari memori lokal...`);
-    let cachedData = window.appCache[menu];
-    currentHeaders = cachedData.headers || [];
-    currentRows = cachedData.rows || [];
-    renderTable(cachedData, menu);
-    return;
-  }
-
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
 
   const res = await callGASGet('getTableData', { sheetName: menu });
   if (res && res.status === 'success') {
-    if (!window.appCache) window.appCache = {};
-    window.appCache[menu] = res; // Simpan ke cache
-
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderTable(res, menu);
@@ -735,7 +715,7 @@ function generateFormInputs(rowData) {
   });
 }
 
-// --- FUNGSI SUBMIT FORM & HAPUS DATA (DENGAN INVALIDASI CACHE) ---
+// --- FUNGSI SUBMIT FORM & HAPUS DATA ---
 function submitFormBaru() {
   let inputs = document.querySelectorAll('.dynamic-input');
   let fileInputs = document.querySelectorAll('.dynamic-file-input');
@@ -780,7 +760,6 @@ function submitFormBaru() {
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
         alert(res.message);
-        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache biar ambil data baru
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -803,7 +782,6 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
           if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
-        if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache biar ambil data baru
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
       } else {
@@ -830,7 +808,6 @@ async function hapusDataAktif() {
     if(res && res.status === 'success') {
       bootstrapModalInstance.hide();
       alert('Data Berhasil Dihapus!');
-      if (window.appCache) window.appCache[currentActiveMenu] = null; // Reset cache
       loadMenu(currentActiveMenu);
       fetchNotifikasi();
     } else {
@@ -904,7 +881,6 @@ document.addEventListener("visibilitychange", function() {
   if (document.visibilityState === "visible" && session.token) {
     fetchNotifikasi();
     if (currentActiveMenu) {
-      if (window.appCache) window.appCache[currentActiveMenu] = null; // Refresh background saat tab dibuka kembali
       loadMenu(currentActiveMenu);
     }
   }
