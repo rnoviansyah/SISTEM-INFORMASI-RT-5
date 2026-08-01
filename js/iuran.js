@@ -86,7 +86,7 @@ function renderIuranCustom(data) {
     <!-- MODAL PEMBAYARAN / UPLOAD BUKTI TRANSFER -->
     <div id="modal-bayar-iuran" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
-        <button onclick="tutupModalBayarIuran()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalBayarIuran()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 z-20">&times;</button>
         
         <div class="mb-3 border-b pb-2 pe-6">
           <h3 class="font-bold text-gray-800 text-sm"><i class="bi bi-shield-check text-blue-600 me-1"></i> Pembayaran Iuran</h3>
@@ -98,29 +98,43 @@ function renderIuranCustom(data) {
           <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
         </div>
 
+        <!-- TAMPILAN QRIS MIRIP ASLI (DINAMIS) -->
         <div id="content-qris" class="text-center space-y-2">
-          <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
-          
-          <!-- FRAME QRIS CUSTOM ELEGAN -->
-          <div class="bg-gradient-to-b from-red-600 to-blue-800 p-1 rounded-2xl shadow-md inline-block my-1">
-            <div class="bg-white p-3 rounded-xl space-y-1">
-              <div class="flex justify-between items-center px-1 border-b pb-1">
-                <span class="font-black text-[10px] tracking-widest text-red-600 italic">QRIS</span>
-                <span class="text-[9px] font-bold text-gray-500">QUICK RESPONSE CODE INDONESIA STANDARD</span>
+          <div class="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm relative overflow-hidden text-left">
+            <!-- Aksen Sudut Merah Khas QRIS -->
+            <div class="absolute -left-10 -top-10 w-20 h-20 bg-red-600 transform rotate-45 z-0"></div>
+            <div class="absolute -right-10 -bottom-10 w-24 h-24 bg-red-600 transform rotate-45 z-0"></div>
+
+            <div class="relative z-10 space-y-2.5">
+              <!-- Header QRIS & GPN -->
+              <div class="flex justify-between items-center border-b pb-2">
+                <div>
+                  <h4 class="font-black tracking-tighter text-black text-xs italic">QUICK RESPONSE CODE</h4>
+                  <p class="text-[9px] font-extrabold text-red-600 tracking-widest uppercase">QRIS PEMBAYARAN NASIONAL</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] font-black text-blue-900 tracking-wider bg-red-50 px-1.5 py-0.5 rounded border border-red-100">GPN</span>
+                </div>
               </div>
-              
-              <div class="py-1">
-                <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
+
+              <!-- Merchant Info -->
+              <div class="text-center space-y-0.5">
+                <h5 class="font-bold text-gray-900 text-xs tracking-wide">SHN GROUP</h5>
+                <p class="text-[9px] text-gray-500 font-mono">NMID : ID1021062401364</p>
               </div>
-              
-              <div class="border-t pt-1">
-                <p class="text-[10px] font-extrabold text-gray-800">SHN GROUP / KAS RT 05</p>
-                <p class="text-[9px] text-blue-600 font-bold">A.N RIZKY NOVIANSYAH</p>
+
+              <!-- QR Code Container -->
+              <div class="bg-white p-2 rounded-xl border border-gray-100 text-center shadow-inner">
+                <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded object-contain">
+              </div>
+
+              <!-- Footer QRIS Card -->
+              <div class="flex justify-between items-center text-[9px] text-gray-400 pt-1 border-t">
+                <span>Dicetak oleh: 93600915</span>
+                <span class="text-emerald-600 font-bold">Auto Nominal</span>
               </div>
             </div>
           </div>
-          
-          <p class="text-[9px] text-gray-400">Didukung oleh DANA / QRIS Nasional</p>
         </div>
 
         <div id="content-tf" class="hidden space-y-2 text-xs">
