@@ -339,7 +339,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: `Peminjaman berhasil di-${status.toLowerCase()}!` };
     }
 
-    // 5. Proses Pengembalian Barang Aset RT (TAMBAH STOK KEMBALI)
+    // 5. Proses Pengembalian Barang Aset RT (TAMBAH STOK KEMBALI & HITUNG BARANG HILANG)
     if (actionName === 'prosesPengembalianAsetRT') {
       const idPinjam = extraPayload.idPinjam;
       const qtyKembali = parseInt(extraPayload.qtyKembali) || 0;
@@ -348,18 +348,32 @@ async function callGASPost(actionName, extraPayload = {}) {
       const { data: safePinjamList } = await safeSupabaseSelect('Peminjaman');
       const safePinjam = safePinjamList ? safePinjamList.find(p => (p.id || cariNilaiKolom(p, ['id'])) === idPinjam) : null;
 
-      if (safePinjam && qtyKembali > 0) {
-        let barangTarget = cariNilaiKolom(safePinjam, ['nama_barang', 'nama_aset', 'barang', 'id_barang']);
-        await updateStokAset(barangTarget, qtyKembali); // Tambah Stok Kembali
+      if (safePinjam) {
+        // 1. Tambah stok aset sejumlah yang beneran dikembalikan
+        if (qtyKembali > 0) {
+          let barangTarget = cariNilaiKolom(safePinjam, ['nama_barang', 'nama_aset', 'barang', 'id_barang']);
+          await updateStokAset(barangTarget, qtyKembali);
+        }
+
+        // 2. Hitung apakah ada selisih barang hilang
+        let qtyAcc = parseInt(cariNilaiKolom(safePinjam, ['acc', 'jumlah_acc', 'qty_acc']) || safePinjam.acc || 0);
+        let selisihHilang = qtyAcc - qtyKembali;
+
+        let statusPengembalian = 'Selesai (Dikembalikan)';
+        if (selisihHilang > 0) {
+          statusPengembalian = `Selesai (hilang ${selisihHilang})`;
+        }
+
+        const { error } = await safeSupabaseUpdate('Peminjaman', {
+          status: statusPengembalian,
+          catatan_rt: catatanRt
+        }, 'id', idPinjam);
+
+        if (error) return { status: 'error', message: error.message };
+        return { status: 'success', message: 'Pengembalian barang berhasil dicatat & stok telah diperbarui!' };
       }
 
-      const { error } = await safeSupabaseUpdate('Peminjaman', {
-        status: 'Selesai (Dikembalikan)',
-        catatan_rt: catatanRt
-      }, 'id', idPinjam);
-
-      if (error) return { status: 'error', message: error.message };
-      return { status: 'success', message: 'Pengembalian barang berhasil dicatat & stok telah diperbarui!' };
+      return { status: 'error', message: 'Data peminjaman tidak ditemukan!' };
     }
 
     // 6. Update Data Generic
