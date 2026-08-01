@@ -46,7 +46,7 @@ function renderWargaCustom(data) {
     </div>
 
     <div id="modal-detail-warga" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
         <button onclick="tutupDetailWarga()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         
         <div class="mb-3 border-b pb-2 pe-6">
@@ -84,6 +84,7 @@ function filterDataWarga() {
   if (namaIdx === -1) namaIdx = headers.length > 1 ? 1 : 0;
 
   let alamatIdx = headers.findIndex(h => h.includes('alamat') || h.includes('address'));
+  let hpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp'));
 
   let filtered = [...rawWargaData].filter(row => {
     if (!searchVal) return true;
@@ -101,12 +102,13 @@ function filterDataWarga() {
       let nikVal = r[nikIdx] !== undefined ? r[nikIdx] : (r[0] || '-');
       let namaVal = r[namaIdx] !== undefined ? r[namaIdx] : (r[1] || '-');
       let alamatVal = alamatIdx > -1 && r[alamatIdx] !== undefined ? r[alamatIdx] : '-';
+      let hpVal = hpIdx > -1 && r[hpIdx] !== undefined ? r[hpIdx] : '';
       let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
       let rowId = r[idIdx] || nikVal;
 
       let btnAksi = session.role === 'RT' 
         ? `<button onclick="event.stopPropagation(); bukaModalEdit('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
-        : `<span class="text-gray-400 text-[10px]">-</span>`;
+        : `<button onclick="event.stopPropagation(); waHubungiWarga('${hpVal}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
 
       tbody.innerHTML += `
         <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailWarga('${rowId}')">
@@ -125,13 +127,15 @@ function showDetailWarga(id) {
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let nikIdx = headers.indexOf('nik');
   if (nikIdx === -1) nikIdx = 0;
-  
+  let hpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp'));
+
   let row = rawWargaData.find(r => (String(r[idIdx]) === String(id) || String(r[nikIdx]) === String(id)));
   if (!row) return;
 
   selectedWargaRow = row;
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
+  let noHpWarga = hpIdx > -1 ? row[hpIdx] : '';
 
   let imgHtml = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***') 
     ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Foto Warga:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
@@ -155,7 +159,11 @@ function showDetailWarga(id) {
   if (session.role === 'RT') {
     let nikVal = row[nikIdx] || id;
     actionHtml = `
-      <button onclick="bukaModalEdit('${nikVal}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data Warga</button>`;
+      <button onclick="bukaModalEdit('${nikVal}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit Data Warga</button>
+      <button onclick="waHubungiWarga('${noHpWarga}'); tutupDetailWarga();" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim WhatsApp</button>`;
+  } else {
+    actionHtml = `
+      <button onclick="waHubungiWarga('${noHpWarga}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hubungi via WhatsApp</button>`;
   }
   document.getElementById('warga-action-buttons').innerHTML = actionHtml;
 
@@ -166,9 +174,21 @@ function tutupDetailWarga() {
   document.getElementById('modal-detail-warga').classList.add('hidden');
 }
 
+function waHubungiWarga(noHp) {
+  let cleanNo = noHp ? noHp.toString().replace(/[^0-9]/g, '') : '';
+  if (cleanNo.startsWith('0')) {
+    cleanNo = '62' + cleanNo.slice(1);
+  }
+  if (!cleanNo) {
+    alert("Nomor WhatsApp warga ini tidak tersedia.");
+    return;
+  }
+  bukaWa(cleanNo, `Halo warga RT 05, ada hal yang ingin saya sampaikan.`);
+}
+
 async function loadWargaView() {
   const res = await callGASGet('getTableData', { sheetName: 'Warga' });
-  if (res && res.status === 'success') {
+  if (res && res.headers) {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderWargaCustom(res);
@@ -176,3 +196,20 @@ async function loadWargaView() {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger text-center my-3">${res ? res.message : 'Gagal memuat data warga'}</div>`;
   }
 }
+
+// HOOK UNTUK SYSTEM NAVIGATION
+const originalLoadMenuWarga = window.loadMenu;
+window.loadMenu = async function(menu) {
+  if (menu === 'Warga') {
+    currentActiveMenu = menu;
+    if (typeof syncActiveNav === 'function') syncActiveNav(menu);
+    let titleEl = document.getElementById('page-title');
+    if (titleEl) titleEl.innerText = 'Data Warga';
+    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data warga...</small></div>';
+    if (document.getElementById('rek-info')) document.getElementById('rek-info').style.display = 'none';
+
+    await loadWargaView();
+  } else {
+    if (typeof originalLoadMenuWarga === 'function') originalLoadMenuWarga(menu);
+  }
+};
