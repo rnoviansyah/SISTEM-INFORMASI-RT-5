@@ -288,8 +288,8 @@ async function callGASGet(actionName, params = {}) {
           });
 
           return { status: 'success', headers: headers, rows: rows };
-        } else if (['keuangan', 'aset', 'sumbangan', 'aspirasi'].includes(sheetLower)) {
-          // Menu publik transparan (Keuangan, Aset, Sumbangan, Aspirasi) tidak difilter NIK
+        } else if (['keuangan', 'aset', 'peminjamanaset', 'sumbangan', 'aspirasi'].includes(sheetLower)) {
+          // Menu publik transparan (Keuangan, Aset, PeminjamanAset, Sumbangan, Aspirasi) tidak difilter NIK
         } else {
           // Untuk sheet privat, filter berdasarkan NIK
           safeData = safeData.filter(row => {
@@ -732,6 +732,7 @@ async function loadMenu(menu) {
     case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
     case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); return;
     case 'Warga': if(typeof loadWargaView === 'function') { loadWargaView(); return; } break;
+    case 'Aset': loadAsetView('barang'); return;
     case 'Kelahiran': if(typeof loadKelahiranView === 'function') { loadKelahiranView(); return; } break;
     case 'Kematian': if(typeof loadKematianView === 'function') { loadKematianView(); return; } break;
     case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') { loadPindahMasukView(); return; } break;
@@ -750,12 +751,88 @@ async function loadMenu(menu) {
   }
 }
 
+// --- FUNGSI CUSTOM VIEW ASET & INVENTARIS (TABBED) ---
+async function loadAsetView(tab = 'barang') {
+  currentActiveMenu = 'Aset';
+  syncActiveNav('Aset');
+  document.getElementById('page-title').innerText = 'Aset & Inventaris';
+  document.getElementById('rek-info').style.display = 'none';
+  if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
+
+  let mainContent = document.getElementById('main-content');
+  
+  mainContent.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <button class="btn ${tab === 'barang' ? 'btn-primary' : 'btn-outline-primary'} fw-bold me-2 shadow-sm" onclick="loadAsetView('barang')">
+          <i class="bi bi-box-seam me-1"></i> Daftar Barang Aset RT
+        </button>
+        <button class="btn ${tab === 'riwayat' ? 'btn-primary' : 'btn-outline-primary'} fw-bold shadow-sm" onclick="loadAsetView('riwayat')">
+          <i class="bi bi-clock-history me-1"></i> Riwayat Peminjaman Warga
+        </button>
+      </div>
+      <button class="btn btn-success fw-bold shadow-sm px-3 py-2" onclick="bukaModalForm()">
+        <i class="bi bi-plus-circle me-2"></i> ${session.role === 'RT' && tab === 'barang' ? '+ Tambah Barang Baru' : '+ Buat Form Peminjaman Aset'}
+      </button>
+    </div>
+    <div id="asetTableContainer">
+      <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <br><small class="text-muted mt-2 d-block">Memuat data dari server...</small>
+      </div>
+    </div>
+  `;
+
+  let targetTable = tab === 'barang' ? 'Aset' : 'PeminjamanAset';
+
+  const res = await callGASGet('getTableData', { sheetName: targetTable });
+  if (res && res.status === 'success') {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderTableToContainer(res, targetTable, 'asetTableContainer');
+  } else {
+    document.getElementById('asetTableContainer').innerHTML = '<div class="alert alert-danger text-center my-3">Gagal memuat data dari server.</div>';
+  }
+}
+
+function renderTableToContainer(data, menu, containerId) {
+  let html = '';
+  if(!data || !data.rows || data.rows.length === 0) {
+    html += '<div class="card card-custom p-4 text-center"><div class="alert alert-light border text-muted my-2"><i class="bi bi-folder-x fs-4 d-block mb-2"></i>Belum ada data untuk tab ini.</div></div>';
+    document.getElementById(containerId).innerHTML = html;
+    return;
+  }
+
+  html += '<div class="card card-custom"><div class="table-responsive"><table class="table table-hover align-middle mb-0" id="dataTable">';
+  html += '<thead class="table-light"><tr>';
+  data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size: 0.85rem; letter-spacing: 0.5px;">${h.toUpperCase()}</th>`);
+  html += '<th class="py-3 text-secondary text-center" style="font-size: 0.85rem;">AKSI</th></tr></thead><tbody>';
+
+  let reversedRows = [...data.rows].reverse();
+  reversedRows.forEach(row => {
+    html += '<tr>';
+    row.forEach((val, idx) => {
+      let headName = data.headers[idx].toLowerCase();
+      if (headName.includes('foto') || headName.includes('bukti')) {
+        let directUrl = convertToImageLink(val);
+        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${directUrl}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
+      } else {
+        html += `<td>${val}</td>`;
+      }
+    });
+
+    html += `<td class="text-center">${getTombolAksi(menu, row, data.headers)}</td></tr>`;
+  });
+  html += '</tbody></table></div></div>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
 function renderTable(data, menu) {
   let html = '';
   
   let bolehTambah = false;
   if (session.role === 'RT') bolehTambah = true; 
-  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset', 'Aspirasi'].includes(menu)) bolehTambah = true;
+  if (session.role === 'Warga' && ['Pengaduan', 'SuratPengantar', 'Sumbangan', 'Aset', 'PeminjamanAset', 'Aspirasi'].includes(menu)) bolehTambah = true;
   
   if (bolehTambah) {
     let labelTombol = session.role === 'RT' ? '+ Tambah Data Baru' : '+ Buat Pengajuan / Form Baru';
@@ -889,7 +966,7 @@ function generateFormInputs(rowData) {
           <option value="Ditolak" ${val === 'Ditolak' ? 'selected' : ''}>Ditolak</option>
           <option value="Diterima sebagian" ${val === 'Diterima sebagian' ? 'selected' : ''}>Diterima sebagian</option>
         </select>`;
-    } else if (nameLower === 'status' && (currentActiveMenu === 'Pengaduan' || currentActiveMenu === 'SuratPengantar' || currentActiveMenu === 'Sumbangan')) {
+    } else if (nameLower === 'status' && (currentActiveMenu === 'Pengaduan' || currentActiveMenu === 'SuratPengantar' || currentActiveMenu === 'Sumbangan' || currentActiveMenu === 'PeminjamanAset')) {
       inputHtml = `
         <select class="form-select dynamic-input" data-key="${h}">
           <option value="Belum di verifikasi" ${val === 'Belum di verifikasi' ? 'selected' : ''}>Belum di verifikasi</option>
