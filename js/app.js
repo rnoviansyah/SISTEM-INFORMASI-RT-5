@@ -248,7 +248,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Pengajuan peminjaman berhasil dikirim ke RT!', id: newId };
     }
 
-    // 7. Verifikasi Peminjaman oleh RT (Setujui / Tolak)
+    // 7. Verifikasi Peminjaman oleh RT (Setujui / Tolak) - Stok Berkurang Akurat
     if (actionName === 'verifikasiPeminjamanRT') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan!' };
       let { idPinjam, status, qtyAcc, catatanRt } = extraPayload;
@@ -266,17 +266,15 @@ async function callGASPost(actionName, extraPayload = {}) {
         const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
         let safePinjam = caseInsensitiveObj(pinjamData);
         if (safePinjam) {
-          let namaBarangPinjam = cariNilaiKolom(safePinjam, ['nama_barang', 'namabarang']);
-          const { data: asetData } = await db.from('Aset').select('*');
-          let safeAset = makeCaseInsensitive(asetData);
-          let targetAset = safeAset.find(a => cariNilaiKolom(a, ['nama_barang', 'nama']).toLowerCase() === namaBarangPinjam.toLowerCase());
-          
-          if (targetAset) {
-            let currentStok = parseInt(cariNilaiKolom(targetAset, ['jumlah', 'stok']) || '0');
-            let sisaStok = Math.max(0, currentStok - parseInt(qtyAcc));
-            let asetIdKey = targetAset.id ? 'id' : Object.keys(targetAset)[0];
-            
-            await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', targetAset[asetIdKey]);
+          let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id', 'id']);
+          if (idBarang) {
+            const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
+            let safeAset = makeCaseInsensitive(asetData);
+            if (safeAset) {
+              let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
+              let sisaStok = Math.max(0, currentStok - parseInt(qtyAcc));
+              await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
+            }
           }
         }
       }
@@ -284,7 +282,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Status peminjaman berhasil diperbarui!' };
     }
 
-    // 8. Proses Pengembalian Barang oleh RT
+    // 8. Proses Pengembalian Barang oleh RT - Stok Kembali Akurat
     if (actionName === 'prosesPengembalianAsetRT') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan!' };
       let { idPinjam, qtyKembali, catatanRt } = extraPayload;
@@ -300,17 +298,15 @@ async function callGASPost(actionName, extraPayload = {}) {
       const { data: pinjamData } = await db.from('Peminjaman').select('*').eq('id', idPinjam).maybeSingle();
       let safePinjam = caseInsensitiveObj(pinjamData);
       if (safePinjam) {
-        let namaBarangPinjam = cariNilaiKolom(safePinjam, ['nama_barang', 'namabarang']);
-        const { data: asetData } = await db.from('Aset').select('*');
-        let safeAset = makeCaseInsensitive(asetData);
-        let targetAset = safeAset.find(a => cariNilaiKolom(a, ['nama_barang', 'nama']).toLowerCase() === namaBarangPinjam.toLowerCase());
-        
-        if (targetAset) {
-          let currentStok = parseInt(cariNilaiKolom(targetAset, ['jumlah', 'stok']) || '0');
-          let stokBaru = currentStok + parseInt(qtyKembali || 0);
-          let asetIdKey = targetAset.id ? 'id' : Object.keys(targetAset)[0];
-
-          await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', targetAset[asetIdKey]);
+        let idBarang = cariNilaiKolom(safePinjam, ['id_barang', 'idbarang', 'barang_id', 'id']);
+        if (idBarang) {
+          const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
+          let safeAset = makeCaseInsensitive(asetData);
+          if (safeAset) {
+            let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
+            let stokBaru = currentStok + parseInt(qtyKembali || 0);
+            await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
+          }
         }
       }
 
@@ -553,7 +549,7 @@ async function callGASGet(actionName, params = {}) {
       let riwayat = filtered.map(item => ({
         idPinjam: cariNilaiKolom(item, ['id']) || '',
         namaPeminjam: cariNilaiKolom(item, ['nama_peminjam', 'nama']) || '',
-        idBarang: cariNilaiKolom(item, ['id_barang', 'idbarang']) || '',
+        idBarang: cariNilaiKolom(item, ['id_barang', 'idbarang', 'barang_id', 'id']) || '',
         namaBarang: cariNilaiKolom(item, ['nama_barang', 'namabarang']) || '',
         jumlahMinta: parseInt(cariNilaiKolom(item, ['jumlah', 'jumlah_minta', 'minta']) || '0'),
         jumlahAcc: parseInt(cariNilaiKolom(item, ['jumlah_acc', 'acc']) || '0'),
