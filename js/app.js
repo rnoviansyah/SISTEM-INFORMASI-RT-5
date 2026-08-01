@@ -753,7 +753,7 @@ async function loadMenu(menu) {
 
 // --- FUNGSI CUSTOM VIEW ASET & INVENTARIS (TABBED) ---
 async function loadAsetView(tab = 'barang') {
-  currentActiveMenu = 'Aset';
+  currentActiveMenu = tab === 'barang' ? 'Aset' : 'PeminjamanAset';
   syncActiveNav('Aset');
   document.getElementById('page-title').innerText = 'Aset & Inventaris';
   document.getElementById('rek-info').style.display = 'none';
@@ -883,11 +883,11 @@ function bukaPopUpFoto(urlImg) {
   bootstrapImageModalInstance.show();
 }
 
-function bukaModalForm() {
+async function bukaModalForm() {
   editingId = null;
   document.getElementById('formModalTitle').innerText = "Form Input Menu: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = 'none';
-  generateFormInputs(null);
+  await generateFormInputs(null);
   
   if(!bootstrapModalInstance) {
     bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -895,7 +895,7 @@ function bukaModalForm() {
   bootstrapModalInstance.show();
 }
 
-function bukaModalEdit(id) {
+async function bukaModalEdit(id) {
   editingId = id;
   document.getElementById('formModalTitle').innerText = "Edit / Ubah Status Data: " + currentActiveMenu;
   
@@ -906,7 +906,7 @@ function bukaModalEdit(id) {
   }
   
   let rowData = currentRows.find(r => r[0] === id);
-  generateFormInputs(rowData);
+  await generateFormInputs(rowData);
   
   if(!bootstrapModalInstance) {
     bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -914,26 +914,27 @@ function bukaModalEdit(id) {
   bootstrapModalInstance.show();
 }
 
-function generateFormInputs(rowData) {
+async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
   formBody.innerHTML = '';
   
-  currentHeaders.forEach((h, idx) => {
-    if(['id', 'no', 'saldo'].includes(h.toLowerCase())) return;
+  for (let idx = 0; idx < currentHeaders.length; idx++) {
+    let h = currentHeaders[idx];
+    if(['id', 'no', 'saldo'].includes(h.toLowerCase())) continue;
     
     let nameLower = h.toLowerCase().trim();
     
-    if (currentActiveMenu === 'Aset') {
-      if (session.role === 'Warga') {
-        if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama'].includes(nameLower)) return;
+    if (currentActiveMenu === 'Aset' || currentActiveMenu === 'PeminjamanAset') {
+      if (session.role === 'Warga' && currentActiveMenu === 'PeminjamanAset') {
+        if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama', 'keterangan', 'keterangan_warga', 'tanggal_pinjam'].includes(nameLower)) continue;
       }
     }
     
     let labelText = h.replace('_', ' ').toUpperCase();
-    if (currentActiveMenu === 'Aset' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
-      labelText = 'ID BARANG';
+    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'PeminjamanAset') && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+      labelText = 'NAMA BARANG';
     }
-    if (currentActiveMenu === 'Aset' && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
+    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'PeminjamanAset') && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
       labelText = 'NAMA PEMINJAM';
     }
     
@@ -941,7 +942,7 @@ function generateFormInputs(rowData) {
     let inputHtml = '';
     
     if (nameLower === 'status' || nameLower.includes('penyelesaian') || nameLower.includes('penyelsaian') || nameLower.includes('admin')) {
-      if (session.role !== 'RT' || !rowData) return;
+      if (session.role !== 'RT' || !rowData) continue;
     }
     
     if (session.role === 'Warga' && !rowData) {
@@ -958,7 +959,32 @@ function generateFormInputs(rowData) {
       }
     }
     
-    if (nameLower === 'status' && currentActiveMenu === 'Aset') {
+    // Dynamic Dropdown Nama Barang untuk Peminjaman Aset
+    if (currentActiveMenu === 'PeminjamanAset' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+      let barangOpts = '<option value="">-- Pilih Barang --</option>';
+      try {
+        const { data: asetList } = await db.from('Aset').select('*');
+        const safeAset = makeCaseInsensitive(asetList);
+        if (safeAset) {
+          safeAset.forEach(item => {
+            let bNama = cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']);
+            let bJumlah = cariNilaiKolom(item, ['jumlah', 'stok', 'stock']) || '0';
+            if (bNama) {
+              let isSelected = (val && val.toLowerCase() === bNama.toLowerCase()) ? 'selected' : '';
+              barangOpts += `<option value="${bNama}" ${isSelected} data-stok="${bJumlah}">${bNama} (Stok Tersedia: ${bJumlah})</option>`;
+            }
+          });
+        }
+      } catch(e) {
+        console.error('Gagal mengambil data aset:', e);
+      }
+
+      inputHtml = `
+        <select class="form-select dynamic-input" data-key="${h}" onchange="document.getElementById('info-stok').innerText = 'Maksimal Stok: ' + (this.selectedOptions[0].getAttribute('data-stok') || '-')">
+          ${barangOpts}
+        </select>
+        <small class="text-success fw-bold d-block mt-1" id="info-stok">Maksimal Stok: -</small>`;
+    } else if (nameLower === 'status' && currentActiveMenu === 'Aset') {
       inputHtml = `
         <select class="form-select dynamic-input" data-key="${h}">
           <option value="Belum diverifikasi" ${val === 'Belum diverifikasi' || val === 'Belum di verifikasi' || !val ? 'selected' : ''}>Belum diverifikasi</option>
@@ -1029,7 +1055,7 @@ function generateFormInputs(rowData) {
         <label class="form-label font-weight-bold small text-secondary">${labelText}</label>
         ${inputHtml}
       </div>`;
-  });
+  }
 }
 
 // --- FUNGSI SUBMIT FORM & HAPUS DATA ---
