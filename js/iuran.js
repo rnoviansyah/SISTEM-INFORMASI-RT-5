@@ -99,7 +99,7 @@ function renderIuranCustom(data) {
           <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
         </div>
 
-        <!-- TAMPILAN QRIS BERSIH TANPA BINGKAI -->
+        <!-- TAMPILAN QRIS BERSIH TANPA TEKS TAMBAHAN DI BAWAHNYA -->
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
@@ -107,7 +107,6 @@ function renderIuranCustom(data) {
             <p class="text-[9px] text-gray-500 font-mono mb-2">NMID: ID1021062401364</p>
             <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
           </div>
-          <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
 
         <div id="content-tf" class="hidden space-y-2 text-xs">
