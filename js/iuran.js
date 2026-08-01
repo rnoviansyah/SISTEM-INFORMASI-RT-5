@@ -86,9 +86,10 @@ function renderIuranCustom(data) {
     <!-- MODAL PEMBAYARAN / UPLOAD BUKTI TRANSFER -->
     <div id="modal-bayar-iuran" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
-        <button onclick="tutupModalBayarIuran()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 z-20">&times;</button>
+        <!-- TOMBOL TUTUP DIPERBAIKI POSISINYA -->
+        <button onclick="tutupModalBayarIuran()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 z-50 transition">&times;</button>
         
-        <div class="mb-3 border-b pb-2 pe-6">
+        <div class="mb-3 border-b pb-2 pe-8">
           <h3 class="font-bold text-gray-800 text-sm"><i class="bi bi-shield-check text-blue-600 me-1"></i> Pembayaran Iuran</h3>
           <p id="info-bayar-target" class="text-xs text-blue-600 font-bold mt-1">-</p>
         </div>
