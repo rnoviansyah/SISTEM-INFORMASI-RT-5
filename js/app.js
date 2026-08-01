@@ -186,82 +186,23 @@ function convertToImageLink(url) {
 // --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    // 1. Process Login
+    // 1. Process Login (SERVER-SIDE VIA SUPABASE RPC)
     if (actionName === 'processLogin') {
       const uClean = extraPayload.username ? extraPayload.username.toString().trim() : '';
       const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
 
       try {
-        const { data: safeUsers, error } = await safeSupabaseSelect('Users');
-
-        if (error || !safeUsers || safeUsers.length === 0) {
-          return { status: 'error', message: 'Username / NIK tidak ditemukan!' };
-        }
-
-        const user = safeUsers.find(x => {
-          let uName = String(x.username || '').toLowerCase().trim();
-          let uNik = String(cariNilaiKolom(x, ['nik', 'ktp']) || '').trim();
-          return uName === uClean.toLowerCase() || uNik === uClean;
+        const { data, error } = await db.rpc('verify_user_login', {
+          p_username: uClean,
+          p_password: pClean
         });
 
-        if (!user) {
-          return { status: 'error', message: 'Username / NIK tidak ditemukan!' };
+        if (error) {
+          console.error('RPC Error:', error);
+          return { status: 'error', message: 'Gagal verifikasi server: ' + error.message };
         }
 
-        let pass = user.password || user.pass || user.pwd || '';
-        if (String(pass).trim() !== pClean) {
-          return { status: 'error', message: 'Password salah!' };
-        }
-
-        let namaLengkap = '';
-        let alamatLengkap = '';
-        let noHpLengkap = '';
-        let nikUser = cariNilaiKolom(user, ['nik', 'ktp']) || uClean;
-
-        const roleClean = (user.role || '').toString().trim().toLowerCase();
-
-        if (roleClean === 'rt' || uClean.toLowerCase() === 'adminrt') {
-          namaLengkap = 'Administrator RT 05';
-          alamatLengkap = 'Wilayah RT 05';
-          noHpLengkap = noWaAdmin;
-        } else {
-          const { data: safeWarga } = await safeSupabaseSelect('Warga');
-          
-          if (safeWarga && safeWarga.length > 0) {
-            let matchedWarga = safeWarga.find(w => {
-              let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
-              return wNik && wNik === nikUser;
-            });
-
-            if (!matchedWarga) {
-              matchedWarga = safeWarga.find(w => {
-                let wNama = cariNilaiKolom(w, ['nama', 'name']);
-                return wNama && wNama.toLowerCase().includes(uClean.toLowerCase());
-              });
-            }
-
-            if (matchedWarga) {
-              namaLengkap = cariNilaiKolom(matchedWarga, ['nama', 'name']);
-              alamatLengkap = cariNilaiKolom(matchedWarga, ['alamat', 'address']);
-              noHpLengkap = cariNilaiKolom(matchedWarga, ['hp', 'wa', 'telp', 'phone']);
-              nikUser = cariNilaiKolom(matchedWarga, ['nik', 'ktp']) || nikUser;
-            }
-          }
-        }
-
-        if (!namaLengkap) {
-          namaLengkap = uClean || 'Warga';
-        }
-
-        return {
-          status: 'success',
-          token: 'token-' + (uClean || Date.now()),
-          role: (roleClean === 'rt' || uClean.toLowerCase() === 'adminrt') ? 'RT' : 'Warga',
-          nik: nikUser,
-          nama: namaLengkap,
-          alamat: alamatLengkap,
-          noHp: noHpLengkap
-        };
+        return data;
       } catch (err) {
         return { status: 'error', message: 'Gagal login: ' + err.message };
       }
@@ -349,13 +290,11 @@ async function callGASPost(actionName, extraPayload = {}) {
       const safePinjam = safePinjamList ? safePinjamList.find(p => (p.id || cariNilaiKolom(p, ['id'])) === idPinjam) : null;
 
       if (safePinjam) {
-        // 1. Tambah stok aset sejumlah yang beneran dikembalikan
         if (qtyKembali > 0) {
           let barangTarget = cariNilaiKolom(safePinjam, ['nama_barang', 'nama_aset', 'barang', 'id_barang']);
           await updateStokAset(barangTarget, qtyKembali);
         }
 
-        // 2. Hitung apakah ada selisih barang hilang
         let qtyAcc = parseInt(cariNilaiKolom(safePinjam, ['acc', 'jumlah_acc', 'qty_acc']) || safePinjam.acc || 0);
         let selisihHilang = qtyAcc - qtyKembali;
 
@@ -425,7 +364,7 @@ async function callGASPost(actionName, extraPayload = {}) {
 // --- HELPER FETCH GET (SUPABASE BRIDGE) ---
 async function callGASGet(actionName, params = {}) {
   try {
-    // 1. Get Daftar Barang Aset (Khusus untuk Form Peminjaman di aset.js)
+    // 1. Get Daftar Barang Aset
     if (actionName === 'getDaftarBarangAset') {
       const { data: safeAset } = await safeSupabaseSelect('Aset');
 
@@ -443,7 +382,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: listBarang };
     }
 
-    // 2. Get Riwayat Peminjaman (Khusus Tabel Riwayat di aset.js)
+    // 2. Get Riwayat Peminjaman
     if (actionName === 'getRiwayatPeminjaman') {
       const { data: safeRiwayat } = await safeSupabaseSelect('Peminjaman');
 
@@ -805,7 +744,6 @@ function applySessionUI() {
     if (session.token && document.visibilityState === "visible") {
       fetchNotifikasi();
 
-      // HANYA UPDATE TEKS INFO WARGA SECARA PASIF (TETAP AMAN & TIDAK ME-RELOAD DASHBOARD)
       if (currentActiveMenu === 'Dashboard' && typeof muatInfoWargaRealtime === 'function') {
         let isModalOpen = document.body.classList.contains('modal-open') || 
                           document.querySelector('.modal.show') || 
@@ -1328,11 +1266,10 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // ==========================================================
-// ==== TAB FOCUS REFRESH (TANPA RE-RENDER MENU KESELURUHAN) =
+// ==== TAB FOCUS REFRESH ===================================
 // ==========================================================
 
 document.addEventListener("visibilitychange", function() {
-  // Hanya perbarui notifikasi secara silent tanpa me-reload layar/menu utama
   if (document.visibilityState === "visible" && session.token) {
     fetchNotifikasi();
   }
@@ -1370,3 +1307,34 @@ function installPWA() {
     });
   }
 }
+
+// ==========================================================
+// ==== EASTER EGG / PERANGKAP BUAT YANG SUKA INTIP =========
+// ==========================================================
+
+console.log(
+  "%cMAU NGAPAIN LU? 🤨",
+  "color: #ef4444; font-size: 38px; font-weight: 900; text-shadow: 2px 2px 0px #000; padding: 10px;"
+);
+console.log(
+  "%cGak ada rahasia di sini bos! Mending lu bayar iuran RT 05 daripada ngintipin console 🤣",
+  "color: #2563eb; font-size: 14px; font-weight: bold;"
+);
+
+// Cegah Klik Kanan (Context Menu) + Pop-up
+document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+  alert('MAU NGAPAIN LU? 🤨\nGak usah klik kanan, gak ada harta karun di sini!');
+});
+
+// Cegah Shortcut Inspect Element (F12, Ctrl+Shift+I/J/C, Ctrl+U)
+document.addEventListener('keydown', function(e) {
+  if (
+    e.key === 'F12' || 
+    (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) ||
+    (e.ctrlKey && ['U', 'u'].includes(e.key))
+  ) {
+    e.preventDefault();
+    alert('MAU NGAPAIN LU? 🤨\nKepo banget mau buka Inspect Element!');
+  }
+});
