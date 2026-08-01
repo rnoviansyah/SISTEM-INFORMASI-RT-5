@@ -41,7 +41,7 @@ function convertToImageLink(url) {
 // --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    // 1. Process Login (Otomatis Ambil Nama Lengkap dari Tabel Warga)
+    // 1. Process Login (Penanganan Khusus Admin & Warga)
     if (actionName === 'processLogin') {
       const uClean = extraPayload.username ? extraPayload.username.toString().trim() : '';
       const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
@@ -68,40 +68,44 @@ async function callGASPost(actionName, extraPayload = {}) {
           return { status: 'error', message: 'Password salah!' };
         }
 
-        // 🔍 Cari Data Nama Lengkap Asli di Tabel Warga secara Aman & Pasti Nemu
         let namaLengkap = '';
         let alamatLengkap = '';
         let noHpLengkap = '';
 
-        const userNik = (user.nik || user.username || '').toString().trim();
-        
-        // Tarik semua data Warga lalu cocokan via JS (100% anti gagal kueri)
-        const { data: listWarga } = await db.from('Warga').select('*');
-        if (listWarga && listWarga.length > 0) {
-          let matchedWarga = listWarga.find(w => w.nik && String(w.nik).trim() === userNik);
-          if (!matchedWarga) {
-            matchedWarga = listWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
-          }
+        const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
 
-          if (matchedWarga) {
-            namaLengkap = matchedWarga.nama || matchedWarga.nama_lengkap || '';
-            alamatLengkap = matchedWarga.alamat || '';
-            noHpLengkap = matchedWarga.no_hp || matchedWarga.nohp || matchedWarga.no_wa || '';
+        if (roleClean === 'rt' || user.username.toLowerCase() === 'adminrt') {
+          namaLengkap = 'Administrator RT 05';
+          alamatLengkap = 'Wilayah RT 05';
+          noHpLengkap = noWaAdmin;
+        } else {
+          const userNik = (user.nik || user.username || '').toString().trim();
+          const { data: listWarga } = await db.from('Warga').select('*');
+          
+          if (listWarga && listWarga.length > 0) {
+            let matchedWarga = listWarga.find(w => w.nik && String(w.nik).trim() === userNik);
+            if (!matchedWarga) {
+              matchedWarga = listWarga.find(w => w.nama && w.nama.toLowerCase().includes(user.username.toLowerCase()));
+            }
+
+            if (matchedWarga) {
+              namaLengkap = matchedWarga.nama || matchedWarga.nama_lengkap || '';
+              alamatLengkap = matchedWarga.alamat || '';
+              noHpLengkap = matchedWarga.no_hp || matchedWarga.nohp || matchedWarga.no_wa || '';
+            }
           }
         }
 
-        // Fallback terakhir kalau di tabel Warga beneran gak ada
         if (!namaLengkap) {
           namaLengkap = user.username || 'Warga';
         }
 
-        const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
         return {
           status: 'success',
           token: 'token-' + (user.username || user.nik || Date.now()),
           role: (roleClean === 'rt') ? 'RT' : 'Warga',
           nik: user.nik || user.username || '',
-          nama: namaLengkap, // 👈 Nama asli dari tabel Warga!
+          nama: namaLengkap,
           alamat: alamatLengkap,
           noHp: noHpLengkap
         };
@@ -234,8 +238,8 @@ async function callGASGet(actionName, params = {}) {
       };
     }
 
-    // 5. Get Profil Data (Untuk Menu Profil Saya)
-    if (actionName === 'getProfilData' || actionName === 'getProfil' || actionName === 'getProfilWarga') {
+    // 5. Get Profil Data (Mendukung Berbagai Varian Nama Aksi)
+    if (actionName === 'getProfilData' || actionName === 'getProfileData' || actionName === 'getProfil' || actionName === 'getProfilWarga') {
       const nikCari = params.nik || session.nik || session.nama;
       
       let query = db.from('Warga').select('*');
