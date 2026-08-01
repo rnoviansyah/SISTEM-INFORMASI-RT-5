@@ -101,7 +101,7 @@ function renderIuranCustom(data) {
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS di bawah ini dengan e-wallet atau m-banking Anda:</p>
           <div class="bg-gray-50 p-3 rounded-xl border inline-block">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SIM-RT05-IURAN" class="w-36 h-36 mx-auto rounded-lg">
+            <img src="https://lh3.googleusercontent.com/d/1CK3yF3Y7YMkDpiv2urCLxP5fpuqmD7zC" class="w-36 h-36 mx-auto rounded-lg">
           </div>
           <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
