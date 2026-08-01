@@ -41,32 +41,13 @@ function makeCaseInsensitive(data) {
   return data;
 }
 
-// Helper Universal Cari Data Warga & Aset (Kebal Substring 'id')
+// Helper Universal Cari Data Warga (Kebal Nama Kolom Supabase)
 function cariNilaiKolom(row, keywords) {
   if (!row) return '';
-  let keys = Object.keys(row);
-  
-  // 1. Cari exact match atau pembatas tegas dulu
-  for (let kw of keywords) {
-    let kwLower = kw.toLowerCase();
-    for (let key of keys) {
-      let kLower = key.toLowerCase();
-      if (kLower === kwLower || kLower === 'id_' + kwLower || kLower === kwLower + '_id') {
-        let val = row[key];
-        if (val !== null && val !== undefined && String(val).trim() !== '') {
-          return String(val).trim();
-        }
-      }
-    }
-  }
-
-  // 2. Fallback pencarian umum tanpa menabrak created_at / updated_at
-  for (let key of keys) {
+  for (let key of Object.keys(row)) {
     let kLower = key.toLowerCase();
-    if (kLower.includes('created') || kLower.includes('updated')) continue;
     for (let kw of keywords) {
-      let kwLower = kw.toLowerCase();
-      if (kLower.includes(kwLower)) {
+      if (kLower.includes(kw)) {
         let val = row[key];
         if (val !== null && val !== undefined && String(val).trim() !== '') {
           return String(val).trim();
@@ -203,7 +184,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
     }
 
-    // 3. Update Data (Dilengkapi sinkronisasi stok otomatis jika menu Peminjaman)
+    // 3. Update Data
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
       const id = extraPayload.id;
@@ -213,41 +194,6 @@ async function callGASPost(actionName, extraPayload = {}) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) {
           formData[k] = formData[k].base64;
         }
-      }
-
-      if (sheetName.toLowerCase() === 'peminjaman' && session.role === 'RT') {
-        const { data: oldPinjamData } = await db.from('Peminjaman').select('*').eq('id', id).maybeSingle();
-        let safeOld = caseInsensitiveObj(oldPinjamData);
-
-        const { error } = await db.from(sheetName).update(formData).eq('id', id);
-        if (error) return { status: 'error', message: error.message };
-
-        let newStatus = (formData.status || cariNilaiKolom(safeOld, ['status'])).toString().trim();
-        let oldStatus = safeOld ? cariNilaiKolom(safeOld, ['status']).toString().trim() : '';
-        let idBarang = cariNilaiKolom(formData, ['id_barang', 'idbarang', 'barang_id']) || (safeOld ? cariNilaiKolom(safeOld, ['id_barang', 'idbarang', 'barang_id']) : '');
-        let qtyAcc = parseInt(formData.jumlah_acc || formData.acc || cariNilaiKolom(safeOld, ['jumlah_acc', 'acc']) || cariNilaiKolom(safeOld, ['jumlah']) || '1');
-
-        if (newStatus.toLowerCase() === 'disetujui' && oldStatus.toLowerCase() !== 'disetujui' && idBarang) {
-          const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
-          let safeAset = makeCaseInsensitive(asetData);
-          if (safeAset) {
-            let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-            let sisaStok = Math.max(0, currentStok - qtyAcc);
-            await db.from('Aset').update({ jumlah: sisaStok, status: sisaStok > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
-          }
-        } else if (newStatus.toLowerCase().includes('dikembalikan') || newStatus.toLowerCase().includes('selesai')) {
-          if (oldStatus.toLowerCase() !== newStatus.toLowerCase() && idBarang) {
-            const { data: asetData } = await db.from('Aset').select('*').eq('id', idBarang).maybeSingle();
-            let safeAset = makeCaseInsensitive(asetData);
-            if (safeAset) {
-              let currentStok = parseInt(cariNilaiKolom(safeAset, ['jumlah', 'stok', 'stock']) || '0');
-              let stokBaru = currentStok + qtyAcc;
-              await db.from('Aset').update({ jumlah: stokBaru, status: stokBaru > 0 ? 'Tersedia' : 'Habis' }).eq('id', idBarang);
-            }
-          }
-        }
-
-        return { status: 'success', message: 'Data peminjaman & stok aset berhasil diperbarui!' };
       }
 
       const { error } = await db.from(sheetName).update(formData).eq('id', id);
@@ -285,12 +231,12 @@ async function callGASPost(actionName, extraPayload = {}) {
       let insertObj = {
         id: newId,
         nama_peminjam: p.namaPeminjam || session.nama,
-        id_barang: p.idBarang || p.id_barang || p.id || '',
-        nama_barang: p.namaBarang || p.nama_barang || '',
-        jumlah: parseInt(p.jumlah || 1),
-        jumlah_minta: parseInt(p.jumlah || 1),
+        id_barang: p.idBarang || p.id_barang || '',
+        nama_barang: p.namaBarang || '',
+        jumlah: p.jumlah || 1,
+        jumlah_minta: p.jumlah || 1,
         jumlah_acc: 0,
-        keterangan: p.keterangan || '-',
+        keterangan: p.keterangan || '',
         catatan_rt: '-',
         status: 'Menunggu Verifikasi',
         nik: p.nik || session.nik
@@ -578,7 +524,7 @@ async function callGASGet(actionName, params = {}) {
       if (error || !safeAset) return { status: 'success', data: [] };
 
       let listBarang = safeAset.map(item => ({
-        id: item.id || item.ID || cariNilaiKolom(item, ['id']) || '',
+        id: cariNilaiKolom(item, ['id']) || item.id || '',
         nama: cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']) || '',
         stok: cariNilaiKolom(item, ['jumlah', 'stok', 'stock']) || '0'
       }));
@@ -911,7 +857,7 @@ async function loadMenu(menu) {
   syncActiveNav(menu);
   document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
-  if (document.getElementById('searchInput')) document.getElementById('searchInput'].value = "";
+  if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
 
   switch(menu) {
     case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
@@ -1192,27 +1138,10 @@ function submitFormBaru() {
         loadMenu(currentActiveMenu);
       }
     } else {
-      let actionNamePost = 'simpanDataKeSheet';
-      let payloadToSend = {
+      const res = await callGASPost('simpanDataKeSheet', {
         sheetName: currentActiveMenu,
         formData: payload
-      };
-
-      if (session.role === 'Warga' && currentActiveMenu === 'Aset') {
-        actionNamePost = 'simpanPengajuanPeminjaman';
-        payloadToSend = {
-          payload: {
-            idBarang: payload.id_barang || payload.id || '',
-            namaBarang: payload.nama_barang || payload.namaBarang || '',
-            jumlah: payload.jumlah || 1,
-            keterangan: payload.keterangan || '',
-            nik: session.nik,
-            namaPeminjam: session.nama
-          }
-        };
-      }
-
-      const res = await callGASPost(actionNamePost, payloadToSend);
+      });
 
       if(res && res.status === 'success') {
         bootstrapModalInstance.hide();
@@ -1222,6 +1151,7 @@ function submitFormBaru() {
           if(currentActiveMenu === 'Pengaduan' && typeof waKirimLaporan === 'function') waKirimLaporan('aduan', res.id);
           if(currentActiveMenu === 'SuratPengantar' && typeof waKirimLaporan === 'function') waKirimLaporan('surat', res.id);
           if(currentActiveMenu === 'Sumbangan' && typeof waVerifikasiSumbangan === 'function') waVerifikasiSumbangan(res.id);
+          if(currentActiveMenu === 'Aset' && typeof waPinjamAset === 'function') waPinjamAset(res.id);
         }
         loadMenu(currentActiveMenu);
         fetchNotifikasi();
@@ -1277,6 +1207,7 @@ function getTombolAksi(menu, row, headers) {
     if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat', '${id}')"><i class="bi bi-whatsapp me-1"></i>WA Pengantar</button>`;
     if (menu === 'Keuangan') return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${id}')">Laporkan Masalah</button>`;
     if (menu === 'Sumbangan') return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${id}')"><i class="bi bi-whatsapp me-1"></i>WA Verifikasi</button>`;
+    if (menu === 'Aset') return `<button class="btn btn-sm btn-info text-white fw-bold" onclick="waPinjamAset('${id}')">Pinjam (WA)</button>`;
   }
   return '-';
 }
