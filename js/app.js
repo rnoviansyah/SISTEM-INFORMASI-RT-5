@@ -233,7 +233,7 @@ async function callGASPost(actionName, extraPayload = {}) {
 // --- HELPER FETCH GET (SUPABASE BRIDGE) ---
 async function callGASGet(actionName, params = {}) {
   try {
-    // 1. Get Table Data standard dengan Sensor Warga Lain (Sesuai code.gs)
+    // 1. Get Table Data standard dengan Filter Role & Pengecualian Menu Publik
     if (actionName === 'getTableData') {
       const sheetName = params.sheetName;
       const { data, error } = await db.from(sheetName).select('*');
@@ -253,7 +253,9 @@ async function callGASGet(actionName, params = {}) {
       const cleanRole = (session.role || 'warga').toLowerCase();
 
       if (cleanRole === 'warga' && session.nik) {
-        if (sheetName.toLowerCase() === 'warga') {
+        let sheetLower = sheetName.toLowerCase();
+        
+        if (sheetLower === 'warga') {
           // Cari No_KK warga yang sedang login
           let userKk = '';
           const targetWarga = safeData.find(w => {
@@ -266,16 +268,14 @@ async function callGASGet(actionName, params = {}) {
 
           const kkIdx = lowerHeaders.findIndex(h => h.includes('kk') || h.includes('no_kk'));
 
-          // Petakan row satu per satu persis logika sensor code.gs
+          // Petakan row satu per satu dengan sensor untuk warga luar KK
           let rows = safeData.map(rowObj => {
             let rowArr = headers.map(h => rowObj[h] !== null && rowObj[h] !== undefined ? rowObj[h] : '');
             let rowKk = kkIdx > -1 ? String(rowObj[headers[kkIdx]] || '').trim() : '';
 
-            // Jika satu KK atau data diri sendiri, tampilkan penuh
             if ((userKk && rowKk === userKk) || (cariNilaiKolom(rowObj, ['nik', 'ktp']) === session.nik)) {
               return rowArr;
             } else {
-              // Sensor data warga lain
               return headers.map((h, idx) => {
                 let hLower = h.toLowerCase().trim();
                 if (['no', 'nama_lengkap', 'nama_panggilan', 'nama', 'jenis_kelamin', 'no_hp', 'foto_url', 'alamat'].includes(hLower)) {
@@ -288,13 +288,19 @@ async function callGASGet(actionName, params = {}) {
           });
 
           return { status: 'success', headers: headers, rows: rows };
+        } else if (['keuangan', 'aset', 'sumbangan', 'aspirasi'].includes(sheetLower)) {
+          // Menu publik transparan (Keuangan, Aset, Sumbangan, Aspirasi) tidak difilter NIK
         } else {
-          // Untuk sheet selain Warga, filter ketat berdasarkan NIK
+          // Untuk sheet privat, filter berdasarkan NIK
           safeData = safeData.filter(row => {
             let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
             return rNik && rNik.toString().trim() === session.nik.toString().trim();
           });
         }
+      }
+
+      if (!safeData || safeData.length === 0) {
+        return { status: 'success', headers: headers, rows: [] };
       }
 
       const rows = safeData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
