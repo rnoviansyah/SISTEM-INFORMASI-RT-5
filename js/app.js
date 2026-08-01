@@ -19,9 +19,12 @@ function clearAppCache() {
 }
 
 // ==========================================================
-// ==== URL DEPLOY GOOGLE APPS SCRIPT (WEB APP API) =========
+// ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbx_nxI_rIrqk6XUZtaSs6-vQkgCjuCTX42HGOFO2aGqZPjzyrCaR8Ah1xyYzTLOaCjQ/exec'; 
+const SUPABASE_URL = 'https://kcuuylpqhxagcradfmon.supabase.co';
+const SUPABASE_KEY = 'PASTE_PUBLISHABLE_ANON_KEY_LU_DI_SINI'; // Tempel API Key (anon public) dari Project Settings > API
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Helper Konversi URL Google Drive ke Direct Image LH3
 function convertToImageLink(url) {
@@ -35,40 +38,175 @@ function convertToImageLink(url) {
   return url;
 }
 
-// --- HELPER FETCH POST ---
+// --- HELPER FETCH POST (SUPABASE BRIDGE) ---
 async function callGASPost(actionName, extraPayload = {}) {
   try {
-    const response = await fetch(GAS_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: actionName,
-        token: session.token,
-        ...extraPayload
-      })
-    });
-    return await response.json();
+    // 1. Process Login
+    if (actionName === 'processLogin') {
+      const { username, password } = extraPayload;
+      let user = null;
+
+      const { data: userData } = await db.from('Users')
+        .select('*')
+        .or(`username.eq.${username},nik.eq.${username}`)
+        .eq('password', password)
+        .maybeSingle();
+      
+      if (userData) {
+        user = userData;
+      } else {
+        const { data: wargaData } = await db.from('Warga')
+          .select('*')
+          .eq('nik', username)
+          .eq('password', password)
+          .maybeSingle();
+        if (wargaData) user = wargaData;
+      }
+
+      if (!user) {
+        return { status: 'error', message: 'Username / NIK atau Password salah!' };
+      }
+
+      const roleClean = (user.role || 'warga').toString().trim().toLowerCase();
+      return {
+        status: 'success',
+        token: 'token-' + (user.nik || user.username || Date.now()),
+        role: (roleClean === 'rt') ? 'RT' : 'Warga',
+        nik: user.nik || '',
+        nama: user.nama || user.nama_lengkap || '',
+        alamat: user.alamat || '',
+        noHp: user.no_hp || user.nohp || user.no_wa || ''
+      };
+    }
+
+    // 2. Simpan Data Baru
+    if (actionName === 'simpanDataKeSheet') {
+      const sheetName = extraPayload.sheetName;
+      let formData = { ...extraPayload.formData };
+
+      if (!formData.id) {
+        formData.id = 'ID-' + new Date().getTime();
+      }
+
+      for (let k in formData) {
+        if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) {
+          formData[k] = formData[k].base64;
+        }
+      }
+
+      const { error } = await db.from(sheetName).insert([formData]);
+      if (error) return { status: 'error', message: error.message };
+
+      return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
+    }
+
+    // 3. Update Data
+    if (actionName === 'updateDataDiSheet') {
+      const sheetName = extraPayload.sheetName;
+      const id = extraPayload.id;
+      let formData = { ...extraPayload.formData };
+
+      for (let k in formData) {
+        if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) {
+          formData[k] = formData[k].base64;
+        }
+      }
+
+      const { error } = await db.from(sheetName).update(formData).eq('id', id);
+      if (error) return { status: 'error', message: error.message };
+
+      return { status: 'success', message: 'Data berhasil diperbarui!' };
+    }
+
+    // 4. Hapus Data
+    if (actionName === 'hapusDataDariSheet') {
+      const sheetName = extraPayload.sheetName;
+      const id = extraPayload.id;
+
+      const { error } = await db.from(sheetName).delete().eq('id', id);
+      if (error) return { status: 'error', message: error.message };
+
+      return { status: 'success', message: 'Data berhasil dihapus!' };
+    }
+
+    // 5. Simpan Info Warga
+    if (actionName === 'simpanInfoWarga') {
+      const teksBaru = extraPayload.teksBaru;
+      const { error } = await db.from('Pengaturan').upsert([{ kunci: 'info_warga', nilai: teksBaru }], { onConflict: 'kunci' });
+      if (error) return { status: 'error', message: error.message };
+      return { status: 'success', message: 'Informasi warga berhasil diperbarui!' };
+    }
+
+    return { status: 'error', message: 'Aksi POST tidak dikenal' };
   } catch (err) {
     console.error('Fetch Error (POST):', err);
-    return { status: 'error', message: 'Gagal terhubung ke server RT: ' + err.message };
+    return { status: 'error', message: 'Gagal terhubung ke Supabase: ' + err.message };
   }
 }
 
-// --- HELPER FETCH GET ---
+// --- HELPER FETCH GET (SUPABASE BRIDGE) ---
 async function callGASGet(actionName, params = {}) {
   try {
-    let query = `?action=${actionName}&token=${encodeURIComponent(session.token)}`;
-    for (let key in params) {
-      query += `&${key}=${encodeURIComponent(params[key])}`;
-    }
-    query += `&_t=${new Date().getTime()}`;
+    // 1. Get Table Data
+    if (actionName === 'getTableData') {
+      const sheetName = params.sheetName;
+      const { data, error } = await db.from(sheetName).select('*');
+      
+      if (error) {
+        console.error('Supabase Fetch Error:', error);
+        return { status: 'error', message: error.message };
+      }
 
-    console.log(`📡 [Real-Time Fetch] Mengambil data ${actionName} langsung dari Google Sheets...`);
-    const response = await fetch(GAS_API_URL + query, { method: 'GET' });
-    return await response.json();
+      if (!data || data.length === 0) {
+        return { status: 'success', headers: [], rows: [] };
+      }
+
+      const headers = Object.keys(data[0]);
+      const rows = data.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+
+      return { status: 'success', headers: headers, rows: rows };
+    }
+
+    // 2. Get Notifications
+    if (actionName === 'getNotifications') {
+      const { data } = await db.from('Pengaduan').select('id, jenis_aduan, status').limit(5);
+      let notifs = (data || []).map(item => ({
+        id: item.id || 'NOTIF-' + Math.random(),
+        menu: 'Pengaduan',
+        pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}`
+      }));
+      return { status: 'success', data: notifs };
+    }
+
+    // 3. Get Info Warga
+    if (actionName === 'getInfoWarga') {
+      const { data } = await db.from('Pengaturan').select('nilai').eq('kunci', 'info_warga').maybeSingle();
+      return { status: 'success', data: data ? data.nilai : '' };
+    }
+
+    // 4. Get Dashboard Summary
+    if (actionName === 'getDashboardSummary') {
+      const { count: totalWarga } = await db.from('Warga').select('*', { count: 'exact', head: true });
+      const { count: totalAduan } = await db.from('Pengaduan').select('*', { count: 'exact', head: true });
+      const { count: totalKeuangan } = await db.from('Keuangan').select('*', { count: 'exact', head: true });
+      const { count: totalSurat } = await db.from('SuratPengantar').select('*', { count: 'exact', head: true });
+      const { count: totalSumbangan } = await db.from('Sumbangan').select('*', { count: 'exact', head: true });
+
+      return {
+        status: 'success',
+        role: session.role || 'Warga',
+        warga: totalWarga || 0,
+        aduan: totalAduan || 0,
+        keuangan: totalKeuangan || 0,
+        surat: totalSurat || 0,
+        sumbangan: totalSumbangan || 0
+      };
+    }
+
+    return { status: 'error', message: 'Aksi GET tidak dikenal' };
   } catch (err) {
     console.error('Fetch Error (GET):', err);
-    return { status: 'error', message: 'Gagal memuat data server: ' + err.message };
+    return { status: 'error', message: 'Gagal memuat data Supabase: ' + err.message };
   }
 }
 
@@ -608,7 +746,7 @@ function submitFormBaru() {
 
 async function hapusDataAktif() {
   if(!editingId) return;
-  if(confirm('Apakah lu yakin ingin menghapus data ini secara permanen dari database Google Sheets?')) {
+  if(confirm('Apakah lu yakin ingin menghapus data ini secara permanen dari database Supabase?')) {
     document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Sedang menghapus data dari server...</b></div>';
     
     const res = await callGASPost('hapusDataDariSheet', {
