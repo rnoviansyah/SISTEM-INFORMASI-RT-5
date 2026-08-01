@@ -518,7 +518,7 @@ async function callGASGet(actionName, params = {}) {
             } else {
               return headers.map((h, idx) => {
                 let hLower = h.toLowerCase().trim();
-                if (['no', 'nama_lengkap', 'nama_panggilan', 'nama', 'jenis_kelamin', 'no_hp', 'foto_url', 'alamat'].includes(hLower)) {
+                if (['id', 'no', 'nama_lengkap', 'nama_panggilan', 'nama', 'jenis_kelamin', 'no_hp', 'foto_url', 'alamat'].includes(hLower)) {
                   return rowArr[idx];
                 } else {
                   return 'XXXXX';
