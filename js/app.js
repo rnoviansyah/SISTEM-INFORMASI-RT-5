@@ -184,7 +184,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
     }
 
-    // 3. Update Data
+    // 3. Update Data (Termasuk Auto Potong/Kembalikan Stok Peminjaman Aset)
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
       const id = extraPayload.id;
@@ -196,6 +196,48 @@ async function callGASPost(actionName, extraPayload = {}) {
         }
       }
 
+      // --- LOGIKA POTONG & KEMBALIKAN STOK AUTOMATIS ---
+      if (sheetName === 'Peminjaman') {
+        // 1. Ambil data peminjaman lama sebelum di-update untuk membandingkan status
+        const { data: oldPinjam } = await db.from('Peminjaman').select('*').eq('id', id).maybeSingle();
+        const safeOld = makeCaseInsensitive(oldPinjam);
+
+        let oldStatus = (safeOld ? (cariNilaiKolom(safeOld, ['status']) || safeOld.status || '') : '').toLowerCase().trim();
+        let newStatus = (formData.status || formData.Status || '').toLowerCase().trim();
+
+        let namaBarang = cariNilaiKolom(formData, ['nama_barang', 'barang', 'id_barang']) || (safeOld ? cariNilaiKolom(safeOld, ['nama_barang', 'barang', 'id_barang']) : '');
+        let jumlahPinjam = parseInt(cariNilaiKolom(formData, ['jumlah', 'qty']) || (safeOld ? cariNilaiKolom(safeOld, ['jumlah', 'qty']) : 0)) || 0;
+
+        if (namaBarang && jumlahPinjam > 0) {
+          // 2. Cari barang terkait di tabel Aset
+          const { data: asetData } = await db.from('Aset').select('*');
+          const safeAset = makeCaseInsensitive(asetData);
+          
+          let targetAset = safeAset ? safeAset.find(a => {
+            let bNama = cariNilaiKolom(a, ['nama_barang', 'nama', 'barang']);
+            let bId = cariNilaiKolom(a, ['id', 'id_barang']);
+            return (bNama && bNama.toLowerCase() === namaBarang.toLowerCase()) || (bId && bId.toLowerCase() === namaBarang.toLowerCase());
+          }) : null;
+
+          if (targetAset) {
+            let asetId = targetAset.id;
+            let currentStok = parseInt(cariNilaiKolom(targetAset, ['stok_tersedia', 'stok', 'jumlah', 'stock']) || 0);
+
+            // Jika status berubah dari bukan 'diterima' jadi 'diterima' -> Stok Berkurang
+            if (oldStatus !== 'diterima' && newStatus === 'diterima') {
+              let stokBaru = Math.max(0, currentStok - jumlahPinjam);
+              await db.from('Aset').update({ stok_tersedia: stokBaru }).eq('id', asetId);
+            }
+            // Jika status berubah dari 'diterima' jadi 'selesai' / 'di tolak' (dikembalikan) -> Stok Bertambah Lagi
+            else if (oldStatus === 'diterima' && newStatus !== 'diterima') {
+              let stokBaru = currentStok + jumlahPinjam;
+              await db.from('Aset').update({ stok_tersedia: stokBaru }).eq('id', asetId);
+            }
+          }
+        }
+      }
+
+      // 3. Update status peminjaman/data di Supabase
       const { error } = await db.from(sheetName).update(formData).eq('id', id);
       if (error) return { status: 'error', message: error.message };
 
@@ -968,7 +1010,7 @@ async function generateFormInputs(rowData) {
         if (safeAset) {
           safeAset.forEach(item => {
             let bNama = cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']);
-            let bJumlah = cariNilaiKolom(item, ['jumlah', 'stok', 'stock']) || '0';
+            let bJumlah = cariNilaiKolom(item, ['stok_tersedia', 'jumlah', 'stok', 'stock']) || '0';
             if (bNama) {
               let isSelected = (val && val.toLowerCase() === bNama.toLowerCase()) ? 'selected' : '';
               barangOpts += `<option value="${bNama}" ${isSelected} data-stok="${bJumlah}">${bNama} (Stok Tersedia: ${bJumlah})</option>`;
