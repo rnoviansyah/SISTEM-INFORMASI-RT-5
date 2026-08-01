@@ -120,7 +120,8 @@ function showDetailSumbangan(id) {
   let detailHtml = '';
   currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
-    if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
+    // SKIP NIK, FOTO/BUKTI, ID, DAN NO AGAR NIK TIDAK MUNCUL DI RINCIAN
+    if (hLower.includes('nik') || hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
     detailHtml += `
       <div class="border-b pb-1">
         <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
