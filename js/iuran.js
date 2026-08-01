@@ -99,43 +99,15 @@ function renderIuranCustom(data) {
           <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
         </div>
 
-        <!-- TAMPILAN QRIS PROPORSIONAL & RAPI -->
+        <!-- TAMPILAN QRIS BERSIH TANPA BINGKAI -->
         <div id="content-qris" class="text-center space-y-2">
-          <div class="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm relative overflow-hidden text-left mx-auto max-w-[270px]">
-            <!-- Aksen Sudut Merah Proporsional -->
-            <div class="absolute -top-6 -left-6 w-12 h-12 bg-red-600 transform rotate-45 z-0"></div>
-            <div class="absolute -bottom-6 -right-6 w-14 h-14 bg-red-600 transform rotate-45 z-0"></div>
-
-            <div class="relative z-10 space-y-2">
-              <!-- Header QRIS & GPN -->
-              <div class="flex justify-between items-center border-b pb-1.5 pt-1">
-                <div>
-                  <h4 class="font-black tracking-tighter text-black text-[10px] italic leading-tight">QUICK RESPONSE CODE</h4>
-                  <p class="text-[7.5px] font-extrabold text-red-600 tracking-wider uppercase leading-tight">QRIS PEMBAYARAN NASIONAL</p>
-                </div>
-                <div class="text-right">
-                  <span class="text-[9px] font-black text-blue-900 tracking-wider bg-red-50 px-1 py-0.5 rounded border border-red-100">GPN</span>
-                </div>
-              </div>
-
-              <!-- Merchant Info -->
-              <div class="text-center space-y-0">
-                <h5 class="font-bold text-gray-900 text-xs tracking-wide">SHN GROUP</h5>
-                <p class="text-[8px] text-gray-500 font-mono">NMID : ID1021062401364</p>
-              </div>
-
-              <!-- QR Code Container -->
-              <div class="bg-white p-2 rounded-xl border border-gray-100 text-center shadow-sm">
-                <img id="qris-dynamic-img" src="" class="w-36 h-36 mx-auto rounded object-contain">
-              </div>
-
-              <!-- Footer QRIS Card -->
-              <div class="flex justify-between items-center text-[8px] text-gray-400 pt-1 border-t">
-                <span>Dicetak oleh: 93600915</span>
-                <span class="text-emerald-600 font-bold">Auto Nominal</span>
-              </div>
-            </div>
+          <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
+          <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
+            <h5 class="font-bold text-gray-900 text-xs mb-0.5">SHN GROUP</h5>
+            <p class="text-[9px] text-gray-500 font-mono mb-2">NMID: ID1021062401364</p>
+            <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
           </div>
+          <p class="text-[10px] font-bold text-blue-600">a.n Kas RT 05 / Rizky Noviansyah</p>
         </div>
 
         <div id="content-tf" class="hidden space-y-2 text-xs">
