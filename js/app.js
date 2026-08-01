@@ -41,20 +41,36 @@ function makeCaseInsensitive(data) {
   return data;
 }
 
-// Helper Universal Cari Data Warga (Kebal Nama Kolom Supabase)
+// Helper Universal Cari Data Warga & Barang (Kebal Nama Kolom & Bebas Bentrok Kolom Foto)
 function cariNilaiKolom(row, keywords) {
-  if (!row) return '';
-  for (let key of Object.keys(row)) {
-    let kLower = key.toLowerCase();
-    for (let kw of keywords) {
-      if (kLower.includes(kw)) {
-        let val = row[key];
-        if (val !== null && val !== undefined && String(val).trim() !== '') {
-          return String(val).trim();
-        }
+  if (!row || typeof row !== 'object') return '';
+  const keys = Object.keys(row);
+
+  for (let kw of keywords) {
+    let kwLower = kw.toLowerCase().trim();
+
+    // 1. Prioritaskan Exact Match (Pencocokan Persis Nama Kolom)
+    let exactKey = keys.find(k => k.toLowerCase().trim() === kwLower);
+    if (exactKey && row[exactKey] !== null && row[exactKey] !== undefined && String(row[exactKey]).trim() !== '') {
+      return String(row[exactKey]).trim();
+    }
+
+    // 2. Jika tidak ada exact match, cari Partial Match (Abaikan kolom foto/gambar/keterangan kalau cari nama/barang)
+    let partialKey = keys.find(k => {
+      let kLower = k.toLowerCase().trim();
+      let matchesKw = kLower.includes(kwLower);
+      
+      if (kwLower.includes('nama') || kwLower.includes('barang')) {
+        return matchesKw && !kLower.includes('foto') && !kLower.includes('gambar') && !kLower.includes('bukti') && !kLower.includes('keterangan');
       }
+      return matchesKw;
+    });
+
+    if (partialKey && row[partialKey] !== null && row[partialKey] !== undefined && String(row[partialKey]).trim() !== '') {
+      return String(row[partialKey]).trim();
     }
   }
+
   return '';
 }
 
@@ -214,7 +230,7 @@ async function callGASPost(actionName, extraPayload = {}) {
           const safeAset = makeCaseInsensitive(asetData);
           
           let targetAset = safeAset ? safeAset.find(a => {
-            let bNama = cariNilaiKolom(a, ['nama_barang', 'nama', 'barang']);
+            let bNama = cariNilaiKolom(a, ['nama_barang', 'nama_aset', 'nama', 'barang']);
             let bId = cariNilaiKolom(a, ['id', 'id_barang']);
             return (bNama && bNama.toLowerCase() === namaBarang.toLowerCase()) || (bId && bId.toLowerCase() === namaBarang.toLowerCase());
           }) : null;
@@ -968,12 +984,12 @@ async function generateFormInputs(rowData) {
     
     if (currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') {
       if (session.role === 'Warga' && currentActiveMenu === 'Peminjaman') {
-        if (!['nama_barang', 'id_barang', 'jumlah', 'nama_peminjam', 'nama', 'keterangan', 'keterangan_warga', 'tanggal_pinjam'].includes(nameLower)) continue;
+        if (!['nama_barang', 'id_barang', 'barang', 'jumlah', 'nama_peminjam', 'nama', 'keterangan', 'keterangan_warga', 'tanggal_pinjam'].includes(nameLower)) continue;
       }
     }
     
     let labelText = h.replace('_', ' ').toUpperCase();
-    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+    if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') && (nameLower === 'nama_barang' || nameLower === 'id_barang' || nameLower === 'barang')) {
       labelText = 'NAMA BARANG';
     }
     if ((currentActiveMenu === 'Aset' || currentActiveMenu === 'Peminjaman') && (nameLower === 'nama_peminjam' || nameLower === 'nama')) {
@@ -1002,14 +1018,14 @@ async function generateFormInputs(rowData) {
     }
     
     // Dynamic Dropdown Nama Barang untuk Peminjaman
-    if (currentActiveMenu === 'Peminjaman' && (nameLower === 'nama_barang' || nameLower === 'id_barang')) {
+    if (currentActiveMenu === 'Peminjaman' && (nameLower === 'nama_barang' || nameLower === 'id_barang' || nameLower === 'barang' || nameLower.includes('barang'))) {
       let barangOpts = '<option value="">-- Pilih Barang --</option>';
       try {
         const { data: asetList } = await db.from('Aset').select('*');
         const safeAset = makeCaseInsensitive(asetList);
         if (safeAset) {
           safeAset.forEach(item => {
-            let bNama = cariNilaiKolom(item, ['nama_barang', 'nama', 'barang']);
+            let bNama = cariNilaiKolom(item, ['nama_barang', 'nama_aset', 'nama', 'barang']);
             let bJumlah = cariNilaiKolom(item, ['stok_tersedia', 'jumlah', 'stok', 'stock']) || '0';
             if (bNama) {
               let isSelected = (val && val.toLowerCase() === bNama.toLowerCase()) ? 'selected' : '';
