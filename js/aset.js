@@ -233,7 +233,7 @@ function renderAsetCustom(data) {
 
           <div class="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onclick="tutupModalKembaliRT()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
-            <button type="button" onclick="kirimPengembalianRT()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">Proses Selesai</button>
+            <button type="button" id="btnKirimKembaliRT" onclick="kirimPengembalianRT(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-1">Proses Selesai</button>
           </div>
         </div>
       </div>
@@ -571,7 +571,7 @@ function tutupModalKembaliRT() {
   document.getElementById('modal-kembali-rt').classList.add('hidden');
 }
 
-async function kirimPengembalianRT() {
+async function kirimPengembalianRT(e) {
   if (!activeKembaliData) return;
 
   let qtyKembali = document.getElementById('kembaliJumlahBalik').value;
@@ -582,16 +582,36 @@ async function kirimPengembalianRT() {
     return;
   }
 
-  const res = await callGASPost('prosesPengembalianAsetRT', {
-    idPinjam: activeKembaliData.idPinjam,
-    qtyKembali: qtyKembali,
-    catatanRt: catatanRt
-  });
+  // Ambil elemen tombol 'Proses Selesai'
+  let btn = (e && e.target) ? e.target.closest('button') : document.getElementById('btnKirimKembaliRT');
+  if (!btn) btn = document.getElementById('btnKirimKembaliRT');
 
-  alert(res ? res.message : 'Pengembalian diproses');
-  tutupModalKembaliRT();
-  loadTabelRiwayat();
-  if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+  // Kunci tombol & tambahkan spinner animasi
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Memproses...`;
+  }
+
+  try {
+    const res = await callGASPost('prosesPengembalianAsetRT', {
+      idPinjam: activeKembaliData.idPinjam,
+      qtyKembali: qtyKembali,
+      catatanRt: catatanRt
+    });
+
+    alert(res ? res.message : 'Pengembalian diproses');
+    tutupModalKembaliRT();
+    loadTabelRiwayat();
+    if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
+  } catch (err) {
+    alert('Gagal memproses pengembalian: ' + err.message);
+  } finally {
+    // Kembalikan tombol ke keadaan semula
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Proses Selesai';
+    }
+  }
 }
 
 const originalLoadMenuAset = window.loadMenu;
