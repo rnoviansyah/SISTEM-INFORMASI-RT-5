@@ -335,9 +335,17 @@ async function bukaModalTambahIuranRT() {
 
   const res = await callGASGet('getDaftarWargaUntukIuran');
   let wargaOptions = '<option value="">Pilih Warga...</option>';
-  if (res && res.status === 'success') {
+  
+  if (res && res.status === 'success' && res.data) {
     res.data.forEach(w => {
-      wargaOptions += `<option value="${w.nik}" data-nama="${w.nama}" data-kk="${w.no_kk}">${w.nama} (NIK: ${w.nik})</option>`;
+      // Menggunakan helper cariNilaiKolom agar aman terhadap skema nama kolom Supabase
+      let wNik = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['nik', 'ktp']) : '') || w.nik || w.NIK || '';
+      let wNama = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['nama_lengkap', 'nama', 'name', 'nama_panggilan']) : '') || w.nama || w.Nama || '';
+      let wKk = (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(w, ['no_kk', 'kk', 'nomor_kk']) : '') || w.no_kk || w.KK || '';
+
+      if (wNik || wNama) {
+        wargaOptions += `<option value="${wNik}" data-nama="${wNama}" data-kk="${wKk}">${wNama} (NIK: ${wNik})</option>`;
+      }
     });
   }
 
@@ -400,9 +408,18 @@ async function bukaModalTambahIuranRT() {
 
 function isiOtomatisWarga(selectEl) {
   let opt = selectEl.options[selectEl.selectedIndex];
-  document.getElementById('iuran-input-nik').value = opt.value || '';
-  document.getElementById('iuran-input-nama').value = opt.getAttribute('data-nama') || '';
-  document.getElementById('iuran-input-kk').value = opt.getAttribute('data-kk') || '';
+  let nik = opt.value || '';
+  let nama = opt.getAttribute('data-nama') || '';
+  let kk = opt.getAttribute('data-kk') || '';
+
+  // Mencegah string 'undefined' masuk ke dalam input form
+  if (nik === 'undefined') nik = '';
+  if (nama === 'undefined') nama = '';
+  if (kk === 'undefined') kk = '';
+
+  document.getElementById('iuran-input-nik').value = nik;
+  document.getElementById('iuran-input-nama').value = nama;
+  document.getElementById('iuran-input-kk').value = kk;
 }
 
 async function simpanIuranBaruRT(event) {
