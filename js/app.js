@@ -1075,7 +1075,19 @@ async function loadMenu(menu) {
     case 'Kematian':     if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
     case 'PindahMasuk':  if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
     case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
-    case 'Pengaturan':   if (session.role === 'RT') { renderPengaturanRTView(); return; } break;
+    case 'Pengaturan':
+    case 'PengaturanRT':
+      if (String(session.role || '').toUpperCase() === 'RT') {
+        renderPengaturanRTView();
+      } else {
+        document.getElementById('main-content').innerHTML = `
+          <div class="card p-4 text-center border-0 shadow-sm rounded-3 my-4">
+            <i class="bi bi-shield-lock text-primary display-4 mb-2"></i>
+            <h5 class="fw-bold text-gray-800">Pengaturan RT & Sistem</h5>
+            <p class="text-muted text-xs">Menu ini khusus untuk RT / Admin untuk mengelola identitas aplikasi, QRIS dinamis, dan akun warga.</p>
+          </div>`;
+      }
+      return;
   }
 
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
