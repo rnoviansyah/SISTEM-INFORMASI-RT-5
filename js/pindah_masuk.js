@@ -78,7 +78,7 @@ function filterDataPindahMasuk() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${currentHeaders.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data pindah masuk yang cocok.</td></tr>`;
   } else {
-    filtered.reverse().forEach((r, i) => {
+    filtered.forEach((r, i) => {
       let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
       let rowId = r[idIdx];
 

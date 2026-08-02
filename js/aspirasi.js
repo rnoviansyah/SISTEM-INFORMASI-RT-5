@@ -79,7 +79,7 @@ function renderTabelAspirasiRows(rows, isRt) {
     return;
   }
 
-  rows.reverse().forEach((r, i) => {
+  rows.forEach((r, i) => {
     let idVal = r[0] || '';
     let tglVal = r[1] || '-';
     let isiVal = r[2] || '-';

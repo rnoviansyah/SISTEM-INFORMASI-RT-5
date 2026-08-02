@@ -154,7 +154,7 @@ function renderListBulanDatabase(rows, headers) {
 
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
 
-  [...rows].reverse().forEach((r) => {
+  rows.forEach((r) => {
     let rowId = r[idIdx] || '';
     let bulanVal = getVal(r, headers, 'bulan', '-');
     let tahunVal = getVal(r, headers, 'tahun', '2026');

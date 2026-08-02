@@ -79,7 +79,7 @@ function filterDataSumbangan() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data sumbangan.</td></tr>`;
   } else {
-    filtered.reverse().forEach((r, i) => {
+    filtered.forEach((r, i) => {
       let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
       let statusIdx = headers.indexOf('status');
       let statusVal = r[statusIdx] || 'Belum di verifikasi';

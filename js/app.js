@@ -371,36 +371,41 @@ function sortDataNewestFirst(dataList) {
   if (!Array.isArray(dataList) || dataList.length <= 1) return dataList || [];
   let list = [...dataList];
 
-  list.sort((a, b) => {
-    if (!a || !b) return 0;
-
-    let timeA = a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT || a.waktu || a.tanggal || '';
-    let timeB = b.created_at || b.createdat || b.CREATED_AT || b.CREATEDAT || b.waktu || b.tanggal || '';
-
-    if (timeA && timeB) {
+  let hasTimestamp = list.some(a => a && (a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT));
+  if (hasTimestamp) {
+    list.sort((a, b) => {
+      let timeA = a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT || '';
+      let timeB = b.created_at || b.createdat || b.CREATED_AT || b.CREATEDAT || '';
       let dateA = new Date(timeA).getTime();
       let dateB = new Date(timeB).getTime();
       if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
         return dateB - dateA;
       }
-    }
+      return 0;
+    });
+    return list;
+  }
 
-    let idA = a.id || a.ID || a.idPinjam || (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(a, ['id', 'id_pinjam', 'id_barang']) : '') || '';
-    let idB = b.id || b.ID || b.idPinjam || (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(b, ['id', 'id_pinjam', 'id_barang']) : '') || '';
-
-    let numA = parseInt(String(idA).replace(/\D/g, '')) || 0;
-    let numB = parseInt(String(idB).replace(/\D/g, '')) || 0;
-    if (numA > 0 && numB > 0 && numA !== numB) {
-      return numB - numA;
-    }
-
-    if (idA && idB && idA !== idB) {
-      return String(idB).localeCompare(String(idA));
-    }
-
-    return 0;
+  let hasPrefixId = list.some(a => {
+    let id = String(a.id || a.ID || a.idPinjam || '').trim();
+    return id.includes('-') && /^[A-Z]{2,5}-\d+$/i.test(id);
   });
 
+  if (hasPrefixId) {
+    list.sort((a, b) => {
+      let idA = String(a.id || a.ID || a.idPinjam || '').trim();
+      let idB = String(b.id || b.ID || b.idPinjam || '').trim();
+      let numA = parseInt(idA.replace(/\D/g, '')) || 0;
+      let numB = parseInt(idB.replace(/\D/g, '')) || 0;
+      if (numA > 0 && numB > 0 && numA !== numB) {
+        return numB - numA;
+      }
+      return 0;
+    });
+    return list;
+  }
+
+  list.reverse();
   return list;
 }
 
@@ -1176,7 +1181,7 @@ function renderTable(data, menu) {
   data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size:0.85rem;">${h.toUpperCase()}</th>`);
   html += '<th class="py-3 text-secondary text-center">AKSI</th></tr></thead><tbody>';
 
-  [...data.rows].reverse().forEach(row => {
+  data.rows.forEach(row => {
     html += '<tr>';
     row.forEach((val, idx) => {
       let headName = data.headers[idx].toLowerCase();

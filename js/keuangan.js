@@ -156,7 +156,7 @@ function filterDataKeuangan() {
     return dateMatch && searchMatch;
   });
 
-  if (o === 'newest') {
+  if (o === 'oldest') {
     filtered.reverse();
   }
 

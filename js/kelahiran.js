@@ -84,7 +84,7 @@ function filterDataKelahiran() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${headers.length + 2}" class="text-center p-4 text-gray-400">Tidak ada data kelahiran yang cocok.</td></tr>`;
   } else {
-    filtered.reverse().forEach((r, i) => {
+    filtered.forEach((r, i) => {
       let rowId = r[idIdx];
 
       let btnAksi = session.role === 'RT' 
