@@ -840,19 +840,52 @@ async function doLogin() {
     const res = await callGASPost('processLogin', { username: u, password: p });
     if (res && res.status === 'success') {
       var roleClean = res.role.toString().trim().toLowerCase();
-      session.token  = res.token  || '';
+      let sessionToken = 'SESS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+      session.token  = sessionToken;
       session.role   = (roleClean === 'rt') ? 'RT' : 'Warga';
-      session.nik    = res.nik    ? res.nik.toString().trim()    : '';
+      session.nik    = res.nik    ? res.nik.toString().trim()    : (res.username || u);
       session.nama   = res.nama   ? res.nama.toString().trim()   : '';
       session.alamat = res.alamat ? res.alamat.toString().trim() : '';
       session.noHp   = res.noHp   ? res.noHp.toString().trim()   : '';
       localStorage.setItem('rt_user_session', JSON.stringify(session));
+
+      try {
+        await safeSupabaseInsert('Sessions', [{
+          token: sessionToken,
+          nik: session.nik,
+          role: session.role,
+          createdat: new Date().toLocaleString('id-ID')
+        }]);
+      } catch(e) { console.log('Simpan sesi error:', e); }
+
       applySessionUI();
     } else {
       document.getElementById('login-msg').innerHTML = res ? res.message : 'Login gagal!';
     }
   } catch (error) {
     alert("Browser JS Error: " + error.message);
+  }
+}
+
+async function verifySessionToken() {
+  if (!session || !session.token) return true;
+  try {
+    const { data: sessData, error } = await safeSupabaseSelect('Sessions');
+    if (error || !sessData) return true;
+    let match = sessData.find(s => {
+      let sTok = s.token || s.TOKEN || '';
+      return String(sTok).trim() === String(session.token).trim();
+    });
+    if (!match) {
+      if (notifTimer) clearInterval(notifTimer);
+      localStorage.removeItem('rt_user_session');
+      alert('Sesi login Anda telah dihentikan/dibatalkan oleh RT. Silakan login kembali.');
+      location.reload();
+      return false;
+    }
+    return true;
+  } catch(e) {
+    return true;
   }
 }
 
@@ -878,11 +911,13 @@ function applySessionUI() {
   requestNotifPermission();
   initRealtimeNotif();
   fetchNotifikasi();
+  verifySessionToken();
 
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(async function() {
     if (session.token && document.visibilityState === "visible") {
       fetchNotifikasi();
+      verifySessionToken();
       if (currentActiveMenu === 'Dashboard' && typeof muatInfoWargaRealtime === 'function') {
         let isModalOpen = document.body.classList.contains('modal-open') || document.querySelector('.modal.show') || document.querySelector('#modal-kelola-aset:not(.hidden)');
         if (!isModalOpen) muatInfoWargaRealtime();
@@ -891,8 +926,11 @@ function applySessionUI() {
   }, 15000);
 }
 
-function doLogout() {
+async function doLogout() {
   if (confirm('Apakah Anda yakin ingin logout?')) {
+    if (session.token) {
+      try { await safeSupabaseDelete('Sessions', 'token', session.token); } catch(e) {}
+    }
     if (notifTimer) clearInterval(notifTimer);
     if (supabaseRealtimeChannel && db) db.removeChannel(supabaseRealtimeChannel);
     document.getElementById('mob-header').classList.remove('show-nav');
@@ -902,12 +940,15 @@ function doLogout() {
   }
 }
 
-function checkExistingSession() {
+async function checkExistingSession() {
   let savedSession = localStorage.getItem('rt_user_session');
   if (savedSession) {
     try {
       session = JSON.parse(savedSession);
-      if (session && session.role) applySessionUI();
+      if (session && session.role) {
+        applySessionUI();
+        verifySessionToken();
+      }
     } catch(e) {
       localStorage.removeItem('rt_user_session');
     }
@@ -1491,10 +1532,11 @@ async function resetPasswordUser(username) {
 }
 
 async function hapusUserAkun(username) {
-  if (confirm(`Apakah Anda yakin ingin menghapus akun user '${username}' dari database?`)) {
+  if (confirm(`Apakah Anda yakin ingin menghapus akun user '${username}' secara permanen dari database?`)) {
     const res = await callGASPost('hapusUserAkun', { username: username });
     if (res && res.status === 'success') {
-      alert(`Akun '${username}' berhasil dihapus!`);
+      try { await safeSupabaseDelete('Sessions', 'nik', username); } catch(e) {}
+      alert(`Akun '${username}' dan seluruh sesi login aktifnya berhasil dihapus permanen!`);
       renderPengaturanRTView();
     } else {
       alert('Gagal menghapus user: ' + (res ? res.message : 'Error'));
@@ -1514,6 +1556,19 @@ async function simpanPengumumanWarga(e) {
   }
 }
 
+async function hapusSesiLogin(token) {
+  if (!token) return;
+  if (confirm('Putuskan sesi login ini? Warga yang menggunakan akun ini akan langsung di-logout otomatis dari aplikasinya.')) {
+    const { error } = await safeSupabaseDelete('Sessions', 'token', token);
+    if (!error) {
+      alert('Sesi login berhasil dihentikan/dibatalkan!');
+      renderPengaturanRTView();
+    } else {
+      alert('Gagal menghapus sesi: ' + (error ? error.message : 'Error'));
+    }
+  }
+}
+
 async function renderPengaturanRTView() {
   if (session.role !== 'RT') return;
   document.getElementById('page-title').innerText = 'Pengaturan RT & Sistem';
@@ -1528,6 +1583,12 @@ async function renderPengaturanRTView() {
   try {
     const { data: usersData } = await safeSupabaseSelect('Users');
     usersList = usersData || [];
+  } catch(e) {}
+
+  let sessionsList = [];
+  try {
+    const { data: sessData } = await safeSupabaseSelect('Sessions');
+    sessionsList = sessData || [];
   } catch(e) {}
 
   let currentRek = [];
@@ -1551,6 +1612,11 @@ async function renderPengaturanRTView() {
             <li class="nav-item">
               <button class="nav-link fw-bold text-xs" id="tab-users-btn" onclick="switchSettingTab('users')">
                 <i class="bi bi-person-lines-fill me-1"></i> Manajemen Akun Warga
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-bold text-xs" id="tab-sesi-btn" onclick="switchSettingTab('sesi')">
+                <i class="bi bi-shield-lock-fill me-1"></i> Sesi Login Aktif (${sessionsList.length})
               </button>
             </li>
             <li class="nav-item">
@@ -1741,6 +1807,64 @@ async function renderPengaturanRTView() {
           <td class="p-2 text-center">
             <button onclick="resetPasswordUser('${uName}')" class="btn btn-sm btn-outline-warning text-[10px] py-0 px-2 fw-bold me-1" title="Reset Password"><i class="bi bi-key me-1"></i>Reset Pass</button>
             <button onclick="hapusUserAkun('${uName}')" class="btn btn-sm btn-outline-danger text-[10px] py-0 px-2 fw-bold" title="Hapus Akun"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`;
+    });
+  }
+
+  html += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 5: MANAJEMEN SESI LOGIN WARGA -->
+          <div id="tab-content-sesi" class="setting-tab-panel d-none">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h5 class="fw-bold text-primary mb-1"><i class="bi bi-shield-lock-fill me-2"></i>Daftar Sesi Login Aktif Warga</h5>
+                <p class="text-xs text-muted mb-0">Manajemen sesi terpusat di database. Jika warga pindah atau dicabut aksesnya, klik <b>Putuskan Sesi</b> untuk membekukan akunnya secara seketika.</p>
+              </div>
+              <button onclick="renderPengaturanRTView()" class="btn btn-sm btn-outline-primary fw-bold text-xs"><i class="bi bi-arrow-clockwise me-1"></i>Refresh Sesi</button>
+            </div>
+
+            <div class="table-responsive border rounded-3 bg-white">
+              <table class="table table-hover text-xs mb-0 align-middle">
+                <thead class="table-light text-uppercase">
+                  <tr>
+                    <th class="p-2 text-center">No</th>
+                    <th class="p-2 text-center">Status</th>
+                    <th class="p-2">NIK / Username</th>
+                    <th class="p-2">Role</th>
+                    <th class="p-2">Waktu Login</th>
+                    <th class="p-2">Token Sesi</th>
+                    <th class="p-2 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>`;
+
+  if (sessionsList.length === 0) {
+    html += `<tr><td colspan="7" class="text-center p-4 text-muted">Belum ada sesi login aktif terverifikasi di database.</td></tr>`;
+  } else {
+    sessionsList.forEach((s, idx) => {
+      let sNik = s.nik || s.NIK || '-';
+      let sRole = s.role || s.ROLE || 'Warga';
+      let sTime = s.createdat || s.CREATEDAT || s.created_at || '-';
+      let sToken = s.token || s.TOKEN || '';
+      let sTokenShort = sToken ? (sToken.substring(0, 16) + '...') : '-';
+
+      html += `
+        <tr>
+          <td class="p-2 text-center text-muted">${idx + 1}</td>
+          <td class="p-2 text-center"><span class="badge bg-success-subtle text-success border border-success fw-bold">AKTIF</span></td>
+          <td class="p-2 font-bold font-mono">${sNik}</td>
+          <td class="p-2"><span class="badge ${sRole.toUpperCase()==='RT'?'bg-primary':'bg-secondary'}">${sRole}</span></td>
+          <td class="p-2 text-muted">${sTime}</td>
+          <td class="p-2 font-mono text-[10px] text-gray-500">${sTokenShort}</td>
+          <td class="p-2 text-center">
+            <button onclick="hapusSesiLogin('${sToken}')" class="btn btn-sm btn-outline-danger text-[10px] py-1 px-2.5 fw-bold" title="Putuskan Sesi">
+              <i class="bi bi-person-x-fill me-1"></i>Putuskan Sesi
+            </button>
           </td>
         </tr>`;
     });
