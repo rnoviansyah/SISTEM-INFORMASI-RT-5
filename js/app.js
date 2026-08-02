@@ -1094,16 +1094,17 @@ async function generateFormInputs(rowData) {
       </select>`;
     } else if (nameLower.includes('foto') || nameLower.includes('bukti')) {
       let imgDirect = convertToImageLink(val);
+      let isValidVal = val && val !== 'EMPTY' && val !== 'NULL' && val !== '-' && !val.includes('***');
       inputHtml = `
-        ${val && !val.includes('***') ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
+        ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
         <div class="card p-2 bg-light border-0">
           <div class="mb-2">
-            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">1. Pilih / Upload Foto (Kamera / Galeri HP):</label>
+            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">1. Upload Foto (Galeri / Kamera HP):</label>
             <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
           </div>
           <div>
             <label class="form-label text-[10px] text-gray-500 font-bold mb-1">2. Atau Tempel Link URL Foto (https://...):</label>
-            <input type="text" class="form-control form-control-sm dynamic-input" data-key="${h}" value="${val && !val.startsWith('data:') ? val : ''}" placeholder="https://...">
+            <input type="text" class="form-control form-control-sm dynamic-input-photo" data-key="${h}" value="${isValidVal && !val.startsWith('data:') ? val : ''}" placeholder="https://...">
           </div>
         </div>`;
     } else {
@@ -1167,8 +1168,21 @@ function submitFormBaru(e) {
     }
   });
 
+  document.querySelectorAll('.dynamic-input-photo').forEach(photoInp => {
+    let key = photoInp.getAttribute('data-key');
+    let val = photoInp.value.trim();
+    if (!payload[key] && val) {
+      payload[key] = val;
+    }
+  });
+
   Promise.all(filePromises).then(async () => {
     if (editingId) {
+      for (let k in payload) {
+        if ((k.toLowerCase().includes('foto') || k.toLowerCase().includes('bukti')) && !payload[k]) {
+          delete payload[k];
+        }
+      }
       const res = await callGASPost('updateDataDiSheet', { sheetName: currentActiveMenu, id: editingId, formData: payload });
       if (res && res.status === 'success') { bootstrapModalInstance.hide(); alert(res.message); loadMenu(currentActiveMenu); fetchNotifikasi(); }
       else { alert('Gagal memperbarui: ' + (res ? res.message : 'Error')); loadMenu(currentActiveMenu); }
