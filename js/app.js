@@ -187,7 +187,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       const sheetName = extraPayload.sheetName;
       let formData = { ...extraPayload.formData };
       if (!formData.id) formData.id = sheetName.substring(0,3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
-      if (session.role !== 'RT' && sheetName !== 'Iuran') formData['nik'] = session.nik;
+      if (session.role !== 'RT' && sheetName !== 'Iuran' && sheetName !== 'Aspirasi') formData['nik'] = session.nik;
       for (let k in formData) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
@@ -275,6 +275,34 @@ async function callGASPost(actionName, extraPayload = {}) {
       const { error } = await db.from('Pengaturan').upsert([{ kunci: 'info_warga', nilai: extraPayload.teksBaru }], { onConflict: 'kunci' });
       if (error) return { status: 'error', message: error.message };
       return { status: 'success', message: 'Informasi warga berhasil diperbarui!' };
+    }
+
+    if (actionName === 'simpanPengaturanApp') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan memperbarui pengaturan!' };
+      const { error } = await db.from('Pengaturan').upsert(extraPayload.settingsArray, { onConflict: 'kunci' });
+      if (error) return { status: 'error', message: error.message };
+      return { status: 'success', message: 'Pengaturan aplikasi berhasil disimpan!' };
+    }
+
+    if (actionName === 'tambahUserWarga') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan mengelola user!' };
+      const { error } = await safeSupabaseInsert('Users', [extraPayload.userObj]);
+      if (error) return { status: 'error', message: error.message };
+      return { status: 'success', message: 'Akun user berhasil didaftarkan!' };
+    }
+
+    if (actionName === 'hapusUserAkun') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus user!' };
+      const { error } = await safeSupabaseDelete('Users', 'username', extraPayload.username);
+      if (error) return { status: 'error', message: error.message };
+      return { status: 'success', message: 'Akun user berhasil dihapus!' };
+    }
+
+    if (actionName === 'resetPasswordUser') {
+      if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan mereset password!' };
+      const { error } = await safeSupabaseUpdate('Users', { password: extraPayload.newPassword }, 'username', extraPayload.username);
+      if (error) return { status: 'error', message: error.message };
+      return { status: 'success', message: 'Password user berhasil direset!' };
     }
 
     return { status: 'error', message: 'Aksi POST tidak dikenal' };
@@ -905,6 +933,7 @@ async function loadMenu(menu) {
     case 'Kematian':     if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
     case 'PindahMasuk':  if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
     case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
+    case 'Pengaturan':   if (session.role === 'RT') { renderPengaturanRTView(); return; } break;
   }
 
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
@@ -986,6 +1015,21 @@ async function bukaModalEdit(id) {
 async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
   formBody.innerHTML = '';
+
+  if (session.role === 'Warga' && !rowData && (!session.alamat || !session.nama) && session.nik) {
+    try {
+      const { data: safeWarga } = await safeSupabaseSelect('Warga');
+      if (safeWarga) {
+        let myW = safeWarga.find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === String(session.nik).trim());
+        if (myW) {
+          session.alamat = session.alamat || cariNilaiKolom(myW, ['alamat', 'alamat_rumah']) || '';
+          session.nama   = session.nama   || cariNilaiKolom(myW, ['nama_lengkap', 'nama']) || '';
+          localStorage.setItem('rt_user_session', JSON.stringify(session));
+        }
+      }
+    } catch(e) {}
+  }
+
   for (let idx = 0; idx < currentHeaders.length; idx++) {
     let h = currentHeaders[idx];
     if (['id','no','saldo'].includes(h.toLowerCase())) continue;
@@ -995,7 +1039,7 @@ async function generateFormInputs(rowData) {
     if ((nameLower === 'status' || nameLower.includes('penyelesaian') || nameLower.includes('admin')) && (session.role !== 'RT' || !rowData)) continue;
     if (session.role === 'Warga' && !rowData) {
       if (nameLower === 'nik') val = session.nik;
-      if (nameLower === 'nama' || nameLower === 'nama_lengkap') val = session.nama;
+      if (nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama')) val = session.nama;
       if (nameLower.includes('alamat')) val = session.alamat;
       if (['no_hp','hp','telp','wa'].includes(nameLower)) val = session.noHp;
     }
@@ -1047,7 +1091,7 @@ async function generateFormInputs(rowData) {
       inputHtml = `${val && !val.includes('***') ? `<div class="mb-1"><img src="${imgDirect}" class="img-table mb-2" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
         <input type="file" class="form-control dynamic-file-input" data-key="${h}" accept="image/*">`;
     } else {
-      let isReadonly = (session.role === 'Warga' && (nameLower === 'nik' || nameLower.includes('alamat'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
+      let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama') || nameLower.includes('alamat'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
       inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>`;
     }
     formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
@@ -1135,9 +1179,511 @@ function filterTable() {
 }
 
 // ==========================================================
+// ==== MODUL PENGATURAN RT & SISTEM (THEME, QRIS, USERS) ===
+// ==========================================================
+let appSettings = {
+  app_title: 'SISTEM INFORMASI RT 05',
+  app_subtitle: 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN',
+  app_logo: 'https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp',
+  app_theme: 'blue',
+  payment_rekening: JSON.stringify([
+    { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
+    { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
+  ]),
+  payment_qris_string: '00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC',
+  payment_qris_name: 'SHN GROUP / RT 05',
+  payment_qris: '',
+  info_warga: ''
+};
+
+async function loadAppSettings() {
+  try {
+    const { data: settingsData } = await safeSupabaseSelect('Pengaturan');
+    if (settingsData && settingsData.length > 0) {
+      settingsData.forEach(row => {
+        let k = row.kunci || cariNilaiKolom(row, ['kunci', 'key']);
+        let v = row.nilai !== null && row.nilai !== undefined ? row.nilai : cariNilaiKolom(row, ['nilai', 'value']);
+        if (k) appSettings[k] = v;
+      });
+    }
+
+    if (appSettings.app_title) {
+      ['login-app-title', 'mob-app-title', 'sidebar-app-title'].forEach(id => {
+        let el = document.getElementById(id);
+        if (el) el.innerText = appSettings.app_title;
+      });
+    }
+    if (appSettings.app_subtitle) {
+      ['login-app-subtitle', 'mob-app-subtitle'].forEach(id => {
+        let el = document.getElementById(id);
+        if (el) el.innerHTML = `<small>${appSettings.app_subtitle}</small>`;
+      });
+    }
+    if (appSettings.app_logo) {
+      document.querySelectorAll('.app-logo-img').forEach(img => {
+        img.src = appSettings.app_logo;
+      });
+    }
+
+    applyTheme(appSettings.app_theme || 'blue');
+    renderHeaderRekeningInfo();
+  } catch(e) {
+    console.error('Gagal memuat pengaturan:', e);
+  }
+}
+
+function applyTheme(themeName) {
+  document.body.classList.remove('theme-blue', 'theme-emerald', 'theme-indigo', 'theme-purple', 'theme-dark');
+  document.body.classList.add('theme-' + (themeName || 'blue'));
+  if (themeName === 'dark') {
+    document.body.style.backgroundColor = '#0f172a';
+    document.body.style.color = '#f8fafc';
+  } else {
+    document.body.style.backgroundColor = '';
+    document.body.style.color = '';
+  }
+}
+
+function renderHeaderRekeningInfo() {
+  let rekEl = document.getElementById('rek-info');
+  if (!rekEl) return;
+
+  let list = [];
+  try { list = JSON.parse(appSettings.payment_rekening || '[]'); } catch(e) {}
+  if (!Array.isArray(list) || list.length === 0) {
+    rekEl.style.display = 'none';
+    return;
+  }
+
+  let html = `<h5 class="fw-bold text-primary mb-2"><i class="bi bi-info-circle-fill me-2"></i>Info Rekening & Pembayaran</h5><p class="mb-1 text-secondary">`;
+  list.forEach((r, idx) => {
+    let b = r.bank || 'Bank';
+    let n = r.no || '-';
+    html += `<strong>${b}:</strong> ${n} <button class="btn-salin-inline" onclick="copySingleRek('${n}')">(salin)</button> ${idx < list.length - 1 ? '| ' : ''}`;
+  });
+  if (list.length > 0 && list[0].an) {
+    html += `<span class="ms-2 badge bg-light text-dark">a.n ${list[0].an}</span>`;
+  }
+  if (appSettings.payment_qris) {
+    html += `<button onclick="bukaPopUpFoto('${appSettings.payment_qris}')" class="btn btn-sm btn-outline-primary ms-3 font-bold py-0"><i class="bi bi-qr-code me-1"></i>Lihat QRIS</button>`;
+  }
+  html += `</p>`;
+  rekEl.innerHTML = html;
+}
+
+function switchSettingTab(tabName) {
+  document.querySelectorAll('.setting-tab-panel').forEach(p => p.classList.add('d-none'));
+  document.querySelectorAll('#settingTabs .nav-link').forEach(b => b.classList.remove('active'));
+
+  let panel = document.getElementById('tab-content-' + tabName);
+  let btn = document.getElementById('tab-' + tabName + '-btn');
+  if (panel) panel.classList.remove('d-none');
+  if (btn) btn.classList.add('active');
+}
+
+function selectThemeOption(themeName) {
+  document.getElementById('set-app-theme').value = themeName;
+  applyTheme(themeName);
+}
+
+function tambahBarisRekening() {
+  let container = document.getElementById('container-rekening-list');
+  if (!container) return;
+  let div = document.createElement('div');
+  div.className = 'row g-2 align-items-center border p-2 rounded bg-light row-rek-item';
+  div.innerHTML = `
+    <div class="col-md-3">
+      <input type="text" class="form-control form-control-sm inp-rek-bank" placeholder="Nama Bank/Wallet" required>
+    </div>
+    <div class="col-md-4">
+      <input type="text" class="form-control form-control-sm inp-rek-no" placeholder="Nomor Rekening/HP" required>
+    </div>
+    <div class="col-md-4">
+      <input type="text" class="form-control form-control-sm inp-rek-an" placeholder="a.n. Nama Pemilik" required>
+    </div>
+    <div class="col-md-1 text-center">
+      <button type="button" class="btn btn-sm btn-danger px-2" onclick="this.closest('.row-rek-item').remove()"><i class="bi bi-trash"></i></button>
+    </div>`;
+  container.appendChild(div);
+}
+
+async function simpanIdentitasDanTema(e) {
+  e.preventDefault();
+  let title = document.getElementById('set-app-title').value;
+  let subtitle = document.getElementById('set-app-subtitle').value;
+  let logo = document.getElementById('set-app-logo').value;
+  let theme = document.getElementById('set-app-theme').value;
+
+  let settingsArray = [
+    { kunci: 'app_title', nilai: title },
+    { kunci: 'app_subtitle', nilai: subtitle },
+    { kunci: 'app_logo', nilai: logo },
+    { kunci: 'app_theme', nilai: theme }
+  ];
+
+  const res = await callGASPost('simpanPengaturanApp', { settingsArray });
+  if (res && res.status === 'success') {
+    alert('Identitas & Tema berhasil diperbarui!');
+    await loadAppSettings();
+  } else {
+    alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
+  }
+}
+
+async function simpanRekeningDanQRIS(e) {
+  e.preventDefault();
+  let qrisString = document.getElementById('set-payment-qris-string').value;
+  let qrisName   = document.getElementById('set-payment-qris-name').value;
+  let qrisUrl    = document.getElementById('set-payment-qris').value;
+
+  let rekList = [];
+  document.querySelectorAll('.row-rek-item').forEach(row => {
+    let b = row.querySelector('.inp-rek-bank').value.trim();
+    let n = row.querySelector('.inp-rek-no').value.trim();
+    let a = row.querySelector('.inp-rek-an').value.trim();
+    if (b && n) rekList.push({ bank: b, no: n, an: a });
+  });
+
+  let settingsArray = [
+    { kunci: 'payment_qris_string', nilai: qrisString },
+    { kunci: 'payment_qris_name', nilai: qrisName },
+    { kunci: 'payment_qris', nilai: qrisUrl },
+    { kunci: 'payment_rekening', nilai: JSON.stringify(rekList) }
+  ];
+
+  const res = await callGASPost('simpanPengaturanApp', { settingsArray });
+  if (res && res.status === 'success') {
+    alert('Rekening & Pengaturan QRIS Dinamis berhasil disimpan!');
+    await loadAppSettings();
+  } else {
+    alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
+  }
+}
+
+async function simpanUserBaru(e) {
+  e.preventDefault();
+  let username = document.getElementById('reg-username').value.trim();
+  let nik = document.getElementById('reg-nik').value.trim();
+  let password = document.getElementById('reg-password').value.trim();
+  let role = document.getElementById('reg-role').value;
+
+  if (!username || !password) {
+    alert('Username dan Password wajib diisi!');
+    return;
+  }
+
+  let userObj = {
+    username: username,
+    nik: nik || username,
+    password: password,
+    role: role
+  };
+
+  const res = await callGASPost('tambahUserWarga', { userObj });
+  if (res && res.status === 'success') {
+    alert(`Akun ${username} (${role}) berhasil didaftarkan!`);
+    renderPengaturanRTView();
+  } else {
+    alert('Gagal mendaftarkan user: ' + (res ? res.message : 'Error'));
+  }
+}
+
+async function resetPasswordUser(username) {
+  let newPass = prompt(`Masukkan password baru untuk akun '${username}':`);
+  if (!newPass) return;
+  const res = await callGASPost('resetPasswordUser', { username: username, newPassword: newPass.trim() });
+  if (res && res.status === 'success') {
+    alert(`Password untuk '${username}' berhasil diubah!`);
+  } else {
+    alert('Gagal reset password: ' + (res ? res.message : 'Error'));
+  }
+}
+
+async function hapusUserAkun(username) {
+  if (confirm(`Apakah Anda yakin ingin menghapus akun user '${username}' dari database?`)) {
+    const res = await callGASPost('hapusUserAkun', { username: username });
+    if (res && res.status === 'success') {
+      alert(`Akun '${username}' berhasil dihapus!`);
+      renderPengaturanRTView();
+    } else {
+      alert('Gagal menghapus user: ' + (res ? res.message : 'Error'));
+    }
+  }
+}
+
+async function simpanPengumumanWarga(e) {
+  e.preventDefault();
+  let teks = document.getElementById('set-info-warga').value;
+  const res = await callGASPost('simpanInfoWarga', { teksBaru: teks });
+  if (res && res.status === 'success') {
+    alert('Pengumuman warga berhasil disimpan!');
+    await loadAppSettings();
+  } else {
+    alert('Gagal menyimpan pengumuman: ' + (res ? res.message : 'Error'));
+  }
+}
+
+async function renderPengaturanRTView() {
+  if (session.role !== 'RT') return;
+  document.getElementById('page-title').innerText = 'Pengaturan RT & Sistem';
+  document.getElementById('main-content').innerHTML = `
+    <div class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+      <br><small class="text-muted mt-2 d-block">Memuat pengaturan sistem...</small>
+    </div>`;
+
+  await loadAppSettings();
+  let usersList = [];
+  try {
+    const { data: usersData } = await safeSupabaseSelect('Users');
+    usersList = usersData || [];
+  } catch(e) {}
+
+  let currentRek = [];
+  try { currentRek = JSON.parse(appSettings.payment_rekening || '[]'); } catch(e) {}
+
+  let html = `
+    <div class="p-1 font-sans">
+      <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-header bg-white border-bottom py-3">
+          <ul class="nav nav-pills card-header-pills gap-2" id="settingTabs" role="tablist">
+            <li class="nav-item">
+              <button class="nav-link active fw-bold text-xs" id="tab-tema-btn" onclick="switchSettingTab('tema')">
+                <i class="bi bi-palette-fill me-1"></i> Identitas & Tema
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-bold text-xs" id="tab-rekening-btn" onclick="switchSettingTab('rekening')">
+                <i class="bi bi-qr-code-scan me-1"></i> QRIS & Rekening
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-bold text-xs" id="tab-users-btn" onclick="switchSettingTab('users')">
+                <i class="bi bi-person-lines-fill me-1"></i> Manajemen Akun Warga
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link fw-bold text-xs" id="tab-info-btn" onclick="switchSettingTab('info')">
+                <i class="bi bi-megaphone-fill me-1"></i> Pengumuman Warga
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card-body p-4">
+          <!-- TAB 1: IDENTITAS & TEMA -->
+          <div id="tab-content-tema" class="setting-tab-panel">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-sliders me-2"></i>Pengaturan Identitas & Tema Aplikasi</h5>
+            <form onsubmit="simpanIdentitasDanTema(event)">
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">NAMA / JUDUL RT</label>
+                <input type="text" id="set-app-title" class="form-control" value="${appSettings.app_title || ''}" placeholder="Contoh: SISTEM INFORMASI RT 05" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">SLOGAN / SUBTITLE</label>
+                <input type="text" id="set-app-subtitle" class="form-control" value="${appSettings.app_subtitle || ''}" placeholder="Contoh: AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN">
+              </div>
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">URL LOGO RT (Link Gambar/Foto)</label>
+                <input type="text" id="set-app-logo" class="form-control" value="${appSettings.app_logo || ''}" placeholder="https://...">
+                <small class="text-muted">Tempelkan URL foto logo RT. Jika diisi, logo aplikasi di login dan header akan langsung berubah.</small>
+              </div>
+              <div class="mb-4">
+                <label class="form-label font-semibold text-xs text-gray-700">TEMA WARNA APLIKASI</label>
+                <div class="row g-2">
+                  <div class="col-6 col-md-2">
+                    <div class="p-3 border rounded text-center cursor-pointer ${appSettings.app_theme==='blue'?'border-primary bg-primary-subtle':''}" onclick="selectThemeOption('blue')">
+                      <div class="rounded-circle mx-auto mb-2" style="width:30px;height:30px;background:#2563eb;"></div>
+                      <small class="fw-bold d-block">Biru Klasik</small>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="p-3 border rounded text-center cursor-pointer ${appSettings.app_theme==='emerald'?'border-success bg-success-subtle':''}" onclick="selectThemeOption('emerald')">
+                      <div class="rounded-circle mx-auto mb-2" style="width:30px;height:30px;background:#059669;"></div>
+                      <small class="fw-bold d-block">Hijau Emerald</small>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="p-3 border rounded text-center cursor-pointer ${appSettings.app_theme==='indigo'?'border-info bg-info-subtle':''}" onclick="selectThemeOption('indigo')">
+                      <div class="rounded-circle mx-auto mb-2" style="width:30px;height:30px;background:#4f46e5;"></div>
+                      <small class="fw-bold d-block">Indigo Modern</small>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="p-3 border rounded text-center cursor-pointer ${appSettings.app_theme==='purple'?'border-warning bg-warning-subtle':''}" onclick="selectThemeOption('purple')">
+                      <div class="rounded-circle mx-auto mb-2" style="width:30px;height:30px;background:#9333ea;"></div>
+                      <small class="fw-bold d-block">Purple Royal</small>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="p-3 border rounded text-center cursor-pointer ${appSettings.app_theme==='dark'?'border-dark bg-dark text-white':''}" onclick="selectThemeOption('dark')">
+                      <div class="rounded-circle mx-auto mb-2" style="width:30px;height:30px;background:#1e293b;"></div>
+                      <small class="fw-bold d-block">Dark Mode</small>
+                    </div>
+                  </div>
+                </div>
+                <input type="hidden" id="set-app-theme" value="${appSettings.app_theme || 'blue'}">
+              </div>
+              <button type="submit" class="btn btn-primary fw-bold px-4 py-2"><i class="bi bi-check-circle me-1"></i>Simpan Identitas & Tema</button>
+            </form>
+          </div>
+
+          <!-- TAB 2: REKENING & QRIS -->
+          <div id="tab-content-rekening" class="setting-tab-panel d-none">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-wallet2 me-2"></i>Pengaturan QRIS Dinamis & Rekening Pembayaran</h5>
+            <form onsubmit="simpanRekeningDanQRIS(event)">
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">BASE PAYLOAD QRIS STATIS RT (Payload Kode QRIS DANA/BRI/NMID)</label>
+                <textarea id="set-payment-qris-string" rows="3" class="form-control font-mono text-xs mb-1" placeholder="Contoh: 00020101021126570011ID.DANA.WWW...">${appSettings.payment_qris_string || ''}</textarea>
+                <small class="text-muted d-block mb-3">*Sistem akan secara otomatis menyisipkan nominal tagihan (seperti Rp 50.000) secara **DINAMIS** dan mengalkulasi ulang checksum CRC16 QRIS saat warga melakukan pembayaran.</small>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">NAMA MERCHANT / SHIFT KODE QRIS</label>
+                <input type="text" id="set-payment-qris-name" class="form-control form-control-sm" value="${appSettings.payment_qris_name || ''}" placeholder="Contoh: SHN GROUP / RT 05">
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label font-semibold text-xs text-gray-700">URL FOTO QRIS STATIS (OPSIONAL / Gambar Cadangan)</label>
+                <input type="text" id="set-payment-qris" class="form-control mb-2" value="${appSettings.payment_qris || ''}" placeholder="https://... (URL foto QRIS cadangan jika ada)">
+                ${appSettings.payment_qris ? `<div class="mb-2"><img src="${appSettings.payment_qris}" class="rounded border p-1" style="max-height:100px;" onclick="bukaPopUpFoto('${appSettings.payment_qris}')"><small class="d-block text-muted">Klik untuk pratinjau</small></div>` : ''}
+              </div>
+
+              <div class="mb-3 border-t pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label font-semibold text-xs text-gray-700 mb-0">DAFTAR REKENING BANK / E-WALLET</label>
+                  <button type="button" class="btn btn-sm btn-outline-success font-bold" onclick="tambahBarisRekening()"><i class="bi bi-plus-lg me-1"></i>Tambah Rekening</button>
+                </div>
+                <div id="container-rekening-list" class="space-y-2">`;
+
+  if (currentRek.length === 0) {
+    currentRek = [
+      { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
+      { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
+    ];
+  }
+
+  currentRek.forEach((r) => {
+    html += `
+      <div class="row g-2 align-items-center border p-2 rounded bg-light row-rek-item">
+        <div class="col-md-3">
+          <input type="text" class="form-control form-control-sm inp-rek-bank" value="${r.bank || ''}" placeholder="Nama Bank/Wallet" required>
+        </div>
+        <div class="col-md-4">
+          <input type="text" class="form-control form-control-sm inp-rek-no" value="${r.no || ''}" placeholder="Nomor Rekening/HP" required>
+        </div>
+        <div class="col-md-4">
+          <input type="text" class="form-control form-control-sm inp-rek-an" value="${r.an || ''}" placeholder="a.n. Nama Pemilik" required>
+        </div>
+        <div class="col-md-1 text-center">
+          <button type="button" class="btn btn-sm btn-danger px-2" onclick="this.closest('.row-rek-item').remove()"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>`;
+  });
+
+  html += `
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary fw-bold px-4 py-2 mt-3"><i class="bi bi-check-circle me-1"></i>Simpan Rekening & QRIS</button>
+            </form>
+          </div>
+
+          <!-- TAB 3: MANAJEMEN AKUN WARGA -->
+          <div id="tab-content-users" class="setting-tab-panel d-none">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-person-plus-fill me-2"></i>Registrasi & Manajemen Akun Login Warga</h5>
+            
+            <div class="card border p-3 bg-light rounded-3 mb-4">
+              <h6 class="fw-bold text-dark mb-2"><i class="bi bi-person-plus me-1 text-success"></i>Tambah / Daftarkan Akun Warga Baru</h6>
+              <form onsubmit="simpanUserBaru(event)" class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label text-[10px] font-bold text-muted uppercase">Username / NIK</label>
+                  <input type="text" id="reg-username" class="form-control form-control-sm" placeholder="Username / NIK Warga" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label text-[10px] font-bold text-muted uppercase">NIK Warga (Opsional)</label>
+                  <input type="text" id="reg-nik" class="form-control form-control-sm" placeholder="Sesuai KTP Warga">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label text-[10px] font-bold text-muted uppercase">Password</label>
+                  <input type="password" id="reg-password" class="form-control form-control-sm" placeholder="Password Login" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label text-[10px] font-bold text-muted uppercase">Role User</label>
+                  <select id="reg-role" class="form-select form-select-sm">
+                    <option value="Warga">Warga</option>
+                    <option value="RT">RT / Admin</option>
+                  </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                  <button type="submit" class="btn btn-sm btn-success w-100 fw-bold">Daftar</button>
+                </div>
+              </form>
+            </div>
+
+            <h6 class="fw-bold text-gray-700 mb-2">Daftar Akun User Terdaftar (${usersList.length})</h6>
+            <div class="table-responsive border rounded-3 bg-white">
+              <table class="table table-hover text-xs mb-0 align-middle">
+                <thead class="table-light text-uppercase">
+                  <tr>
+                    <th class="p-2">No</th>
+                    <th class="p-2">Username</th>
+                    <th class="p-2">NIK</th>
+                    <th class="p-2">Role</th>
+                    <th class="p-2 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>`;
+
+  if (usersList.length === 0) {
+    html += `<tr><td colspan="5" class="text-center p-3 text-muted">Belum ada akun di tabel Users.</td></tr>`;
+  } else {
+    usersList.forEach((u, idx) => {
+      let uName = u.username || u.name || '-';
+      let uNik  = u.nik || '-';
+      let uRole = u.role || 'Warga';
+      html += `
+        <tr>
+          <td class="p-2 text-center text-muted">${idx + 1}</td>
+          <td class="p-2 font-bold">${uName}</td>
+          <td class="p-2 font-mono">${uNik}</td>
+          <td class="p-2"><span class="badge ${uRole.toUpperCase()==='RT'?'bg-primary':'bg-secondary'}">${uRole}</span></td>
+          <td class="p-2 text-center">
+            <button onclick="resetPasswordUser('${uName}')" class="btn btn-sm btn-outline-warning text-[10px] py-0 px-2 fw-bold me-1" title="Reset Password"><i class="bi bi-key me-1"></i>Reset Pass</button>
+            <button onclick="hapusUserAkun('${uName}')" class="btn btn-sm btn-outline-danger text-[10px] py-0 px-2 fw-bold" title="Hapus Akun"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`;
+    });
+  }
+
+  html += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 4: PENGUMUMAN WARGA -->
+          <div id="tab-content-info" class="setting-tab-panel d-none">
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-megaphone me-2"></i>Pengumuman & Running Text Dashboard</h5>
+            <form onsubmit="simpanPengumumanWarga(event)">
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">TEKS PENGUMUMAN UNTUK WARGA</label>
+                <textarea id="set-info-warga" rows="5" class="form-control" placeholder="Tuliskan pengumuman penting yang akan tampil di dashboard warga...">${appSettings.info_warga || ''}</textarea>
+              </div>
+              <button type="submit" class="btn btn-primary fw-bold px-4 py-2"><i class="bi bi-check-circle me-1"></i>Simpan Pengumuman</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('main-content').innerHTML = html;
+}
+
+// ==========================================================
 // ==== DOM READY ===========================================
 // ==========================================================
 document.addEventListener("DOMContentLoaded", function() {
+  loadAppSettings();
   checkExistingSession();
   document.addEventListener('submit', e => e.preventDefault());
   window.copySingleRek = function(nomor) {

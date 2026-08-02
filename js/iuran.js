@@ -103,8 +103,8 @@ function renderIuranCustom(data) {
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
-            <h5 class="font-bold text-gray-900 text-xs mb-0.5">SHN GROUP</h5>
-            <p class="text-[9px] text-gray-500 font-mono mb-2">NMID: ID1021062401364</p>
+            <h5 class="font-bold text-gray-900 text-xs mb-0.5" id="qris-merchant-name">SHN GROUP</h5>
+            <p class="text-[9px] text-gray-500 font-mono mb-2">DYNAMIC QRIS (NOMINAL OTOMATIS TERISI)</p>
             <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
           </div>
         </div>
@@ -270,13 +270,38 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   let fileInp = document.getElementById('iuran-bukti-file');
   if (fileInp) fileInp.value = '';
 
-  let baseStaticQris = "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
+  let baseStaticQris = (typeof appSettings !== 'undefined' && appSettings.payment_qris_string)
+    ? appSettings.payment_qris_string
+    : "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
   
   let qrisDinamisString = generateDynamicQRIS(baseStaticQris, nominal);
-  
+
   let qrImgEl = document.getElementById('qris-dynamic-img');
   if (qrImgEl) {
-    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrisDinamisString)}`;
+    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrisDinamisString)}`;
+  }
+
+  let merchantEl = document.getElementById('qris-merchant-name');
+  if (merchantEl) {
+    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'SHN GROUP / RT 05';
+  }
+
+  let tfBox = document.getElementById('content-tf');
+  if (tfBox) {
+    let rekList = [];
+    try { rekList = JSON.parse((typeof appSettings !== 'undefined' && appSettings.payment_rekening) || '[]'); } catch(e) {}
+    if (!Array.isArray(rekList) || rekList.length === 0) {
+      rekList = [
+        { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
+        { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
+      ];
+    }
+    let tfHtml = `<div class="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-1">`;
+    rekList.forEach(r => {
+      tfHtml += `<p class="text-gray-700 font-bold">${r.bank}: <span class="text-blue-700 font-mono">${r.no}</span> ${r.an ? `<small class="text-gray-500 font-normal">(a.n ${r.an})</small>` : ''}</p>`;
+    });
+    tfHtml += `</div>`;
+    tfBox.innerHTML = tfHtml;
   }
 
   let modal = document.getElementById('modal-bayar-iuran');
