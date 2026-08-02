@@ -1105,16 +1105,11 @@ async function generateFormInputs(rowData) {
       let imgDirect = convertToImageLink(val);
       let isValidVal = val && val !== 'EMPTY' && val !== 'NULL' && val !== '-' && !val.includes('***');
       inputHtml = `
-        ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
-        <div class="card p-2 bg-light border-0">
-          <div class="mb-2">
-            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">1. Upload Foto (Galeri / Kamera HP):</label>
-            <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
-          </div>
-          <div>
-            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">2. Atau Tempel Link URL Foto (https://...):</label>
-            <input type="text" class="form-control form-control-sm dynamic-input-photo" data-key="${h}" value="${isValidVal && !val.startsWith('data:') ? val : ''}" placeholder="https://...">
-          </div>
+        ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"><small class="d-block text-muted text-[10px]">Foto saat ini</small></div>` : ''}
+        <div class="p-2 border rounded bg-white">
+          <label class="form-label text-xs font-bold text-gray-700 mb-1 block"><i class="bi bi-camera-fill me-1 text-primary"></i>Upload Foto (Galeri / Kamera HP):</label>
+          <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
+          <small class="text-muted text-[10px] d-block mt-1">*Pilih file foto dari HP/Kamera Anda.</small>
         </div>`;
     } else {
       let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama') || nameLower.includes('alamat'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
@@ -1163,9 +1158,11 @@ function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75
 function submitFormBaru(e) {
   if (e) e.preventDefault();
   let payload = {};
-  document.querySelectorAll('.dynamic-input').forEach(inp => { payload[inp.getAttribute('data-key')] = inp.value; });
-  document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses & mengompres foto...</b></div>';
 
+  // 1. Read standard inputs BEFORE updating DOM
+  document.querySelectorAll('.dynamic-input').forEach(inp => { payload[inp.getAttribute('data-key')] = inp.value; });
+
+  // 2. Read file inputs BEFORE updating DOM
   let filePromises = [];
   document.querySelectorAll('.dynamic-file-input').forEach(fileInp => {
     let key = fileInp.getAttribute('data-key');
@@ -1177,13 +1174,8 @@ function submitFormBaru(e) {
     }
   });
 
-  document.querySelectorAll('.dynamic-input-photo').forEach(photoInp => {
-    let key = photoInp.getAttribute('data-key');
-    let val = photoInp.value.trim();
-    if (!payload[key] && val) {
-      payload[key] = val;
-    }
-  });
+  // 3. Update DOM to show loading spinner AFTER reading file inputs
+  document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses & mengompres foto...</b></div>';
 
   Promise.all(filePromises).then(async () => {
     if (editingId) {
