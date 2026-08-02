@@ -1094,8 +1094,18 @@ async function generateFormInputs(rowData) {
       </select>`;
     } else if (nameLower.includes('foto') || nameLower.includes('bukti')) {
       let imgDirect = convertToImageLink(val);
-      inputHtml = `${val && !val.includes('***') ? `<div class="mb-1"><img src="${imgDirect}" class="img-table mb-2" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
-        <input type="file" class="form-control dynamic-file-input" data-key="${h}" accept="image/*">`;
+      inputHtml = `
+        ${val && !val.includes('***') ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"></div>` : ''}
+        <div class="card p-2 bg-light border-0">
+          <div class="mb-2">
+            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">1. Pilih / Upload Foto (Kamera / Galeri HP):</label>
+            <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
+          </div>
+          <div>
+            <label class="form-label text-[10px] text-gray-500 font-bold mb-1">2. Atau Tempel Link URL Foto (https://...):</label>
+            <input type="text" class="form-control form-control-sm dynamic-input" data-key="${h}" value="${val && !val.startsWith('data:') ? val : ''}" placeholder="https://...">
+          </div>
+        </div>`;
     } else {
       let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama') || nameLower.includes('alamat'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
       inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>`;
@@ -1104,22 +1114,55 @@ async function generateFormInputs(rowData) {
   }
 }
 
+function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    let reader = new FileReader();
+    reader.onload = function(e) {
+      let img = new Image();
+      img.onload = function() {
+        let canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        let ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function submitFormBaru(e) {
   if (e) e.preventDefault();
   let payload = {};
   document.querySelectorAll('.dynamic-input').forEach(inp => { payload[inp.getAttribute('data-key')] = inp.value; });
-  document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses data...</b></div>';
+  document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses & mengompres foto...</b></div>';
 
   let filePromises = [];
   document.querySelectorAll('.dynamic-file-input').forEach(fileInp => {
     let key = fileInp.getAttribute('data-key');
     let file = fileInp.files[0];
     if (file) {
-      filePromises.push(new Promise((resolve, reject) => {
-        let reader = new FileReader();
-        reader.onload = e => { payload[key] = { base64: e.target.result, name: file.name, type: file.type }; resolve(); };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+      filePromises.push(compressImageFile(file).then(compressedUrl => {
+        payload[key] = compressedUrl;
       }));
     }
   });
