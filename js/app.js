@@ -524,10 +524,9 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', headers: headers, rows: rows };
     }
 
-    // 5. Get Notifications (REALTIME MULTI-TABEL CANGGIH & KEBAL NAMA KOLOM)
+    // 5. Get Notifications (REALTIME MULTI-TABEL)
     if (actionName === 'getNotifications') {
       const cleanRole = (session.role || 'warga').toLowerCase();
-      const userNik = (session.nik || '').toString().trim();
       let notifs = [];
 
       const [aRes, sRes, pRes, iRes, sumRes, aspRes] = await Promise.all([
@@ -540,115 +539,34 @@ async function callGASGet(actionName, params = {}) {
       ]);
 
       if (cleanRole === 'rt') {
-        // 1. Aduan Warga
         (aRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Baru';
-          let jenis = cariNilaiKolom(item, ['jenis_aduan', 'jenis']) || 'Umum';
-          let nama = cariNilaiKolom(item, ['nama', 'nama_lengkap', 'pelapor']) || 'Warga';
-          let idItem = item.id || cariNilaiKolom(item, ['id']) || 'ADU-' + Math.random();
-          notifs.push({ id: idItem, menu: 'Pengaduan', pesan: `Aduan ${jenis} dari ${nama}: (${st})` });
+          notifs.push({ id: item.id || 'ADU-' + Math.random(), menu: 'Pengaduan', pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}` });
         });
-
-        // 2. Surat Pengantar
-        (sRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Belum di verifikasi';
-          let nama = cariNilaiKolom(item, ['nama', 'nama_lengkap', 'pemohon']) || 'Warga';
-          let jenisSurat = cariNilaiKolom(item, ['jenis_surat', 'keperluan', 'jenis']) || 'Surat Pengantar';
-          let idItem = item.id || cariNilaiKolom(item, ['id']) || 'SRT-' + Math.random();
-          let stLower = st.toLowerCase();
-          if (stLower.includes('belum') || stLower.includes('menunggu') || stLower.includes('baru') || !st) {
-            notifs.push({ id: idItem, menu: 'SuratPengantar', pesan: `Pengajuan ${jenisSurat} Baru dari ${nama}` });
-          }
+        (sRes.data || []).filter(x => (x.status || '').toLowerCase().includes('belum')).forEach(item => {
+          notifs.push({ id: item.id || 'SRT-' + Math.random(), menu: 'SuratPengantar', pesan: `Pengajuan Surat Baru dari ${item.nama || 'Warga'}` });
         });
-
-        // 3. Peminjaman Aset / Inventaris
-        (pRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Menunggu Verifikasi';
-          let nama = cariNilaiKolom(item, ['nama_peminjam', 'nama', 'peminjam']) || 'Warga';
-          let barang = cariNilaiKolom(item, ['nama_barang', 'nama_aset', 'barang']) || 'Aset';
-          let qty = cariNilaiKolom(item, ['jumlah', 'qty']) || '1';
-          let idItem = item.id || cariNilaiKolom(item, ['id', 'id_pinjam']) || 'PIN-' + Math.random();
-          let stLower = st.toLowerCase();
-          if (stLower.includes('menunggu') || stLower.includes('belum') || stLower.includes('baru') || !st) {
-            notifs.push({ id: idItem, menu: 'Aset', pesan: `Pengajuan Pinjam ${barang} (${qty} unit) dari ${nama}` });
-          }
+        (pRes.data || []).filter(x => (x.status || '').toLowerCase().includes('menunggu')).forEach(item => {
+          notifs.push({ id: item.id || 'PIN-' + Math.random(), menu: 'Aset', pesan: `Pengajuan Pinjam Barang (${item.nama_barang || 'Aset'}) dari ${item.nama_peminjam || 'Warga'}` });
         });
-
-        // 4. Pembayaran Iuran
-        (iRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Belum Lunas';
-          let nama = cariNilaiKolom(item, ['nama', 'nama_lengkap']) || 'Warga';
-          let bulan = cariNilaiKolom(item, ['bulan']) || '';
-          let tahun = cariNilaiKolom(item, ['tahun']) || '2026';
-          let idItem = item.id || cariNilaiKolom(item, ['id']) || 'IUR-' + Math.random();
-          let stLower = st.toLowerCase();
-          if (stLower.includes('menunggu') || stLower.includes('verifikasi')) {
-            notifs.push({ id: idItem, menu: 'Iuran', pesan: `Pembayaran Iuran ${bulan} ${tahun} dari ${nama} perlu verifikasi RT` });
-          }
+        (iRes.data || []).filter(x => (x.status || '').toLowerCase().includes('menunggu')).forEach(item => {
+          notifs.push({ id: item.id || 'IUR-' + Math.random(), menu: 'Iuran', pesan: `Pembayaran Iuran (${item.bulan || ''}) perlu verifikasi RT` });
         });
-
-        // 5. Sumbangan Warga
-        (sumRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Belum di verifikasi';
-          let nama = cariNilaiKolom(item, ['nama', 'nama_lengkap']) || 'Warga';
-          let idItem = item.id || cariNilaiKolom(item, ['id']) || 'SUM-' + Math.random();
-          let stLower = st.toLowerCase();
-          if (stLower.includes('belum') || stLower.includes('menunggu') || stLower.includes('baru') || !st) {
-            notifs.push({ id: idItem, menu: 'Sumbangan', pesan: `Sumbangan Baru dari ${nama} (${st})` });
-          }
-        });
-
-        // 6. Aspirasi Anonim
-        (aspRes.data || []).forEach(item => {
-          let st = cariNilaiKolom(item, ['status']) || 'Baru';
-          let isi = cariNilaiKolom(item, ['isi_aspirasi', 'isi', 'aspirasi', 'pesan', 'saran']) || 'Masukan baru';
-          let idItem = item.id || cariNilaiKolom(item, ['id']) || 'ASP-' + Math.random();
-          let stLower = st.toLowerCase();
-          if (stLower.includes('baru') || !st) {
-            notifs.push({ id: idItem, menu: 'Aspirasi', pesan: `Aspirasi Anonim: "${isi.length > 35 ? isi.substring(0, 35) + '...' : isi}"` });
-          }
+        (aspRes.data || []).filter(x => (x.status || '').toLowerCase().includes('baru')).forEach(item => {
+          notifs.push({ id: item.id || 'ASP-' + Math.random(), menu: 'Aspirasi', pesan: `Aspirasi Anonim Baru: "${(item.isi_aspirasi || '').substring(0, 30)}..."` });
         });
       } else {
-        // --- NOTIFIKASI WARGA ---
-        (aRes.data || []).forEach(item => {
-          let rNik = cariNilaiKolom(item, ['nik', 'ktp']);
-          if (rNik && rNik.toString().trim() === userNik) {
-            let st = cariNilaiKolom(item, ['status']) || 'Diproses';
-            let jenis = cariNilaiKolom(item, ['jenis_aduan', 'jenis']) || 'Aduan';
-            let idItem = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id: idItem, menu: 'Pengaduan', pesan: `Status Aduan ${jenis}: ${st}` });
-          }
+        const userNik = (session.nik || '').toString().trim();
+        (aRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Pengaduan', pesan: `Aduan Anda: Status kini "${item.status || 'Diproses'}"` });
         });
-
-        (sRes.data || []).forEach(item => {
-          let rNik = cariNilaiKolom(item, ['nik', 'ktp']);
-          if (rNik && rNik.toString().trim() === userNik) {
-            let st = cariNilaiKolom(item, ['status']) || 'Diproses';
-            let idItem = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id: idItem, menu: 'SuratPengantar', pesan: `Surat Pengantar Anda: Status kini "${st}"` });
-          }
+        (sRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'SuratPengantar', pesan: `Surat Pengantar Anda: Status kini "${item.status || 'Diproses'}"` });
         });
-
-        (pRes.data || []).forEach(item => {
-          let rNik = cariNilaiKolom(item, ['nik', 'ktp']);
-          if (rNik && rNik.toString().trim() === userNik) {
-            let st = cariNilaiKolom(item, ['status']) || 'Di-update';
-            let barang = cariNilaiKolom(item, ['nama_barang', 'nama_aset', 'barang']) || 'Barang';
-            let idItem = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id: idItem, menu: 'Aset', pesan: `Peminjaman ${barang}: ${st}` });
-          }
+        (pRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Aset', pesan: `Peminjaman Aset (${item.nama_barang || 'Barang'}): ${item.status || 'Di-update'}` });
         });
-
-        (iRes.data || []).forEach(item => {
-          let rNik = cariNilaiKolom(item, ['nik', 'ktp']);
-          if (rNik && rNik.toString().trim() === userNik) {
-            let st = cariNilaiKolom(item, ['status']) || '';
-            let bulan = cariNilaiKolom(item, ['bulan']) || '';
-            let idItem = item.id || cariNilaiKolom(item, ['id']);
-            if (st.toLowerCase().includes('lunas')) {
-              notifs.push({ id: idItem, menu: 'Iuran', pesan: `Tagihan Iuran ${bulan} telah LUNAS diverifikasi RT!` });
-            }
-          }
+        (iRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik && (x.status || '').toLowerCase().includes('lunas')).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Iuran', pesan: `Tagihan Iuran (${item.bulan || ''}) telah LUNAS diverifikasi RT!` });
         });
       }
 
@@ -1088,14 +1006,6 @@ async function loadMenu(menu) {
     case 'Kematian': if(typeof loadKematianView === 'function') { loadKematianView(); return; } break;
     case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') { loadPindahMasukView(); return; } break;
     case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
-   switch(menu) {
-    case 'Dashboard': if(typeof loadDashboardView === 'function') loadDashboardView(); return;
-    case 'Profil': if(typeof loadProfilView === 'function') loadProfilView(); return;
-    case 'Warga': if(typeof loadWargaView === 'function') { loadWargaView(); return; } break;
-    case 'Kelahiran': if(typeof loadKelahiranView === 'function') { loadKelahiranView(); return; } break;
-    case 'Kematian': if(typeof loadKematianView === 'function') { loadKematianView(); return; } break;
-    case 'PindahMasuk': if(typeof loadPindahMasukView === 'function') { loadPindahMasukView(); return; } break;
-    case 'PindahKeluar': if(typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
   }
 
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
@@ -1441,6 +1351,7 @@ function filterTable() {
 document.addEventListener("DOMContentLoaded", function() {
   checkExistingSession();
 
+  // Mencegah reload halaman secara otomatis saat tombol Enter ditekan pada form
   document.addEventListener('submit', function(e) {
     e.preventDefault();
   });
