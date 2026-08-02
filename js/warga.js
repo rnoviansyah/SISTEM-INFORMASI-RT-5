@@ -98,7 +98,7 @@ function filterDataWarga() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
   } else {
-    filtered.forEach((r, i) => {
+    [...filtered].reverse().forEach((r, i) => {
       let nikVal = r[nikIdx] !== undefined ? r[nikIdx] : (r[0] || '-');
       let namaVal = r[namaIdx] !== undefined ? r[namaIdx] : (r[1] || '-');
       let alamatVal = alamatIdx > -1 && r[alamatIdx] !== undefined ? r[alamatIdx] : '-';

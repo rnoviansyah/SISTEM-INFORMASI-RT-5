@@ -258,8 +258,11 @@ async function callGASPost(actionName, extraPayload = {}) {
       for (let k in formData) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
-      const { error } = await safeSupabaseUpdate(sheetName, formData, 'id', id);
-      if (error) return { status: 'error', message: error.message };
+      let resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
+      if (resUpdate.error) {
+        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'nik', id);
+      }
+      if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
       return { status: 'success', message: 'Data berhasil diperbarui!' };
     }
 
@@ -379,7 +382,7 @@ async function callGASGet(actionName, params = {}) {
               });
             }
           });
-          return { status: 'success', headers: headers, rows: rows };
+          return { status: 'success', headers: headers, rows: [...rows].reverse() };
         } else if (!['keuangan','aset','peminjaman','sumbangan','aspirasi'].includes(sheetLower)) {
           filteredData = filteredData.filter(row => {
             let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
@@ -389,7 +392,7 @@ async function callGASGet(actionName, params = {}) {
       }
 
       if (!filteredData || filteredData.length === 0) return { status: 'success', headers: headers, rows: [] };
-      const rows = filteredData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+      const rows = [...filteredData].reverse().map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
       return { status: 'success', headers: headers, rows: rows };
     }
 
@@ -1012,7 +1015,13 @@ async function bukaModalEdit(id) {
   editingId = id;
   document.getElementById('formModalTitle').innerText = "Edit Data: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = session.role === 'RT' ? 'inline-block' : 'none';
-  let rowData = currentRows.find(r => r[0] === id);
+
+  let headersLower = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
+  let idIdx = headersLower.indexOf('id');
+  if (idIdx === -1) idIdx = headersLower.indexOf('nik');
+  if (idIdx === -1) idIdx = 0;
+
+  let rowData = currentRows.find(r => String(r[idIdx]) === String(id) || String(r[0]) === String(id));
   await generateFormInputs(rowData);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
   bootstrapModalInstance.show();
