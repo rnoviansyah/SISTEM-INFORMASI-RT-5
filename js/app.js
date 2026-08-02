@@ -412,6 +412,8 @@ async function callGASGet(actionName, params = {}) {
         safeSupabaseSelect('Aspirasi')
       ]);
 
+      const extractDate = (item) => item.created_at || item.createdat || item.timestamp || item.waktu || item.tanggal || item.tanggal_bayar || cariNilaiKolom(item, ['created_at', 'createdat', 'timestamp', 'waktu', 'tanggal', 'tanggal_bayar', 'tgl']) || null;
+
       if (cleanRole === 'rt') {
         // 1. Aduan Warga - semua masuk
         (aRes.data || []).forEach(item => {
@@ -419,7 +421,8 @@ async function callGASGet(actionName, params = {}) {
           let jenis = cariNilaiKolom(item, ['jenis_aduan', 'jenis']) || 'Umum';
           let nama  = cariNilaiKolom(item, ['nama', 'nama_lengkap', 'pelapor']) || 'Warga';
           let id    = item.id || cariNilaiKolom(item, ['id']) || ('ADU-' + Math.random());
-          notifs.push({ id, menu: 'Pengaduan', pesan: `Aduan ${jenis} dari ${nama}: (${st})` });
+          let rawDate = extractDate(item);
+          notifs.push({ id, menu: 'Pengaduan', pesan: `Aduan ${jenis} dari ${nama}: (${st})`, rawDate });
         });
 
         // 2. Surat Pengantar - yang belum/menunggu
@@ -430,7 +433,8 @@ async function callGASGet(actionName, params = {}) {
             let nama      = cariNilaiKolom(item, ['nama', 'nama_lengkap', 'pemohon']) || 'Warga';
             let jenisSurat= cariNilaiKolom(item, ['jenis_surat', 'keperluan', 'jenis']) || 'Surat';
             let id        = item.id || cariNilaiKolom(item, ['id']) || ('SRT-' + Math.random());
-            notifs.push({ id, menu: 'SuratPengantar', pesan: `Pengajuan ${jenisSurat} dari ${nama}` });
+            let rawDate   = extractDate(item);
+            notifs.push({ id, menu: 'SuratPengantar', pesan: `Pengajuan ${jenisSurat} dari ${nama}`, rawDate });
           }
         });
 
@@ -443,7 +447,8 @@ async function callGASGet(actionName, params = {}) {
             let barang= cariNilaiKolom(item, ['nama_barang', 'nama_aset', 'barang']) || 'Aset';
             let qty   = cariNilaiKolom(item, ['jumlah', 'qty']) || '1';
             let id    = item.id || cariNilaiKolom(item, ['id', 'id_pinjam']) || ('PIN-' + Math.random());
-            notifs.push({ id, menu: 'Aset', pesan: `Pengajuan Pinjam ${barang} (${qty} unit) dari ${nama}` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Aset', pesan: `Pengajuan Pinjam ${barang} (${qty} unit) dari ${nama}`, rawDate });
           }
         });
 
@@ -456,7 +461,8 @@ async function callGASGet(actionName, params = {}) {
             let bulan = cariNilaiKolom(item, ['bulan']) || '';
             let tahun = cariNilaiKolom(item, ['tahun']) || '';
             let id    = item.id || cariNilaiKolom(item, ['id']) || ('IUR-' + Math.random());
-            notifs.push({ id, menu: 'Iuran', pesan: `Iuran ${bulan} ${tahun} dari ${nama} perlu verifikasi` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Iuran', pesan: `Iuran ${bulan} ${tahun} dari ${nama} perlu verifikasi`, rawDate });
           }
         });
 
@@ -467,7 +473,8 @@ async function callGASGet(actionName, params = {}) {
           if (stL.includes('belum') || stL.includes('menunggu') || stL.includes('baru') || !st) {
             let nama  = cariNilaiKolom(item, ['nama', 'nama_lengkap']) || 'Warga';
             let id    = item.id || cariNilaiKolom(item, ['id']) || ('SUM-' + Math.random());
-            notifs.push({ id, menu: 'Sumbangan', pesan: `Sumbangan Baru dari ${nama} (${st || 'Belum diverifikasi'})` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Sumbangan', pesan: `Sumbangan Baru dari ${nama} (${st || 'Belum diverifikasi'})`, rawDate });
           }
         });
 
@@ -478,7 +485,8 @@ async function callGASGet(actionName, params = {}) {
           if (stL.includes('baru') || !st) {
             let isi = cariNilaiKolom(item, ['isi_aspirasi', 'isi', 'aspirasi', 'pesan', 'saran']) || 'Masukan baru';
             let id  = item.id || cariNilaiKolom(item, ['id']) || ('ASP-' + Math.random());
-            notifs.push({ id, menu: 'Aspirasi', pesan: `Aspirasi Anonim: "${isi.length > 35 ? isi.substring(0, 35) + '...' : isi}"` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Aspirasi', pesan: `Aspirasi Anonim: "${isi.length > 35 ? isi.substring(0, 35) + '...' : isi}"`, rawDate });
           }
         });
 
@@ -489,14 +497,16 @@ async function callGASGet(actionName, params = {}) {
             let st    = cariNilaiKolom(item, ['status']) || 'Diproses';
             let jenis = cariNilaiKolom(item, ['jenis_aduan', 'jenis']) || 'Aduan';
             let id    = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id, menu: 'Pengaduan', pesan: `Status Aduan ${jenis}: ${st}` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Pengaduan', pesan: `Status Aduan ${jenis}: ${st}`, rawDate });
           }
         });
         (sRes.data || []).forEach(item => {
           if (cariNilaiKolom(item, ['nik','ktp']).trim() === userNik) {
             let st = cariNilaiKolom(item, ['status']) || 'Diproses';
             let id = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id, menu: 'SuratPengantar', pesan: `Surat Pengantar Anda: Status kini "${st}"` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'SuratPengantar', pesan: `Surat Pengantar Anda: Status kini "${st}"`, rawDate });
           }
         });
         (pRes.data || []).forEach(item => {
@@ -504,7 +514,8 @@ async function callGASGet(actionName, params = {}) {
             let st     = cariNilaiKolom(item, ['status']) || 'Di-update';
             let barang = cariNilaiKolom(item, ['nama_barang','nama_aset','barang']) || 'Barang';
             let id     = item.id || cariNilaiKolom(item, ['id']);
-            notifs.push({ id, menu: 'Aset', pesan: `Peminjaman ${barang}: ${st}` });
+            let rawDate = extractDate(item);
+            notifs.push({ id, menu: 'Aset', pesan: `Peminjaman ${barang}: ${st}`, rawDate });
           }
         });
         (iRes.data || []).forEach(item => {
@@ -512,8 +523,9 @@ async function callGASGet(actionName, params = {}) {
             let st    = cariNilaiKolom(item, ['status']) || '';
             let bulan = cariNilaiKolom(item, ['bulan']) || '';
             let id    = item.id || cariNilaiKolom(item, ['id']);
+            let rawDate = extractDate(item);
             if (st.toLowerCase().includes('lunas')) {
-              notifs.push({ id, menu: 'Iuran', pesan: `Iuran ${bulan} telah LUNAS diverifikasi RT!` });
+              notifs.push({ id, menu: 'Iuran', pesan: `Iuran ${bulan} telah LUNAS diverifikasi RT!`, rawDate });
             }
           }
         });
@@ -661,33 +673,74 @@ function initRealtimeNotif() {
     });
 }
 
+function parseTanggalKeDate(dateVal) {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) return dateVal;
+  let str = String(dateVal).trim();
+  if (!str || str === '-') return null;
+
+  let d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+
+  let parts = str.split(/[\/\-\s:]/);
+  if (parts.length >= 3) {
+    let day = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10) - 1;
+    let year = parseInt(parts[2], 10);
+    let hour = parts.length >= 4 ? parseInt(parts[3], 10) : 0;
+    let min = parts.length >= 5 ? parseInt(parts[4], 10) : 0;
+    if (year < 100) year += 2000;
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      let d2 = new Date(year, month, day, hour, min);
+      if (!isNaN(d2.getTime())) return d2;
+    }
+  }
+  return null;
+}
+
 async function fetchNotifikasi(isRealtimeTrigger = false) {
   if (!session.token) return;
   const res = await callGASGet('getNotifications');
   if (res && res.status === 'success') {
     rawNotifData = res.data || [];
-    let unreadCount = rawNotifData.length;
 
+    let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
+    let now = new Date();
+
+    rawNotifData.forEach(item => {
+      let notifDate = null;
+      if (item.rawDate) {
+        notifDate = parseTanggalKeDate(item.rawDate);
+      }
+      if ((!notifDate || isNaN(notifDate.getTime())) && savedTimestamps[item.id]) {
+        let savedDate = new Date(savedTimestamps[item.id]);
+        if (!isNaN(savedDate.getTime())) notifDate = savedDate;
+      }
+      if (!notifDate || isNaN(notifDate.getTime())) {
+        notifDate = new Date();
+        savedTimestamps[item.id] = notifDate.toISOString();
+      } else {
+        savedTimestamps[item.id] = notifDate.toISOString();
+      }
+
+      item.timestampMs = notifDate.getTime();
+      let isHariIni = notifDate.toDateString() === now.toDateString();
+      let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+      item.waktuTampil = isHariIni ? jamStr : (notifDate.toLocaleDateString('id-ID', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' + jamStr);
+    });
+
+    localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
+
+    // Urutkan notifikasi dari TERBARU ke TERLAMA (Newest first)
+    rawNotifData.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+
+    let unreadCount = rawNotifData.length;
     if (isRealtimeTrigger && unreadCount > lastNotifCount && lastNotifCount !== 0) {
       playNotifSound();
       let notifTerbaru = rawNotifData[0];
       if (notifTerbaru) triggerNativeBrowserNotif(`SI RT 05 - ${notifTerbaru.menu}`, notifTerbaru.pesan);
     }
     lastNotifCount = unreadCount;
-
-    let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
-    let now = new Date();
-    rawNotifData.forEach(item => {
-      let notifDate = savedTimestamps[item.id] ? new Date(savedTimestamps[item.id]) : null;
-      if (!notifDate || isNaN(notifDate.getTime())) {
-        notifDate = new Date();
-        savedTimestamps[item.id] = notifDate.toISOString();
-      }
-      let isHariIni = notifDate.toDateString() === now.toDateString();
-      let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
-      item.waktuTampil = isHariIni ? jamStr : (notifDate.toLocaleDateString('id-ID', { day:'2-digit', month:'2-digit', year:'numeric' }) + ' ' + jamStr);
-    });
-    localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
 
     let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
     if (rawNotifData.length < readCount) { readCount = 0; localStorage.setItem('rt_notif_read_count_' + session.nik, '0'); }
