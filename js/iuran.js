@@ -103,8 +103,8 @@ function renderIuranCustom(data) {
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
-            <h5 class="font-bold text-gray-900 text-xs mb-0.5">SHN GROUP</h5>
-            <p class="text-[9px] text-gray-500 font-mono mb-2">NMID: ID1021062401364</p>
+            <h5 class="font-bold text-gray-900 text-xs mb-0.5" id="qris-merchant-name">SHN GROUP</h5>
+            <p class="text-[9px] text-gray-500 font-mono mb-2">DYNAMIC QRIS (NOMINAL OTOMATIS TERISI)</p>
             <img id="qris-dynamic-img" src="" class="w-44 h-auto mx-auto rounded-lg object-contain">
           </div>
         </div>
@@ -154,7 +154,7 @@ function renderListBulanDatabase(rows, headers) {
 
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
 
-  rows.forEach((r) => {
+  [...rows].reverse().forEach((r) => {
     let rowId = r[idIdx] || '';
     let bulanVal = getVal(r, headers, 'bulan', '-');
     let tahunVal = getVal(r, headers, 'tahun', '2026');
@@ -270,13 +270,38 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   let fileInp = document.getElementById('iuran-bukti-file');
   if (fileInp) fileInp.value = '';
 
-  let baseStaticQris = "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
+  let baseStaticQris = (typeof appSettings !== 'undefined' && appSettings.payment_qris_string)
+    ? appSettings.payment_qris_string
+    : "00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC"; 
   
   let qrisDinamisString = generateDynamicQRIS(baseStaticQris, nominal);
-  
+
   let qrImgEl = document.getElementById('qris-dynamic-img');
   if (qrImgEl) {
-    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrisDinamisString)}`;
+    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrisDinamisString)}`;
+  }
+
+  let merchantEl = document.getElementById('qris-merchant-name');
+  if (merchantEl) {
+    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'SHN GROUP / RT 05';
+  }
+
+  let tfBox = document.getElementById('content-tf');
+  if (tfBox) {
+    let rekList = [];
+    try { rekList = JSON.parse((typeof appSettings !== 'undefined' && appSettings.payment_rekening) || '[]'); } catch(e) {}
+    if (!Array.isArray(rekList) || rekList.length === 0) {
+      rekList = [
+        { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
+        { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
+      ];
+    }
+    let tfHtml = `<div class="bg-blue-50 p-3 rounded-xl border border-blue-100 space-y-1">`;
+    rekList.forEach(r => {
+      tfHtml += `<p class="text-gray-700 font-bold">${r.bank}: <span class="text-blue-700 font-mono">${r.no}</span> ${r.an ? `<small class="text-gray-500 font-normal">(a.n ${r.an})</small>` : ''}</p>`;
+    });
+    tfHtml += `</div>`;
+    tfBox.innerHTML = tfHtml;
   }
 
   let modal = document.getElementById('modal-bayar-iuran');
@@ -308,17 +333,12 @@ async function prosesKirimBuktiBayar() {
     btnSubmit.innerText = 'Mengunggah & Mengirim...';
   }
 
-  let reader = new FileReader();
-  reader.onload = async function(e) {
-    let payloadFile = {
-      base64: e.target.result,
-      name: file.name,
-      type: file.type
-    };
+  try {
+    let compressedUrl = (typeof compressImageFile === 'function') ? await compressImageFile(file) : await new Promise(r => { let rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(file); });
 
     let formData = {
       status: 'Menunggu Verifikasi',
-      bukti_transfer: payloadFile
+      bukti_transfer: compressedUrl
     };
 
     const res = await callGASPost('updateDataDiSheet', {
@@ -335,22 +355,17 @@ async function prosesKirimBuktiBayar() {
     if (res && res.status === 'success') {
       alert('Bukti transfer berhasil dikirim! Status pembayaran kini Menunggu Verifikasi RT.');
       tutupModalBayarIuran();
-      if (typeof clearAppCache === 'function') clearAppCache();
       loadIuranView();
     } else {
       alert('Gagal mengirim bukti: ' + (res ? res.message : 'Terjadi kesalahan'));
     }
-  };
-
-  reader.onerror = function() {
-    alert('Gagal membaca file foto!');
+  } catch (err) {
+    alert('Gagal membaca file foto: ' + err.message);
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.innerText = 'Kirim Bukti Pembayaran';
     }
-  };
-
-  reader.readAsDataURL(file);
+  }
 }
 
 async function verifikasiPembayaranRT(id) {

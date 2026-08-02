@@ -68,9 +68,8 @@ function filterDataSumbangan() {
   let namaIdx = headers.findIndex(h => h.includes('nama'));
 
   let filtered = [...rawSumbanganData].filter(row => {
-    let rowId = (row[idIdx] || '').toLowerCase();
-    let namaText = (row[namaIdx] || '').toLowerCase();
-    return rowId.includes(searchVal) || namaText.includes(searchVal);
+    if (!searchVal) return true;
+    return row.some(val => String(val || '').toLowerCase().includes(searchVal));
   });
 
   let tbody = document.getElementById('sumbangan-table-body');
@@ -112,15 +111,23 @@ function showDetailSumbangan(id) {
   selectedSumbanganRow = row;
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let fotoUrl = row[fotoIdx] || '';
+  let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
+  let hasFoto = (fotoUrl && String(fotoUrl).trim() !== '' && String(fotoUrl).toUpperCase() !== 'EMPTY' && String(fotoUrl).toUpperCase() !== 'NULL' && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
 
-  let imgHtml = (fotoUrl && fotoUrl !== '-') 
-    ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Bukti Transfer:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
-    : '';
+  let imgHtml = `
+    <div class="text-center mb-3 p-3 bg-gray-50 rounded-2xl border shadow-sm">
+      <p class="text-[10px] text-gray-400 font-bold uppercase mb-2">Bukti Foto Transfer Sumbangan:</p>
+      ${hasFoto 
+        ? `<img src="${fotoDirectUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-32 h-32 object-cover mx-auto rounded-2xl border shadow cursor-pointer hover:opacity-90 transition">
+           <small class="text-[9px] text-blue-600 block mt-1.5 font-bold"><i class="bi bi-zoom-in me-1"></i>Klik foto untuk memperbesar</small>`
+        : `<div class="w-16 h-16 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner"><i class="bi bi-receipt"></i></div>
+           <small class="text-[10px] text-gray-400 block mt-1">Belum ada foto bukti transfer</small>`
+      }
+    </div>`;
 
-  let detailHtml = '';
+  let detailHtml = imgHtml;
   currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
-    // SKIP NIK, FOTO/BUKTI, ID, DAN NO AGAR NIK TIDAK MUNCUL DI RINCIAN
     if (hLower.includes('nik') || hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
     detailHtml += `
       <div class="border-b pb-1">
@@ -128,7 +135,6 @@ function showDetailSumbangan(id) {
         <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
       </div>`;
   });
-  detailHtml += imgHtml;
 
   document.getElementById('modal-detail-sumbangan-body').innerHTML = detailHtml;
 

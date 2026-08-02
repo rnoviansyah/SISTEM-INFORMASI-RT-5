@@ -162,6 +162,7 @@ function renderDashboardLayout(res) {
           <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i></div>Sumbangan</div>
           <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i></div>Inventaris</div>
           <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i></div>Aspirasi</div>
+          <div class="quick-action-item" onclick="loadMenu('Pengaturan')"><div class="quick-action-icon"><i class="bi bi-gear-fill text-primary"></i></div>Pengaturan</div>
           <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
         </div>
         <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Ringkasan RT</p>
