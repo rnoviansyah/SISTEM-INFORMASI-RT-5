@@ -108,9 +108,9 @@
     <img id="login-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
     <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 05</h3>
     <p id="login-app-subtitle" class="text-muted mb-4"><small>AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</small></p>
-    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga"></div>
-    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password"></div>
-    <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin()">Masuk</button>
+    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga" onkeypress="if(event.key==='Enter') doLogin()"></div>
+    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') doLogin()"></div>
+    <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin(event)">Masuk</button>
     <div id="login-msg" class="text-danger mt-3 small"></div>
   </div>
 
