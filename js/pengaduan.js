@@ -70,10 +70,8 @@ function filterDataPengaduan() {
   let jenisIdx = headers.findIndex(h => h.includes('jenis'));
 
   let filtered = [...rawPengaduanData].filter(row => {
-    let rowId = (row[idIdx] || '').toLowerCase();
-    let namaText = (row[namaIdx] || '').toLowerCase();
-    let jenisText = (row[jenisIdx] || '').toLowerCase();
-    return rowId.includes(searchVal) || namaText.includes(searchVal) || jenisText.includes(searchVal);
+    if (!searchVal) return true;
+    return row.some(val => String(val || '').toLowerCase().includes(searchVal));
   });
 
   let tbody = document.getElementById('pengaduan-table-body');

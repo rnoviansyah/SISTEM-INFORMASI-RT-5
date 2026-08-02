@@ -1237,9 +1237,36 @@ function bukaWa(nomor, text) {
 }
 
 function filterTable() {
-  let input = document.getElementById("searchInput").value.toUpperCase().trim();
-  document.querySelectorAll("#dataTable tbody tr").forEach(row => { row.style.display = row.innerText.toUpperCase().includes(input) ? "" : "none"; });
-  document.querySelectorAll(".quick-action-item").forEach(item => { item.style.display = item.innerText.toUpperCase().includes(input) ? "flex" : "none"; });
+  let searchInput = document.getElementById("searchInput");
+  if (!searchInput) return;
+  let input = searchInput.value.toLowerCase().trim();
+
+  if (typeof filterDataWarga === 'function' && currentActiveMenu === 'Warga') { filterDataWarga(); return; }
+  if (typeof filterDataSumbangan === 'function' && currentActiveMenu === 'Sumbangan') { filterDataSumbangan(); return; }
+  if (typeof filterDataPengaduan === 'function' && currentActiveMenu === 'Pengaduan') { filterDataPengaduan(); return; }
+  if (typeof filterDataSurat === 'function' && currentActiveMenu === 'SuratPengantar') { filterDataSurat(); return; }
+  if (typeof filterTabelKas === 'function' && currentActiveMenu === 'Keuangan') { filterTabelKas(); return; }
+  if (typeof filterDataPindahMasuk === 'function' && currentActiveMenu === 'PindahMasuk') { filterDataPindahMasuk(); return; }
+  if (typeof filterDataPindahKeluar === 'function' && currentActiveMenu === 'PindahKeluar') { filterDataPindahKeluar(); return; }
+  if (typeof filterDataKelahiran === 'function' && currentActiveMenu === 'Kelahiran') { filterDataKelahiran(); return; }
+  if (typeof filterDataKematian === 'function' && currentActiveMenu === 'Kematian') { filterDataKematian(); return; }
+
+  let rows = document.querySelectorAll("#main-content table tbody tr");
+  rows.forEach(row => {
+    let text = row.innerText.toLowerCase();
+    row.style.display = text.includes(input) ? "" : "none";
+  });
+
+  let iuranItems = document.querySelectorAll("#list-bulan-iuran > div");
+  iuranItems.forEach(card => {
+    let text = card.innerText.toLowerCase();
+    card.style.display = text.includes(input) ? "" : "none";
+  });
+
+  document.querySelectorAll(".quick-action-item").forEach(item => {
+    let text = item.innerText.toLowerCase();
+    item.style.display = text.includes(input) ? "flex" : "none";
+  });
 }
 
 // ==========================================================

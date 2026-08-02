@@ -68,9 +68,8 @@ function filterDataSurat() {
   let namaIdx = headers.findIndex(h => h.includes('nama'));
 
   let filtered = [...rawSuratData].filter(row => {
-    let rowId = (row[idIdx] || '').toLowerCase();
-    let namaText = (row[namaIdx] || '').toLowerCase();
-    return rowId.includes(searchVal) || namaText.includes(searchVal);
+    if (!searchVal) return true;
+    return row.some(val => String(val || '').toLowerCase().includes(searchVal));
   });
 
   let tbody = document.getElementById('surat-table-body');
