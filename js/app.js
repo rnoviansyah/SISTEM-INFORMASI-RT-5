@@ -12,6 +12,10 @@ let rawNotifData = [];
 let notifTimer = null;
 let lastInfoWargaText = '';
 
+// Variable Notifikasi Realtime
+let supabaseRealtimeChannel = null;
+let lastNotifCount = 0;
+
 // ==========================================================
 // ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
@@ -64,6 +68,9 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
       let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue);
       if (!resLower.error) return { error: null };
     }
+    let upperCol = eqColumn.toUpperCase();
+    let resUpper = await db.from(tableName).update(payload).eq(upperCol, eqValue);
+    if (!resUpper.error) return { error: null };
   }
   return { error };
 }
@@ -76,6 +83,9 @@ async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
       let resLower = await db.from(lowerName).delete().eq(eqColumn, eqValue);
       if (!resLower.error) return { error: null };
     }
+    let upperCol = eqColumn.toUpperCase();
+    let resUpper = await db.from(tableName).delete().eq(upperCol, eqValue);
+    if (!resUpper.error) return { error: null };
   }
   return { error };
 }
@@ -233,7 +243,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
     }
 
-    // 3. Simpan Form Peminjaman khusus Aset (Dari Modal aset.js)
+    // 3. Simpan Form Peminjaman khusus Aset
     if (actionName === 'simpanPengajuanPeminjaman') {
       const payload = extraPayload.payload || {};
       let newId = 'PIN-' + Math.floor(1000 + Math.random() * 9000);
@@ -255,7 +265,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: 'Pengajuan peminjaman berhasil dikirim!' };
     }
 
-    // 4. Verifikasi Peminjaman oleh RT (Setujui / Tolak + POTONG STOK)
+    // 4. Verifikasi Peminjaman oleh RT
     if (actionName === 'verifikasiPeminjamanRT') {
       const idPinjam = extraPayload.idPinjam;
       const status = extraPayload.status; // 'Disetujui' / 'Ditolak'
@@ -263,7 +273,7 @@ async function callGASPost(actionName, extraPayload = {}) {
       const catatanRt = extraPayload.catatanRt || '';
 
       const { data: safePinjamList } = await safeSupabaseSelect('Peminjaman');
-      const safePinjam = safePinjamList ? safePinjamList.find(p => (p.id || cariNilaiKolom(p, ['id'])) === idPinjam) : null;
+      const safePinjam = safePinjamList ? safePinjamList.find(p => String(p.id || cariNilaiKolom(p, ['id'])).trim() === String(idPinjam).trim()) : null;
 
       if (safePinjam && status === 'Disetujui' && qtyAcc > 0) {
         let barangTarget = cariNilaiKolom(safePinjam, ['nama_barang', 'nama_aset', 'barang', 'id_barang']);
@@ -280,14 +290,14 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'success', message: `Peminjaman berhasil di-${status.toLowerCase()}!` };
     }
 
-    // 5. Proses Pengembalian Barang Aset RT (TAMBAH STOK KEMBALI & HITUNG BARANG HILANG)
+    // 5. Proses Pengembalian Barang Aset RT
     if (actionName === 'prosesPengembalianAsetRT') {
       const idPinjam = extraPayload.idPinjam;
       const qtyKembali = parseInt(extraPayload.qtyKembali) || 0;
       const catatanRt = extraPayload.catatanRt || '';
 
       const { data: safePinjamList } = await safeSupabaseSelect('Peminjaman');
-      const safePinjam = safePinjamList ? safePinjamList.find(p => (p.id || cariNilaiKolom(p, ['id'])) === idPinjam) : null;
+      const safePinjam = safePinjamList ? safePinjamList.find(p => String(p.id || cariNilaiKolom(p, ['id'])).trim() === String(idPinjam).trim()) : null;
 
       if (safePinjam) {
         if (qtyKembali > 0) {
@@ -382,7 +392,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: listBarang };
     }
 
-    // 2. Get Riwayat Peminjaman (SEMUA WARGA BISA LIAT FULL TRANSPARAN TANPA FILTER)
+    // 2. Get Riwayat Peminjaman (TRANSPARAN PENUH)
     if (actionName === 'getRiwayatPeminjaman') {
       const { data: safeRiwayat } = await safeSupabaseSelect('Peminjaman');
 
@@ -514,24 +524,52 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', headers: headers, rows: rows };
     }
 
-    // 5. Get Notifications
+    // 5. Get Notifications (REALTIME MULTI-TABEL)
     if (actionName === 'getNotifications') {
-      const { data: safeData } = await safeSupabaseSelect('Pengaduan');
-      
       const cleanRole = (session.role || 'warga').toLowerCase();
-      let filtered = safeData || [];
-      if (cleanRole !== 'rt') {
-        filtered = filtered.filter(item => {
-          let rNik = cariNilaiKolom(item, ['nik']);
-          return rNik && rNik.toString().trim() === session.nik.toString().trim();
+      let notifs = [];
+
+      const [aRes, sRes, pRes, iRes, sumRes, aspRes] = await Promise.all([
+        safeSupabaseSelect('Pengaduan'),
+        safeSupabaseSelect('SuratPengantar'),
+        safeSupabaseSelect('Peminjaman'),
+        safeSupabaseSelect('Iuran'),
+        safeSupabaseSelect('Sumbangan'),
+        safeSupabaseSelect('Aspirasi')
+      ]);
+
+      if (cleanRole === 'rt') {
+        (aRes.data || []).forEach(item => {
+          notifs.push({ id: item.id || 'ADU-' + Math.random(), menu: 'Pengaduan', pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}` });
+        });
+        (sRes.data || []).filter(x => (x.status || '').toLowerCase().includes('belum')).forEach(item => {
+          notifs.push({ id: item.id || 'SRT-' + Math.random(), menu: 'SuratPengantar', pesan: `Pengajuan Surat Baru dari ${item.nama || 'Warga'}` });
+        });
+        (pRes.data || []).filter(x => (x.status || '').toLowerCase().includes('menunggu')).forEach(item => {
+          notifs.push({ id: item.id || 'PIN-' + Math.random(), menu: 'Aset', pesan: `Pengajuan Pinjam Barang (${item.nama_barang || 'Aset'}) dari ${item.nama_peminjam || 'Warga'}` });
+        });
+        (iRes.data || []).filter(x => (x.status || '').toLowerCase().includes('menunggu')).forEach(item => {
+          notifs.push({ id: item.id || 'IUR-' + Math.random(), menu: 'Iuran', pesan: `Pembayaran Iuran (${item.bulan || ''}) perlu verifikasi RT` });
+        });
+        (aspRes.data || []).filter(x => (x.status || '').toLowerCase().includes('baru')).forEach(item => {
+          notifs.push({ id: item.id || 'ASP-' + Math.random(), menu: 'Aspirasi', pesan: `Aspirasi Anonim Baru: "${(item.isi_aspirasi || '').substring(0, 30)}..."` });
+        });
+      } else {
+        const userNik = (session.nik || '').toString().trim();
+        (aRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Pengaduan', pesan: `Aduan Anda: Status kini "${item.status || 'Diproses'}"` });
+        });
+        (sRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'SuratPengantar', pesan: `Surat Pengantar Anda: Status kini "${item.status || 'Diproses'}"` });
+        });
+        (pRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Aset', pesan: `Peminjaman Aset (${item.nama_barang || 'Barang'}): ${item.status || 'Di-update'}` });
+        });
+        (iRes.data || []).filter(x => String(cariNilaiKolom(x, ['nik'])).trim() === userNik && (x.status || '').toLowerCase().includes('lunas')).forEach(item => {
+          notifs.push({ id: item.id, menu: 'Iuran', pesan: `Tagihan Iuran (${item.bulan || ''}) telah LUNAS diverifikasi RT!` });
         });
       }
 
-      let notifs = filtered.slice(0, 5).map(item => ({
-        id: item.id || 'NOTIF-' + Math.random(),
-        menu: 'Pengaduan',
-        pesan: `Laporan Aduan (${item.jenis_aduan || 'Umum'}): ${item.status || 'Baru'}`
-      }));
       return { status: 'success', data: notifs };
     }
 
@@ -542,7 +580,7 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: target ? target.nilai : '' };
     }
 
-    // 7. Get Dashboard Summary (Optimized Parallel Fetch)
+    // 7. Get Dashboard Summary (Parallel Fetch)
     if (actionName === 'getDashboardSummary') {
       const cleanRole = (session.role || 'warga').toLowerCase();
       if (cleanRole === 'rt') {
@@ -678,6 +716,171 @@ async function callGASGet(actionName, params = {}) {
   }
 }
 
+// --- FUNGSI NOTIFIKASI REALTIME (SOUND & WEBSOCKET) ---
+function playNotifSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch (e) {}
+}
+
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function triggerNativeBrowserNotif(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        body: body,
+        icon: 'https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp'
+      });
+    } catch(e) {}
+  }
+}
+
+function initRealtimeNotif() {
+  if (!db || !session.token) return;
+  
+  if (supabaseRealtimeChannel) {
+    db.removeChannel(supabaseRealtimeChannel);
+  }
+
+  supabaseRealtimeChannel = db
+    .channel('rt-realtime-notif')
+    .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+      console.log('⚡ Realtime Update Diterima:', payload.table);
+      fetchNotifikasi(true);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('🟢 Supabase Realtime Listener Active & Ready!');
+      }
+    });
+}
+
+async function fetchNotifikasi(isRealtimeTrigger = false) {
+  if (!session.token) return;
+  const res = await callGASGet('getNotifications');
+  
+  if (res && res.status === 'success') {
+    rawNotifData = res.data || [];
+    let unreadCount = rawNotifData.length;
+
+    if (isRealtimeTrigger && unreadCount > lastNotifCount && lastNotifCount !== 0) {
+      playNotifSound();
+      let notifTerbaru = rawNotifData[0];
+      if (notifTerbaru) {
+        triggerNativeBrowserNotif(`SI RT 05 - ${notifTerbaru.menu}`, notifTerbaru.pesan);
+      }
+    }
+
+    lastNotifCount = unreadCount;
+
+    let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
+    let now = new Date();
+
+    rawNotifData.forEach(item => {
+      let rawTime = savedTimestamps[item.id];
+      let notifDate = rawTime ? new Date(rawTime) : null;
+
+      if (!notifDate || isNaN(notifDate.getTime())) {
+        notifDate = new Date();
+        savedTimestamps[item.id] = notifDate.toISOString();
+      }
+
+      let isHariIni = notifDate.toDateString() === now.toDateString();
+      let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+
+      if (isHariIni) {
+        item.waktuTampil = jamStr;
+      } else {
+        let tglStr = notifDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        item.waktuTampil = tglStr + ' ' + jamStr;
+      }
+    });
+
+    localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
+
+    let badges = document.querySelectorAll('.notif-badge');
+    let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
+    
+    if (rawNotifData.length < readCount) {
+      readCount = 0;
+      localStorage.setItem('rt_notif_read_count_' + session.nik, '0');
+    }
+
+    let actualUnread = rawNotifData.length - readCount;
+
+    badges.forEach(badge => {
+      if (actualUnread > 0) {
+        badge.innerText = actualUnread;
+        badge.style.display = 'inline-block';
+        badge.classList.add('animate-pulse');
+      } else {
+        badge.style.display = 'none';
+        badge.classList.remove('animate-pulse');
+      }
+    });
+  }
+}
+
+function bukaModalNotifikasi() {
+  let listEl = document.getElementById('notifList');
+  if (!rawNotifData || rawNotifData.length === 0) {
+    listEl.innerHTML = '<div class="alert alert-light text-center my-3 text-muted"><i class="bi bi-bell-slash fs-4 d-block mb-2"></i>Tidak ada notifikasi baru saat ini.</div>';
+  } else {
+    let html = '<div class="list-group list-group-flush">';
+    let notifTerbaru = rawNotifData;
+
+    notifTerbaru.forEach(item => {
+      let waktu = item.waktuTampil || 'Baru saja';
+
+      html += `
+        <div class="list-group-item list-group-item-action py-3 px-2 border-bottom" style="cursor:pointer;" onclick="bukaNotifTarget('${item.menu}')">
+          <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+            <span class="badge bg-primary">${item.menu}</span>
+            <small class="text-muted"><i class="bi bi-clock me-1"></i>${waktu}</small>
+          </div>
+          <p class="mb-0 text-dark small">${item.pesan}</p>
+        </div>`;
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  }
+
+  let badges = document.querySelectorAll('.notif-badge');
+  badges.forEach(badge => {
+    badge.style.display = 'none';
+    badge.innerText = '0';
+    badge.classList.remove('animate-pulse');
+  });
+  
+  localStorage.setItem('rt_notif_read_count_' + session.nik, rawNotifData.length);
+
+  if(!bootstrapNotifModalInstance) {
+    bootstrapNotifModalInstance = new bootstrap.Modal(document.getElementById('notifModal'));
+  }
+  bootstrapNotifModalInstance.show();
+}
+
+function bukaNotifTarget(menuName) {
+  if(bootstrapNotifModalInstance) bootstrapNotifModalInstance.hide();
+  loadMenu(menuName);
+}
+
 // --- FUNGSI AUTHENTICATION & SESSION ---
 async function doLogin() {
   try {
@@ -726,6 +929,10 @@ function applySessionUI() {
   }
   
   loadMenu('Dashboard');
+  
+  // Fitur Realtime & Push Notification
+  requestNotifPermission();
+  initRealtimeNotif();
   fetchNotifikasi();
 
   if (notifTimer) clearInterval(notifTimer);
@@ -743,12 +950,13 @@ function applySessionUI() {
         }
       }
     }
-  }, 10000);
+  }, 15000);
 }
 
 function doLogout() {
   if (confirm('Apakah lu yakin ingin logout?')) {
     if (notifTimer) clearInterval(notifTimer);
+    if (supabaseRealtimeChannel && db) db.removeChannel(supabaseRealtimeChannel);
     
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
@@ -770,103 +978,6 @@ function checkExistingSession() {
       localStorage.removeItem('rt_user_session');
     }
   }
-}
-
-// --- FUNGSI NOTIFIKASI ---
-async function fetchNotifikasi() {
-  if (!session.token) return;
-  const res = await callGASGet('getNotifications');
-  
-  if(res && res.status === 'success') {
-    rawNotifData = res.data || [];
-    
-    let savedTimestamps = JSON.parse(localStorage.getItem('rt_notif_times_' + session.nik) || '{}');
-    let now = new Date();
-
-    rawNotifData.forEach(item => {
-      let rawTime = savedTimestamps[item.id];
-      let notifDate = rawTime ? new Date(rawTime) : null;
-
-      if (!notifDate || isNaN(notifDate.getTime())) {
-        notifDate = new Date();
-        savedTimestamps[item.id] = notifDate.toISOString();
-      }
-
-      let isHariIni = notifDate.toDateString() === now.toDateString();
-      let jamStr = notifDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
-
-      if (isHariIni) {
-        item.waktuTampil = jamStr;
-      } else {
-        let tglStr = notifDate.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        item.waktuTampil = tglStr + ' ' + jamStr;
-      }
-    });
-
-    localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
-
-    let badges = document.querySelectorAll('.notif-badge');
-    let readCount = parseInt(localStorage.getItem('rt_notif_read_count_' + session.nik) || '0');
-    
-    if (rawNotifData.length < readCount) {
-      readCount = 0;
-      localStorage.setItem('rt_notif_read_count_' + session.nik, '0');
-    }
-
-    let unreadCount = rawNotifData.length - readCount;
-
-    badges.forEach(badge => {
-      if (unreadCount > 0) {
-        badge.innerText = unreadCount;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
-    });
-  }
-}
-
-function bukaModalNotifikasi() {
-  let listEl = document.getElementById('notifList');
-  if (!rawNotifData || rawNotifData.length === 0) {
-    listEl.innerHTML = '<div class="alert alert-light text-center my-3 text-muted"><i class="bi bi-bell-slash fs-4 d-block mb-2"></i>Tidak ada notifikasi baru saat ini.</div>';
-  } else {
-    let html = '<div class="list-group list-group-flush">';
-    let notifTerbaru = rawNotifData;
-
-    notifTerbaru.forEach(item => {
-      let waktu = item.waktuTampil || 'Baru saja';
-
-      html += `
-        <div class="list-group-item list-group-item-action py-3 px-2 border-bottom" style="cursor:pointer;" onclick="bukaNotifTarget('${item.menu}')">
-          <div class="d-flex w-100 justify-content-between align-items-center mb-1">
-            <span class="badge bg-primary">${item.menu}</span>
-            <small class="text-muted"><i class="bi bi-clock me-1"></i>${waktu}</small>
-          </div>
-          <p class="mb-0 text-dark small">${item.pesan}</p>
-        </div>`;
-    });
-    html += '</div>';
-    listEl.innerHTML = html;
-  }
-
-  let badges = document.querySelectorAll('.notif-badge');
-  badges.forEach(badge => {
-    badge.style.display = 'none';
-    badge.innerText = '0';
-  });
-  
-  localStorage.setItem('rt_notif_read_count_' + session.nik, rawNotifData.length);
-
-  if(!bootstrapNotifModalInstance) {
-    bootstrapNotifModalInstance = new bootstrap.Modal(document.getElementById('notifModal'));
-  }
-  bootstrapNotifModalInstance.show();
-}
-
-function bukaNotifTarget(menuName) {
-  if(bootstrapNotifModalInstance) bootstrapNotifModalInstance.hide();
-  loadMenu(menuName);
 }
 
 function syncActiveNav(menu) {
@@ -1255,7 +1366,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // ==========================================================
-// ==== TAB FOCUS REFRESH ===================================
+// ==== TAB FOCUS REFRESH & SERVICE WORKER PWA ==============
 // ==========================================================
 
 document.addEventListener("visibilitychange", function() {
@@ -1266,10 +1377,7 @@ document.addEventListener("visibilitychange", function() {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    const baseUrl = window.location.href.split('?')[0];
-    const swUrl = baseUrl + '?pwa=sw';
-
-    navigator.serviceWorker.register(swUrl)
+    navigator.serviceWorker.register('./sw.js')
       .then(reg => console.log('PWA Service Worker terdaftar!', reg))
       .catch(err => console.log('PWA SW gagal:', err));
   });
@@ -1298,7 +1406,7 @@ function installPWA() {
 }
 
 // ==========================================================
-// ==== EASTER EGG / PERANGKAP BUAT YANG SUKA INTIP =========
+// ==== EASTER EGG & KEAMANAN INSPECT ======================
 // ==========================================================
 
 console.log(
@@ -1310,7 +1418,7 @@ console.log(
   "color: #2563eb; font-size: 14px; font-weight: bold;"
 );
 
-// Cegah Klik Kanan (Context Menu) + Pop-up
+// Cegah Klik Kanan (Context Menu)
 document.addEventListener('contextmenu', function(e) {
   e.preventDefault();
   alert('MAU NGAPAIN LU? 🤨\nGak usah klik kanan, gak ada harta karun di sini!');
