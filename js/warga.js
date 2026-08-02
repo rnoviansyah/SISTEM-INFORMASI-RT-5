@@ -18,13 +18,20 @@ function renderWargaCustom(data) {
 
   let html = `
     <div class="p-1 text-gray-800 font-sans">
-      <div class="flex justify-between items-center mb-4">
+      <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h2 class="font-bold text-base text-gray-800"><i class="bi bi-people-fill me-2 text-primary"></i>Data Warga RT 05</h2>
-        ${session.role === 'RT' ? `
-          <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
-            + Tambah Warga Baru
-          </button>
-        ` : ''}
+        <div class="flex items-center gap-2">
+          ${session.role === 'RT' ? `
+            <select id="filterStatusTinggal" onchange="filterDataWarga()" class="form-select text-xs font-bold py-2 px-3 border rounded-xl bg-white shadow-sm" style="max-width:170px;">
+              <option value="">-- Semua Status --</option>
+              <option value="TETAP">Warga Tetap</option>
+              <option value="DOMISILI">Warga Domisili</option>
+            </select>
+            <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+              + Tambah Warga Baru
+            </button>
+          ` : ''}
+        </div>
       </div>
 
       <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
@@ -74,7 +81,8 @@ function renderWargaCustom(data) {
 
 function filterDataWarga() {
   let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
-  
+  let filterStatus = document.getElementById('filterStatusTinggal') ? document.getElementById('filterStatusTinggal').value.toUpperCase().trim() : '';
+
   let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
   let nikIdx = headers.indexOf('nik');
   if (nikIdx === -1) nikIdx = headers.findIndex(h => h.includes('nik') || h.includes('ktp'));
@@ -85,10 +93,32 @@ function filterDataWarga() {
 
   let alamatIdx = headers.findIndex(h => h.includes('alamat') || h.includes('address'));
   let hpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp'));
+  let statusTinggalIdx = headers.findIndex(h => h.includes('status_tinggal') || h.includes('status_huni') || h.includes('status_pindah'));
 
   let filtered = [...rawWargaData].filter(row => {
-    if (!searchVal) return true;
-    return row.some(val => String(val || '').toLowerCase().includes(searchVal));
+    if (!row) return false;
+
+    if (searchVal && !row.some(val => String(val || '').toLowerCase().includes(searchVal))) {
+      return false;
+    }
+
+    if (filterStatus) {
+      let valSt = '';
+      if (statusTinggalIdx > -1 && row[statusTinggalIdx] !== undefined) {
+        valSt = String(row[statusTinggalIdx] || '').toUpperCase().trim();
+      } else {
+        let foundVal = row.find(v => {
+          let vUpper = String(v || '').toUpperCase().trim();
+          return vUpper === 'TETAP' || vUpper === 'DOMISILI' || vUpper === 'KONTRAK';
+        });
+        valSt = foundVal ? String(foundVal).toUpperCase().trim() : '';
+      }
+
+      if (filterStatus === 'TETAP' && valSt !== 'TETAP') return false;
+      if (filterStatus === 'DOMISILI' && (valSt !== 'DOMISILI' && valSt !== 'KONTRAK')) return false;
+    }
+
+    return true;
   });
 
   let tbody = document.getElementById('warga-table-body');
@@ -98,7 +128,7 @@ function filterDataWarga() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
   } else {
-    [...filtered].reverse().forEach((r, i) => {
+    filtered.forEach((r, i) => {
       let nikVal = r[nikIdx] !== undefined ? r[nikIdx] : (r[0] || '-');
       let namaVal = r[namaIdx] !== undefined ? r[namaIdx] : (r[1] || '-');
       let alamatVal = alamatIdx > -1 && r[alamatIdx] !== undefined ? r[alamatIdx] : '-';
@@ -128,14 +158,27 @@ function showDetailWarga(id) {
   let nikIdx = headers.indexOf('nik');
   if (nikIdx === -1) nikIdx = 0;
   let hpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp'));
+  let kkIdx = headers.findIndex(h => h.includes('kk') || h.includes('no_kk'));
 
-  let row = rawWargaData.find(r => (String(r[idIdx]) === String(id) || String(r[nikIdx]) === String(id)));
+  let row = rawWargaData.find(r => (String(r[idIdx]) === String(id) || String(r[nikIdx]) === String(id) || String(r[0]) === String(id)));
   if (!row) return;
 
   selectedWargaRow = row;
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
   let noHpWarga = hpIdx > -1 ? row[hpIdx] : '';
+  let rowId = row[idIdx] || row[nikIdx] || id;
+
+  let rowKk = kkIdx > -1 ? String(row[kkIdx] || '').trim() : '';
+  let rowNik = row[nikIdx] !== undefined ? String(row[nikIdx] || '').trim() : '';
+
+  let userKk = '';
+  if (session.role === 'Warga' && session.nik) {
+    let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === session.nik.trim());
+    if (myW) userKk = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+  }
+
+  let isSameKk = (session.role === 'RT') || (rowNik && rowNik === session.nik.trim()) || (userKk && rowKk && userKk === rowKk);
 
   let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
   let hasFoto = (fotoUrl && String(fotoUrl).trim() !== '' && String(fotoUrl).toUpperCase() !== 'EMPTY' && String(fotoUrl).toUpperCase() !== 'NULL' && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
@@ -155,10 +198,16 @@ function showDetailWarga(id) {
   currentHeaders.forEach((h, idx) => {
     let hLower = (h || '').toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
+
+    let valDisplay = row[idx] || '-';
+    if (!isSameKk && ['no_hp','hp','wa','telp','nomor_hp'].includes(hLower)) {
+      valDisplay = (typeof sensorPhoneNumber === 'function') ? sensorPhoneNumber(valDisplay) : '****';
+    }
+
     detailHtml += `
       <div class="border-b pb-1">
         <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
-        <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        <p class="font-semibold text-gray-800">${valDisplay}</p>
       </div>`;
   });
 
@@ -166,13 +215,15 @@ function showDetailWarga(id) {
 
   let actionHtml = '';
   if (session.role === 'RT') {
-    let nikVal = row[nikIdx] || id;
     actionHtml = `
-      <button onclick="bukaModalEdit('${nikVal}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit Data Warga</button>
+      <button onclick="bukaModalEdit('${rowId}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit Data Warga</button>
       <button onclick="waHubungiWarga('${noHpWarga}'); tutupDetailWarga();" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim WhatsApp</button>`;
-  } else {
+  } else if (isSameKk) {
     actionHtml = `
       <button onclick="waHubungiWarga('${noHpWarga}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hubungi via WhatsApp</button>`;
+  } else {
+    actionHtml = `
+      <p class="text-[10px] text-gray-400 text-center italic py-1"><i class="bi bi-shield-lock me-1"></i>Nomor HP disensor untuk privasi sesama warga beda KK.</p>`;
   }
   document.getElementById('warga-action-buttons').innerHTML = actionHtml;
 

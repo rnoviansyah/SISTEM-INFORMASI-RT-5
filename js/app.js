@@ -404,6 +404,19 @@ function sortDataNewestFirst(dataList) {
   return list;
 }
 
+function sensorPhoneNumber(hp) {
+  if (!hp || hp === '-' || hp === 'XXXXX') return '****';
+  let str = String(hp).trim();
+  if (str.length <= 4) return '****';
+  let start = str.substring(0, 4);
+  let end = str.substring(str.length - 3);
+  let middleLen = str.length - 7;
+  if (middleLen <= 0) middleLen = 3;
+  return start + '*'.repeat(middleLen) + end;
+}
+
+window.sensorPhoneNumber = sensorPhoneNumber;
+
 // ==========================================================
 // ==== HELPER FETCH GET (SUPABASE BRIDGE) ==================
 // ==========================================================
@@ -463,12 +476,18 @@ async function callGASGet(actionName, params = {}) {
           let rows = sortedFilteredWarga.map(rowObj => {
             let rowArr = headers.map(h => rowObj[h] !== null && rowObj[h] !== undefined ? rowObj[h] : '');
             let rowKk = kkIdx > -1 ? String(rowObj[headers[kkIdx]] || '').trim() : '';
-            if ((userKk && rowKk === userKk) || (cariNilaiKolom(rowObj, ['nik', 'ktp']) === session.nik)) {
+            let rowNik = cariNilaiKolom(rowObj, ['nik', 'ktp']);
+            let isSameKk = (userKk && rowKk === userKk) || (rowNik && String(rowNik).trim() === session.nik.trim());
+
+            if (isSameKk) {
               return rowArr;
             } else {
               return headers.map((h, idx) => {
                 let hLower = h.toLowerCase().trim();
-                if (['id','no','nama_lengkap','nama_panggilan','nama','jenis_kelamin','no_hp','foto_url','alamat'].includes(hLower)) return rowArr[idx];
+                if (['no_hp','hp','wa','telp','nomor_hp'].includes(hLower)) {
+                  return sensorPhoneNumber(rowArr[idx]);
+                }
+                if (['id','no','nama_lengkap','nama_panggilan','nama','jenis_kelamin','foto_url','alamat'].includes(hLower)) return rowArr[idx];
                 else return 'XXXXX';
               });
             }
@@ -1194,12 +1213,16 @@ async function bukaModalEdit(id) {
   document.getElementById('formModalTitle').innerText = "Edit Data: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = session.role === 'RT' ? 'inline-block' : 'none';
 
-  let headersLower = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
-  let idIdx = headersLower.indexOf('id');
-  if (idIdx === -1) idIdx = headersLower.indexOf('nik');
-  if (idIdx === -1) idIdx = 0;
+  let rowData = (currentRows || []).find(r => {
+    if (!r) return false;
+    if (Array.isArray(r)) {
+      return r.some(val => val !== null && val !== undefined && String(val).trim() === String(id).trim());
+    } else if (typeof r === 'object') {
+      return Object.values(r).some(val => val !== null && val !== undefined && String(val).trim() === String(id).trim());
+    }
+    return false;
+  });
 
-  let rowData = currentRows.find(r => String(r[idIdx]) === String(id) || String(r[0]) === String(id));
   await generateFormInputs(rowData);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
   bootstrapModalInstance.show();
@@ -1267,17 +1290,17 @@ async function generateFormInputs(rowData) {
         <option value="LAKI-LAKI" ${['LAKI-LAKI','LAKI LAKI'].includes(val.toUpperCase())?'selected':''}>LAKI-LAKI</option>
         <option value="PEREMPUAN" ${val.toUpperCase()==='PEREMPUAN'?'selected':''}>PEREMPUAN</option>
       </select>`;
-    } else if (nameLower === 'status_nikah' || (nameLower === 'status' && currentActiveMenu === 'Warga')) {
+    } else if (nameLower === 'status_nikah') {
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
         <option value="">-- Pilih Status Nikah --</option>
         <option value="MENIKAH" ${val.toUpperCase()==='MENIKAH'?'selected':''}>MENIKAH</option>
         <option value="BELUM MENIKAH" ${['BELUM MENIKAH','BELUM'].includes(val.toUpperCase())?'selected':''}>BELUM MENIKAH</option>
       </select>`;
-    } else if (nameLower === 'status_tinggal' || nameLower === 'status_pindah') {
+    } else if (nameLower === 'status_tinggal' || nameLower === 'status_huni' || nameLower === 'status_pindah' || (nameLower === 'status' && currentActiveMenu === 'Warga')) {
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
         <option value="">-- Pilih Status Tinggal --</option>
         <option value="TETAP" ${val.toUpperCase()==='TETAP'?'selected':''}>TETAP</option>
-        <option value="KONTRAK" ${val.toUpperCase()==='KONTRAK'?'selected':''}>KONTRAK</option>
+        <option value="DOMISILI" ${['DOMISILI','KONTRAK'].includes(val.toUpperCase())?'selected':''}>DOMISILI</option>
       </select>`;
     } else if (nameLower.includes('foto') || nameLower.includes('bukti')) {
       let imgDirect = convertToImageLink(val);
