@@ -105,25 +105,22 @@
 
   <!-- LOGIN CONTAINER -->
   <div id="login-container" class="login-box text-center">
-    <img id="login-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
-    <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 05</h3>
-    <p id="login-app-subtitle" class="text-muted mb-4"><small>AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</small></p>
-    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga" onkeypress="if(event.key==='Enter') doLogin()"></div>
-    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') doLogin()"></div>
-    <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin(event)">Masuk</button>
+    <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT 05" class="mb-3 rounded-circle shadow-sm" style="width: 80px; height: 80px; object-fit: cover;">
+    <h3 class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 05</h3>
+    <p class="text-muted mb-4"><small>AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</small></p>
+    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga"></div>
+    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password"></div>
+    <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin()">Masuk</button>
     <div id="login-msg" class="text-danger mt-3 small"></div>
   </div>
 
   <!-- MOBILE HEADER -->
   <div class="mobile-header" id="mob-header">
     <div class="d-flex align-items-center gap-2">
-      <img id="mob-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo" class="rounded-circle app-logo-img" style="width: 32px; height: 32px; object-fit: cover;">
-      <h6><span id="mob-app-title">SISTEM INFORMASI RT 5</span> <br><span id="mob-app-subtitle" style="font-size: 0.6rem; font-weight: 400; opacity: 0.9;">AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</span></h6>
+      <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover;">
+      <h6>SISTEM INFORMASI RT 5 <br><span style="font-size: 0.6rem; font-weight: 400; opacity: 0.9;">AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</span></h6>
     </div>
     <div class="d-flex align-items-center gap-2">
-      <div class="position-relative me-2 rt-only" onclick="loadMenu('Pengaturan')" style="cursor:pointer;" title="Pengaturan RT">
-        <i class="bi bi-gear fs-5"></i>
-      </div>
       <div class="position-relative me-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
         <i class="bi bi-bell fs-5"></i>
         <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
@@ -140,8 +137,8 @@
       <!-- Sidebar Menu (Desktop) -->
       <div class="col-md-2 sidebar p-0">
         <div class="text-center mb-3 mt-2 px-3">
-          <img id="sidebar-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT" class="rounded-circle mb-2 shadow app-logo-img" style="width: 55px; height: 55px; object-fit: cover;">
-          <h5 id="sidebar-app-title" class="fw-bold mb-0 border-0 pb-0">Menu RT 05</h5>
+          <img src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT 05" class="rounded-circle mb-2 shadow" style="width: 55px; height: 55px; object-fit: cover;">
+          <h5 class="fw-bold mb-0 border-0 pb-0">Menu RT 05</h5>
         </div>
 
         <div class="px-3 mb-2">
@@ -163,7 +160,6 @@
         <a id="dmenu-Sumbangan" onclick="loadMenu('Sumbangan')"><i class="bi bi-gift-fill me-2"></i>Sumbangan</a>
         <a id="dmenu-Aset" onclick="loadMenu('Aset')"><i class="bi bi-tools me-2"></i>Aset & Inventaris</a>
         <a id="dmenu-Aspirasi" onclick="loadMenu('Aspirasi')"><i class="bi bi-chat-heart-fill me-2"></i>Aspirasi Warga</a>
-        <a id="dmenu-Pengaturan" class="rt-only" onclick="loadMenu('Pengaturan')"><i class="bi bi-gear-fill me-2"></i>Pengaturan RT</a>
         <a onclick="doLogout()" class="text-danger mt-4 border-top border-secondary" style="cursor:pointer;"><i class="bi bi-power me-2"></i>Logout</a>
       </div>
 
@@ -181,7 +177,14 @@
           </div>
         </div>
         
-        <div id="rek-info" class="rekening-box" style="display:none;"></div>
+        <div id="rek-info" class="rekening-box" style="display:none;">
+          <h5 class="fw-bold text-primary mb-2"><i class="bi bi-info-circle-fill me-2"></i>Info Rekening RT 05</h5>
+          <p class="mb-1 text-secondary">
+            <strong>DANA:</strong> 08973366667 <button class="btn-salin-inline" onclick="copySingleRek('08973366667')">(salin)</button> | 
+            <strong>BRI:</strong> 231313 <button class="btn-salin-inline" onclick="copySingleRek('231313')">(salin)</button> 
+            <span class="ms-2 badge bg-light text-dark">a.n RIZKY NOVIANSYAH</span>
+          </p>
+        </div>
 
         <div id="main-content"></div>
       </div>
@@ -194,7 +197,6 @@
     <a id="mmenu-Warga" class="bottom-nav-item" onclick="loadMenu('Warga')"><i class="bi bi-people-fill"></i>Warga</a>
     <a id="mmenu-Iuran" class="bottom-nav-item" onclick="loadMenu('Iuran')"><i class="bi bi-wallet2"></i>Iuran</a>
     <a id="mmenu-Pengaduan" class="bottom-nav-item" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-left-dots-fill"></i>Aduan</a>
-    <a id="mmenu-Pengaturan" class="bottom-nav-item rt-only" onclick="loadMenu('Pengaturan')"><i class="bi bi-gear-fill"></i>Pengaturan</a>
     <a id="mmenu-Profil" class="bottom-nav-item" onclick="loadMenu('Profil')"><i class="bi bi-person-fill"></i>Profil</a>
   </div>
 
