@@ -113,7 +113,7 @@ function showDetailSumbangan(id) {
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let fotoUrl = row[fotoIdx] || '';
   let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
-  let hasFoto = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
+  let hasFoto = (fotoUrl && String(fotoUrl).trim() !== '' && String(fotoUrl).toUpperCase() !== 'EMPTY' && String(fotoUrl).toUpperCase() !== 'NULL' && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
 
   let imgHtml = `
     <div class="text-center mb-3 p-3 bg-gray-50 rounded-2xl border shadow-sm">

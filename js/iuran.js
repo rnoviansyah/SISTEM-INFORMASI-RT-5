@@ -333,17 +333,12 @@ async function prosesKirimBuktiBayar() {
     btnSubmit.innerText = 'Mengunggah & Mengirim...';
   }
 
-  let reader = new FileReader();
-  reader.onload = async function(e) {
-    let payloadFile = {
-      base64: e.target.result,
-      name: file.name,
-      type: file.type
-    };
+  try {
+    let compressedUrl = (typeof compressImageFile === 'function') ? await compressImageFile(file) : await new Promise(r => { let rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(file); });
 
     let formData = {
       status: 'Menunggu Verifikasi',
-      bukti_transfer: payloadFile
+      bukti_transfer: compressedUrl
     };
 
     const res = await callGASPost('updateDataDiSheet', {
@@ -360,22 +355,17 @@ async function prosesKirimBuktiBayar() {
     if (res && res.status === 'success') {
       alert('Bukti transfer berhasil dikirim! Status pembayaran kini Menunggu Verifikasi RT.');
       tutupModalBayarIuran();
-      if (typeof clearAppCache === 'function') clearAppCache();
       loadIuranView();
     } else {
       alert('Gagal mengirim bukti: ' + (res ? res.message : 'Terjadi kesalahan'));
     }
-  };
-
-  reader.onerror = function() {
-    alert('Gagal membaca file foto!');
+  } catch (err) {
+    alert('Gagal membaca file foto: ' + err.message);
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.innerText = 'Kirim Bukti Pembayaran';
     }
-  };
-
-  reader.readAsDataURL(file);
+  }
 }
 
 async function verifikasiPembayaranRT(id) {

@@ -382,7 +382,7 @@ async function callGASGet(actionName, params = {}) {
               });
             }
           });
-          return { status: 'success', headers: headers, rows: [...rows].reverse() };
+          return { status: 'success', headers: headers, rows: rows };
         } else if (!['keuangan','aset','peminjaman','sumbangan','aspirasi'].includes(sheetLower)) {
           filteredData = filteredData.filter(row => {
             let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
@@ -392,7 +392,7 @@ async function callGASGet(actionName, params = {}) {
       }
 
       if (!filteredData || filteredData.length === 0) return { status: 'success', headers: headers, rows: [] };
-      const rows = [...filteredData].reverse().map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+      const rows = filteredData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
       return { status: 'success', headers: headers, rows: rows };
     }
 
