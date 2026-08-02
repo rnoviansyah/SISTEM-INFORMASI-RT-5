@@ -849,13 +849,22 @@ async function saveSessionToDatabase(token, nik, role) {
   }
 }
 
-async function processLogin(e) {
+async function doLogin(e) {
   if (e) e.preventDefault();
   try {
-    var u = document.getElementById('username').value;
-    var p = document.getElementById('password').value;
-    if (!u || !p) { document.getElementById('login-msg').innerHTML = "Isi username dan password dulu!"; return; }
-    document.getElementById('login-msg').innerHTML = "Memeriksa ke database...";
+    var uInput = document.getElementById('username');
+    var pInput = document.getElementById('password');
+    var msgEl = document.getElementById('login-msg');
+
+    var u = uInput ? uInput.value.trim() : '';
+    var p = pInput ? pInput.value.trim() : '';
+
+    if (!u || !p) {
+      if (msgEl) msgEl.innerHTML = "Isi username dan password dulu!";
+      else alert("Isi username dan password dulu!");
+      return;
+    }
+    if (msgEl) msgEl.innerHTML = "Memeriksa ke database...";
 
     const res = await callGASPost('processLogin', { username: u, password: p });
     if (res && res.status === 'success') {
@@ -873,12 +882,16 @@ async function processLogin(e) {
       await saveSessionToDatabase(sessionToken, session.nik, session.role);
       applySessionUI();
     } else {
-      document.getElementById('login-msg').innerHTML = res ? res.message : 'Login gagal!';
+      if (msgEl) msgEl.innerHTML = res ? res.message : 'Login gagal!';
+      else alert(res ? res.message : 'Login gagal!');
     }
   } catch (error) {
     alert("Browser JS Error: " + error.message);
   }
 }
+
+window.doLogin = doLogin;
+window.processLogin = doLogin;
 
 async function verifySessionToken() {
   if (!session || !session.token) return true;
