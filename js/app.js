@@ -367,6 +367,44 @@ async function callGASPost(actionName, extraPayload = {}) {
 }
 
 // ==========================================================
+function sortDataNewestFirst(dataList) {
+  if (!Array.isArray(dataList) || dataList.length <= 1) return dataList || [];
+  let list = [...dataList];
+
+  list.sort((a, b) => {
+    if (!a || !b) return 0;
+
+    let timeA = a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT || a.waktu || a.tanggal || '';
+    let timeB = b.created_at || b.createdat || b.CREATED_AT || b.CREATEDAT || b.waktu || b.tanggal || '';
+
+    if (timeA && timeB) {
+      let dateA = new Date(timeA).getTime();
+      let dateB = new Date(timeB).getTime();
+      if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
+        return dateB - dateA;
+      }
+    }
+
+    let idA = a.id || a.ID || a.idPinjam || (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(a, ['id', 'id_pinjam', 'id_barang']) : '') || '';
+    let idB = b.id || b.ID || b.idPinjam || (typeof cariNilaiKolom === 'function' ? cariNilaiKolom(b, ['id', 'id_pinjam', 'id_barang']) : '') || '';
+
+    let numA = parseInt(String(idA).replace(/\D/g, '')) || 0;
+    let numB = parseInt(String(idB).replace(/\D/g, '')) || 0;
+    if (numA > 0 && numB > 0 && numA !== numB) {
+      return numB - numA;
+    }
+
+    if (idA && idB && idA !== idB) {
+      return String(idB).localeCompare(String(idA));
+    }
+
+    return 0;
+  });
+
+  return list;
+}
+
+// ==========================================================
 // ==== HELPER FETCH GET (SUPABASE BRIDGE) ==================
 // ==========================================================
 async function callGASGet(actionName, params = {}) {
@@ -397,7 +435,8 @@ async function callGASGet(actionName, params = {}) {
         status: cariNilaiKolom(item, ['status']) || 'Menunggu Verifikasi',
         nik: cariNilaiKolom(item, ['nik'])
       }));
-      return { status: 'success', data: listRiwayat };
+      let sortedRiwayat = sortDataNewestFirst(listRiwayat);
+      return { status: 'success', data: sortedRiwayat };
     }
 
     if (actionName === 'getTableData') {
@@ -420,7 +459,8 @@ async function callGASGet(actionName, params = {}) {
           });
           if (targetWarga) userKk = cariNilaiKolom(targetWarga, ['kk', 'no_kk']);
           const kkIdx = lowerHeaders.findIndex(h => h.includes('kk') || h.includes('no_kk'));
-          let rows = filteredData.map(rowObj => {
+          let sortedFilteredWarga = sortDataNewestFirst(filteredData);
+          let rows = sortedFilteredWarga.map(rowObj => {
             let rowArr = headers.map(h => rowObj[h] !== null && rowObj[h] !== undefined ? rowObj[h] : '');
             let rowKk = kkIdx > -1 ? String(rowObj[headers[kkIdx]] || '').trim() : '';
             if ((userKk && rowKk === userKk) || (cariNilaiKolom(rowObj, ['nik', 'ktp']) === session.nik)) {
@@ -443,7 +483,8 @@ async function callGASGet(actionName, params = {}) {
       }
 
       if (!filteredData || filteredData.length === 0) return { status: 'success', headers: headers, rows: [] };
-      const rows = filteredData.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
+      let sortedFiltered = sortDataNewestFirst(filteredData);
+      const rows = sortedFiltered.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
       return { status: 'success', headers: headers, rows: rows };
     }
 

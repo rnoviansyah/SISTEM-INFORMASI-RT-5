@@ -472,7 +472,7 @@ async function loadTabelRiwayat() {
   tbody.innerHTML = '';
 
   if (res && res.status === 'success' && res.data && res.data.length > 0) {
-    res.data.reverse().forEach(item => {
+    res.data.forEach(item => {
       let statusText = item.status || 'Menunggu Verifikasi';
       let badgeClass = 'bg-amber-100 text-amber-700';
       if (statusText === 'Disetujui') badgeClass = 'bg-emerald-100 text-emerald-700';
