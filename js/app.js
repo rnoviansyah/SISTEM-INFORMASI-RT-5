@@ -862,7 +862,13 @@ function applySessionUI() {
   if (session.role === 'Warga') {
     document.querySelectorAll('.rt-only').forEach(el => el.style.display = 'none');
   } else {
-    document.querySelectorAll('.rt-only').forEach(el => el.style.display = 'block');
+    document.querySelectorAll('.rt-only').forEach(el => {
+      if (el.classList.contains('bottom-nav-item')) {
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'block';
+      }
+    });
   }
 
   loadMenu('Dashboard');
