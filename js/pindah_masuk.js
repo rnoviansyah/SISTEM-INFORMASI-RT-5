@@ -113,21 +113,12 @@ function showDetailPindahMasuk(id) {
 
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
-  let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
-  let hasFoto = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
 
-  let imgHtml = `
-    <div class="text-center mb-3 p-3 bg-gray-50 rounded-2xl border shadow-sm">
-      <p class="text-[10px] text-gray-400 font-bold uppercase mb-2">Lampiran Foto / Bukti:</p>
-      ${hasFoto 
-        ? `<img src="${fotoDirectUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-32 h-32 object-cover mx-auto rounded-2xl border shadow cursor-pointer hover:opacity-90 transition">
-           <small class="text-[9px] text-blue-600 block mt-1.5 font-bold"><i class="bi bi-zoom-in me-1"></i>Klik foto untuk memperbesar</small>`
-        : `<div class="w-16 h-16 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center mx-auto text-2xl shadow-inner"><i class="bi bi-image"></i></div>
-           <small class="text-[10px] text-gray-400 block mt-1">Belum ada lampiran foto</small>`
-      }
-    </div>`;
+  let imgHtml = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***') 
+    ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Lampiran Foto / Bukti:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+    : '';
 
-  let detailHtml = imgHtml;
+  let detailHtml = '';
   currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
@@ -137,6 +128,7 @@ function showDetailPindahMasuk(id) {
         <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
       </div>`;
   });
+  detailHtml += imgHtml;
 
   document.getElementById('modal-detail-pindahmasuk-body').innerHTML = detailHtml;
 

@@ -98,7 +98,7 @@ function filterDataWarga() {
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
   } else {
-    [...filtered].reverse().forEach((r, i) => {
+    filtered.forEach((r, i) => {
       let nikVal = r[nikIdx] !== undefined ? r[nikIdx] : (r[0] || '-');
       let namaVal = r[namaIdx] !== undefined ? r[namaIdx] : (r[1] || '-');
       let alamatVal = alamatIdx > -1 && r[alamatIdx] !== undefined ? r[alamatIdx] : '-';
@@ -137,21 +137,11 @@ function showDetailWarga(id) {
   let fotoUrl = fotoIdx > -1 ? row[fotoIdx] : '';
   let noHpWarga = hpIdx > -1 ? row[hpIdx] : '';
 
-  let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
-  let hasFoto = (fotoUrl && String(fotoUrl).trim() !== '' && String(fotoUrl).toUpperCase() !== 'EMPTY' && String(fotoUrl).toUpperCase() !== 'NULL' && fotoUrl !== '-' && fotoUrl !== '***Rahasia***');
+  let imgHtml = (fotoUrl && fotoUrl !== '-' && fotoUrl !== '***Rahasia***') 
+    ? `<div class="mt-2"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Foto Warga:</p><img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm"></div>` 
+    : '';
 
-  let imgHtml = `
-    <div class="text-center mb-3 p-3 bg-gray-50 rounded-2xl border shadow-sm">
-      <p class="text-[10px] text-gray-400 font-bold uppercase mb-2">Foto Profil / KTP Warga:</p>
-      ${hasFoto 
-        ? `<img src="${fotoDirectUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-32 h-32 object-cover mx-auto rounded-2xl border shadow cursor-pointer hover:opacity-90 transition">
-           <small class="text-[9px] text-blue-600 block mt-1.5 font-bold"><i class="bi bi-zoom-in me-1"></i>Klik foto untuk memperbesar</small>`
-        : `<div class="w-20 h-20 bg-gray-200 text-gray-400 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner"><i class="bi bi-person-fill"></i></div>
-           <small class="text-[10px] text-gray-400 block mt-1">Belum ada foto yang diunggah</small>`
-      }
-    </div>`;
-
-  let detailHtml = imgHtml;
+  let detailHtml = '';
   currentHeaders.forEach((h, idx) => {
     let hLower = (h || '').toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
@@ -161,6 +151,7 @@ function showDetailWarga(id) {
         <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
       </div>`;
   });
+  detailHtml += imgHtml;
 
   document.getElementById('modal-detail-warga-body').innerHTML = detailHtml;
 
