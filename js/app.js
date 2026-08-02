@@ -830,7 +830,27 @@ function bukaNotifTarget(menuName) {
 // ==========================================================
 // ==== AUTHENTICATION & SESSION ============================
 // ==========================================================
-async function doLogin() {
+async function saveSessionToDatabase(token, nik, role) {
+  if (!token || !nik) return;
+  let timeStr = new Date().toLocaleString('id-ID');
+  let res = await safeSupabaseInsert('Sessions', [{
+    token: token,
+    nik: nik,
+    role: role || 'Warga',
+    createdat: timeStr
+  }]);
+
+  if (res && res.error) {
+    await safeSupabaseInsert('Sessions', [{
+      token: token,
+      nik: nik,
+      role: role || 'Warga'
+    }]);
+  }
+}
+
+async function processLogin(e) {
+  if (e) e.preventDefault();
   try {
     var u = document.getElementById('username').value;
     var p = document.getElementById('password').value;
@@ -850,13 +870,7 @@ async function doLogin() {
       session.noHp      = res.noHp   ? res.noHp.toString().trim()   : '';
       localStorage.setItem('rt_user_session', JSON.stringify(session));
 
-      safeSupabaseInsert('Sessions', [{
-        token: sessionToken,
-        nik: session.nik,
-        role: session.role,
-        createdat: new Date().toLocaleString('id-ID')
-      }]).catch(e => console.log('Simpan sesi error:', e));
-
+      await saveSessionToDatabase(sessionToken, session.nik, session.role);
       applySessionUI();
     } else {
       document.getElementById('login-msg').innerHTML = res ? res.message : 'Login gagal!';
@@ -958,6 +972,9 @@ async function checkExistingSession() {
       session = JSON.parse(savedSession);
       if (session && session.role) {
         applySessionUI();
+        if (session.token && session.nik) {
+          saveSessionToDatabase(session.token, session.nik, session.role);
+        }
         verifySessionToken();
       }
     } catch(e) {
@@ -1595,6 +1612,10 @@ async function renderPengaturanRTView() {
     const { data: usersData } = await safeSupabaseSelect('Users');
     usersList = usersData || [];
   } catch(e) {}
+
+  if (session.token && session.nik) {
+    try { await saveSessionToDatabase(session.token, session.nik, session.role); } catch(e) {}
+  }
 
   let sessionsList = [];
   try {
