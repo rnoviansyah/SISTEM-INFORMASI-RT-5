@@ -947,7 +947,7 @@ window.processLogin = doLogin;
 async function verifySessionToken() {
   if (!session || !session.token) return true;
   
-  if (session.loginTime && (Date.now() - session.loginTime < 60000)) {
+  if (session.loginTime && (Date.now() - session.loginTime < 5000)) {
     return true;
   }
 
@@ -960,12 +960,7 @@ async function verifySessionToken() {
       return String(sTok).trim() === String(session.token).trim();
     });
 
-    let nikMatch = sessData.find(s => {
-      let sNik = s.nik || s.NIK || '';
-      return String(sNik).trim() === String(session.nik).trim();
-    });
-
-    if (!match && nikMatch) {
+    if (!match) {
       if (notifTimer) clearInterval(notifTimer);
       localStorage.removeItem('rt_user_session');
       alert('Sesi login Anda telah dihentikan/dibatalkan oleh RT. Silakan login kembali.');
@@ -1036,9 +1031,6 @@ async function checkExistingSession() {
       session = JSON.parse(savedSession);
       if (session && session.role) {
         applySessionUI();
-        if (session.token && session.nik) {
-          saveSessionToDatabase(session.token, session.nik, session.role);
-        }
         verifySessionToken();
       }
     } catch(e) {
@@ -1688,10 +1680,6 @@ async function renderPengaturanRTView() {
     const { data: usersData } = await safeSupabaseSelect('Users');
     usersList = usersData || [];
   } catch(e) {}
-
-  if (session.token && session.nik) {
-    try { await saveSessionToDatabase(session.token, session.nik, session.role); } catch(e) {}
-  }
 
   let sessionsList = [];
   try {
