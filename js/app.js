@@ -841,22 +841,21 @@ async function doLogin() {
     if (res && res.status === 'success') {
       var roleClean = res.role.toString().trim().toLowerCase();
       let sessionToken = 'SESS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
-      session.token  = sessionToken;
-      session.role   = (roleClean === 'rt') ? 'RT' : 'Warga';
-      session.nik    = res.nik    ? res.nik.toString().trim()    : (res.username || u);
-      session.nama   = res.nama   ? res.nama.toString().trim()   : '';
-      session.alamat = res.alamat ? res.alamat.toString().trim() : '';
-      session.noHp   = res.noHp   ? res.noHp.toString().trim()   : '';
+      session.token     = sessionToken;
+      session.loginTime = Date.now();
+      session.role      = (roleClean === 'rt') ? 'RT' : 'Warga';
+      session.nik       = res.nik    ? res.nik.toString().trim()    : (res.username || u);
+      session.nama      = res.nama   ? res.nama.toString().trim()   : '';
+      session.alamat    = res.alamat ? res.alamat.toString().trim() : '';
+      session.noHp      = res.noHp   ? res.noHp.toString().trim()   : '';
       localStorage.setItem('rt_user_session', JSON.stringify(session));
 
-      try {
-        await safeSupabaseInsert('Sessions', [{
-          token: sessionToken,
-          nik: session.nik,
-          role: session.role,
-          createdat: new Date().toLocaleString('id-ID')
-        }]);
-      } catch(e) { console.log('Simpan sesi error:', e); }
+      safeSupabaseInsert('Sessions', [{
+        token: sessionToken,
+        nik: session.nik,
+        role: session.role,
+        createdat: new Date().toLocaleString('id-ID')
+      }]).catch(e => console.log('Simpan sesi error:', e));
 
       applySessionUI();
     } else {
@@ -869,14 +868,26 @@ async function doLogin() {
 
 async function verifySessionToken() {
   if (!session || !session.token) return true;
+  
+  if (session.loginTime && (Date.now() - session.loginTime < 60000)) {
+    return true;
+  }
+
   try {
     const { data: sessData, error } = await safeSupabaseSelect('Sessions');
-    if (error || !sessData) return true;
+    if (error || !sessData || sessData.length === 0) return true;
+
     let match = sessData.find(s => {
       let sTok = s.token || s.TOKEN || '';
       return String(sTok).trim() === String(session.token).trim();
     });
-    if (!match) {
+
+    let nikMatch = sessData.find(s => {
+      let sNik = s.nik || s.NIK || '';
+      return String(sNik).trim() === String(session.nik).trim();
+    });
+
+    if (!match && nikMatch) {
       if (notifTimer) clearInterval(notifTimer);
       localStorage.removeItem('rt_user_session');
       alert('Sesi login Anda telah dihentikan/dibatalkan oleh RT. Silakan login kembali.');
