@@ -371,34 +371,22 @@ function sortDataNewestFirst(dataList) {
   if (!Array.isArray(dataList) || dataList.length <= 1) return dataList || [];
   let list = [...dataList];
 
-  let hasTimestamp = list.some(a => a && (a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT));
-  if (hasTimestamp) {
+  let hasValidTimestamp = list.some(a => {
+    if (!a) return false;
+    let t = a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT;
+    if (!t) return false;
+    let d = new Date(t).getTime();
+    return !isNaN(d) && d > 1000000;
+  });
+
+  if (hasValidTimestamp) {
     list.sort((a, b) => {
-      let timeA = a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT || '';
-      let timeB = b.created_at || b.createdat || b.CREATED_AT || b.CREATEDAT || '';
+      let timeA = a ? (a.created_at || a.createdat || a.CREATED_AT || a.CREATEDAT || '') : '';
+      let timeB = b ? (b.created_at || b.createdat || b.CREATED_AT || b.CREATEDAT || '') : '';
       let dateA = new Date(timeA).getTime();
       let dateB = new Date(timeB).getTime();
       if (!isNaN(dateA) && !isNaN(dateB) && dateA !== dateB) {
         return dateB - dateA;
-      }
-      return 0;
-    });
-    return list;
-  }
-
-  let hasPrefixId = list.some(a => {
-    let id = String(a.id || a.ID || a.idPinjam || '').trim();
-    return id.includes('-') && /^[A-Z]{2,5}-\d+$/i.test(id);
-  });
-
-  if (hasPrefixId) {
-    list.sort((a, b) => {
-      let idA = String(a.id || a.ID || a.idPinjam || '').trim();
-      let idB = String(b.id || b.ID || b.idPinjam || '').trim();
-      let numA = parseInt(idA.replace(/\D/g, '')) || 0;
-      let numB = parseInt(idB.replace(/\D/g, '')) || 0;
-      if (numA > 0 && numB > 0 && numA !== numB) {
-        return numB - numA;
       }
       return 0;
     });
