@@ -171,6 +171,7 @@ function convertToImageLink(url) {
 // ==========================================================
 async function callGASPost(actionName, extraPayload = {}) {
   try {
+    // 1. Process Login (SERVER-SIDE AMAN VIA SUPABASE RPC)
     if (actionName === 'processLogin') {
       const uClean = extraPayload.username ? extraPayload.username.toString().trim().toLowerCase() : '';
       const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
@@ -180,58 +181,20 @@ async function callGASPost(actionName, extraPayload = {}) {
       }
 
       try {
-        const { data: usersData } = await safeSupabaseSelect('Users');
-        if (usersData && usersData.length > 0) {
-          let foundUser = usersData.find(u => {
-            let uname = String(u.username || u.name || u.nik || '').trim().toLowerCase();
-            let unik  = String(u.nik || '').trim().toLowerCase();
-            return (uname === uClean || unik === uClean);
-          });
+        const { data, error } = await db.rpc('verify_user_login', {
+          p_username: uClean,
+          p_password: pClean
+        });
 
-          if (foundUser) {
-            let passInDb = String(foundUser.password || foundUser.pass || '').trim();
-            if (passInDb === pClean) {
-              let uRole = foundUser.role || 'Warga';
-              let uNik  = foundUser.nik || foundUser.username || uClean;
-              let uNama = foundUser.nama || foundUser.nama_lengkap || foundUser.username || uClean;
-
-              try {
-                const { data: wargaData } = await safeSupabaseSelect('Warga');
-                if (wargaData) {
-                  let matchedWarga = wargaData.find(w => {
-                    let wNik = String(cariNilaiKolom(w, ['nik', 'ktp']) || '').trim().toLowerCase();
-                    return wNik && wNik === String(uNik).trim().toLowerCase();
-                  });
-                  if (matchedWarga) {
-                    uNama = cariNilaiKolom(matchedWarga, ['nama_lengkap', 'nama']) || uNama;
-                    let uAlamat = cariNilaiKolom(matchedWarga, ['alamat', 'address']) || '';
-                    let uHp = cariNilaiKolom(matchedWarga, ['no_hp', 'hp', 'wa', 'telp']) || '';
-                    return { status: 'success', role: uRole, nik: uNik, nama: uNama, alamat: uAlamat, noHp: uHp, token: 'SESS-' + Date.now() };
-                  }
-                }
-              } catch(e) {}
-
-              return { status: 'success', role: uRole, nik: uNik, nama: uNama, alamat: '', noHp: '', token: 'SESS-' + Date.now() };
-            } else {
-              return { status: 'error', message: 'Password salah! Periksa kembali password Anda.' };
-            }
-          }
+        if (error) {
+          console.error('RPC Error:', error);
+          return { status: 'error', message: 'Gagal verifikasi server: ' + error.message };
         }
-      } catch(e) {}
 
-      if ((uClean === 'admin' || uClean === 'adminrt' || uClean === 'rt' || uClean === '3201001') && pClean === 'admin') {
-        return {
-          status: 'success',
-          role: 'RT',
-          nik: '3201001',
-          nama: 'Ketua RT 05',
-          alamat: 'RT 05',
-          noHp: '',
-          token: 'SESS-' + Date.now()
-        };
+        return data;
+      } catch (err) {
+        return { status: 'error', message: 'Gagal login: ' + err.message };
       }
-
-      return { status: 'error', message: 'Username / NIK tidak terdaftar di sistem Users!' };
     }
 
     if (actionName === 'simpanDataKeSheet') {
@@ -550,7 +513,6 @@ async function callGASGet(actionName, params = {}) {
       const extractDate = (item) => item.created_at || item.createdat || item.timestamp || item.waktu || item.tanggal || item.tanggal_bayar || cariNilaiKolom(item, ['created_at', 'createdat', 'timestamp', 'waktu', 'tanggal', 'tanggal_bayar', 'tgl']) || null;
 
       if (cleanRole === 'rt') {
-        // 1. Aduan Warga - semua masuk
         (aRes.data || []).forEach(item => {
           let st    = cariNilaiKolom(item, ['status']) || 'Baru';
           let jenis = cariNilaiKolom(item, ['jenis_aduan', 'jenis']) || 'Umum';
@@ -560,7 +522,6 @@ async function callGASGet(actionName, params = {}) {
           notifs.push({ id, menu: 'Pengaduan', pesan: `Aduan ${jenis} dari ${nama}: (${st})`, rawDate });
         });
 
-        // 2. Surat Pengantar - yang belum/menunggu
         (sRes.data || []).forEach(item => {
           let st    = cariNilaiKolom(item, ['status']) || '';
           let stL   = st.toLowerCase();
@@ -573,7 +534,6 @@ async function callGASGet(actionName, params = {}) {
           }
         });
 
-        // 3. Peminjaman Aset - yang menunggu verifikasi
         (pRes.data || []).forEach(item => {
           let st  = cariNilaiKolom(item, ['status']) || '';
           let stL = st.toLowerCase();
@@ -587,7 +547,6 @@ async function callGASGet(actionName, params = {}) {
           }
         });
 
-        // 4. Iuran - yang perlu verifikasi RT
         (iRes.data || []).forEach(item => {
           let st  = cariNilaiKolom(item, ['status']) || '';
           let stL = st.toLowerCase();
@@ -601,7 +560,6 @@ async function callGASGet(actionName, params = {}) {
           }
         });
 
-        // 5. Sumbangan - yang belum diverifikasi
         (sumRes.data || []).forEach(item => {
           let st  = cariNilaiKolom(item, ['status']) || '';
           let stL = st.toLowerCase();
@@ -613,7 +571,6 @@ async function callGASGet(actionName, params = {}) {
           }
         });
 
-        // 6. Aspirasi - yang baru/belum ditanggapi
         (aspRes.data || []).forEach(item => {
           let st  = cariNilaiKolom(item, ['status']) || '';
           let stL = st.toLowerCase();
@@ -626,7 +583,6 @@ async function callGASGet(actionName, params = {}) {
         });
 
       } else {
-        // ---- NOTIFIKASI WARGA ----
         (aRes.data || []).forEach(item => {
           if (cariNilaiKolom(item, ['nik','ktp']).trim() === userNik) {
             let st    = cariNilaiKolom(item, ['status']) || 'Diproses';
@@ -1111,7 +1067,6 @@ async function loadMenu(menu) {
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
 
-  // ✅ SWITCH TUNGGAL - TIDAK DUPLIKAT
   switch(menu) {
     case 'Dashboard':    if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
     case 'Profil':       if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
@@ -1353,10 +1308,8 @@ function submitFormBaru(e) {
   if (e) e.preventDefault();
   let payload = {};
 
-  // 1. Read standard inputs BEFORE updating DOM
   document.querySelectorAll('.dynamic-input').forEach(inp => { payload[inp.getAttribute('data-key')] = inp.value; });
 
-  // 2. Read file inputs BEFORE updating DOM
   let filePromises = [];
   document.querySelectorAll('.dynamic-file-input').forEach(fileInp => {
     let key = fileInp.getAttribute('data-key');
@@ -1368,7 +1321,6 @@ function submitFormBaru(e) {
     }
   });
 
-  // 3. Update DOM to show loading spinner AFTER reading file inputs
   document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses & mengompres foto...</b></div>';
 
   Promise.all(filePromises).then(async () => {
