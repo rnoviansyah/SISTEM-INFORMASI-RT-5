@@ -1064,20 +1064,22 @@ window.processLogin = doLogin;
 
 async function verifySessionToken() {
   if (!session || !session.token) return true;
-  
-  if (session.loginTime && (Date.now() - session.loginTime < 5000)) {
-    return true;
-  }
 
   try {
+    // Hapus cache Sessions agar selalu cek data paling fresh langsung dari Supabase
+    delete menuDataCache['Sessions'];
     const { data: sessData, error } = await safeSupabaseSelect('Sessions');
-    if (error || !sessData || sessData.length === 0) return true;
 
-    let match = sessData.find(s => {
+    // Jika terjadi error koneksi, jangan logout paksa (resiliensi jaringan)
+    if (error) return true;
+
+    // Cari token di database
+    let match = (sessData || []).find(s => {
       let sTok = s.token || s.TOKEN || '';
       return String(sTok).trim() === String(session.token).trim();
     });
 
+    // Jika token tidak ditemukan di DB (sesi dicabut RT), logout seketika!
     if (!match) {
       if (notifTimer) clearInterval(notifTimer);
       localStorage.removeItem('rt_user_session');
@@ -1171,6 +1173,10 @@ function syncActiveNav(menu) {
 // ==== NAVIGASI MENU =======================================
 // ==========================================================
 async function loadMenu(menu) {
+  if (session && session.token) {
+    let isSessionValid = await verifySessionToken();
+    if (!isSessionValid) return;
+  }
   currentActiveMenu = menu;
   syncActiveNav(menu);
   document.getElementById('page-title').innerText = menu === 'Dashboard' ? 'Dashboard Utama' : (menu === 'Profil' ? 'Profil Saya' : menu);
