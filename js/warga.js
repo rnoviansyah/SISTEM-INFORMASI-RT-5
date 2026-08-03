@@ -137,7 +137,7 @@ function filterDataWarga() {
       let rowId = r[idIdx] || nikVal;
 
       let btnAksi = session.role === 'RT' 
-        ? `<button onclick="event.stopPropagation(); bukaModalEdit('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Edit</button>`
+        ? `<button onclick="event.stopPropagation(); showDetailWarga('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Detail</button>`
         : `<button onclick="event.stopPropagation(); waHubungiWarga('${hpVal}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
 
       tbody.innerHTML += `
