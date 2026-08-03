@@ -1065,6 +1065,11 @@ window.processLogin = doLogin;
 async function verifySessionToken() {
   if (!session || !session.token) return true;
 
+  // Grace period 15 detik setelah login agar insert sesi ke DB selesai tanpa race-condition
+  if (session.loginTime && (Date.now() - session.loginTime < 15000)) {
+    return true;
+  }
+
   try {
     // Hapus cache Sessions agar selalu cek data paling fresh langsung dari Supabase
     delete menuDataCache['Sessions'];
