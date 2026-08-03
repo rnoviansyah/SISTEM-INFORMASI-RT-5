@@ -67,10 +67,6 @@ async function safeSupabaseInsert(tableName, rows) {
 }
 
 async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
-  if (tableName.toLowerCase() === 'warga' && String(session.role || '').toUpperCase() !== 'RT') {
-    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
-  }
-
   let { error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -86,10 +82,6 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
 }
 
 async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
-  if (String(session.role || '').toUpperCase() !== 'RT') {
-    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan menghapus data.' } };
-  }
-
   let { error } = await db.from(tableName).delete().eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -279,7 +271,7 @@ async function callGASPost(actionName, extraPayload = {}) {
     }
 
     // ==========================================================
-    // ==== UPDATE DATA (MENDUKUNG NIK & ID) ====================
+    // ==== UPDATE DATA (BERDASARKAN ID PRIMARY KEY) ============
     // ==========================================================
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
@@ -289,43 +281,21 @@ async function callGASPost(actionName, extraPayload = {}) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
 
-      let eqCol = 'id';
-      let eqVal = id;
-      if (sheetName.toLowerCase() === 'warga') {
-        eqCol = 'nik';
-        eqVal = formData.nik || id;
-      }
-
-      let resUpdate = await safeSupabaseUpdate(sheetName, formData, eqCol, eqVal);
-      if (resUpdate.error && eqCol === 'nik') {
-        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
-      }
+      let resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
       if (resUpdate.error) {
-        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'NIK', eqVal);
+        let lowerName = sheetName.toLowerCase();
+        let resLower = await db.from(lowerName).update(formData).eq('id', id);
+        if (resLower.error) return { status: 'error', message: resLower.error.message };
       }
-      if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
       return { status: 'success', message: 'Data berhasil diperbarui!' };
     }
 
     // ==========================================================
-    // ==== HAPUS DATA (MENDUKUNG NIK & ID) =====================
+    // ==== HAPUS DATA (BERDASARKAN ID PRIMARY KEY) =============
     // ==========================================================
     if (actionName === 'hapusDataDariSheet') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
-      const sheetName = extraPayload.sheetName;
-      const id = extraPayload.id;
-
-      let eqCol = 'id';
-      let eqVal = id;
-      if (sheetName.toLowerCase() === 'warga') {
-        eqCol = 'nik';
-      }
-
-      let { error } = await safeSupabaseDelete(sheetName, eqCol, eqVal);
-      if (error && eqCol === 'nik') {
-        let resLower = await safeSupabaseDelete(sheetName, 'id', id);
-        if (!resLower.error) error = null;
-      }
+      const { error } = await safeSupabaseDelete(extraPayload.sheetName, 'id', extraPayload.id);
       if (error) return { status: 'error', message: error.message };
       return { status: 'success', message: 'Data berhasil dihapus!' };
     }
@@ -1280,7 +1250,7 @@ function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75
           }
         } else {
           if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
+            width = Math.round((height * maxHeight) / height);
             height = maxHeight;
           }
         }
