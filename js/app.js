@@ -1,6 +1,18 @@
 // Variable Global Core App
 let session = { token: '', role: '', nik: '', nama: '', alamat: '', noHp: '' };
-const noWaAdmin = '628973366667';
+function getNoWaAdmin() {
+  let customNo = (typeof appSettings !== 'undefined' && appSettings && appSettings.rt_wa_number) ? appSettings.rt_wa_number : '';
+  if (customNo && String(customNo).trim() !== '') {
+    let clean = String(customNo).replace(/[^0-9]/g, '');
+    if (clean.startsWith('0')) clean = '62' + clean.slice(1);
+    return clean;
+  }
+  return '628973366667';
+}
+Object.defineProperty(window, 'noWaAdmin', {
+  get: function() { return getNoWaAdmin(); },
+  configurable: true
+});
 let currentActiveMenu = '';
 let currentHeaders = [];
 let currentRows = [];
@@ -1804,6 +1816,7 @@ async function simpanIdentitasDanTema(e) {
   let logo = document.getElementById('set-app-logo').value;
   let theme = document.getElementById('set-app-theme').value;
   let themeColor = document.getElementById('set-app-theme-color') ? document.getElementById('set-app-theme-color').value : '#1e3a8a';
+  let waNumber = document.getElementById('set-rt-wa-number') ? document.getElementById('set-rt-wa-number').value.trim() : '';
 
   let settingsArray = [
     { kunci: 'app_title', nilai: title },
@@ -1811,7 +1824,8 @@ async function simpanIdentitasDanTema(e) {
     { kunci: 'app_subtitle', nilai: subtitle },
     { kunci: 'app_logo', nilai: logo },
     { kunci: 'app_theme', nilai: theme },
-    { kunci: 'app_theme_color', nilai: themeColor }
+    { kunci: 'app_theme_color', nilai: themeColor },
+    { kunci: 'rt_wa_number', nilai: waNumber }
   ];
 
   const res = await callGASPost('simpanPengaturanApp', { settingsArray });
@@ -2025,6 +2039,14 @@ async function renderPengaturanRTView() {
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">SLOGAN / SUBTITLE</label>
                 <input type="text" id="set-app-subtitle" class="form-control" value="${appSettings.app_subtitle || ''}" placeholder="Contoh: AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN">
+              </div>
+              <div class="mb-3">
+                <label class="form-label font-semibold text-xs text-gray-700">NOMOR WHATSAPP DEFAULT LAPORAN RT <small class="text-primary font-bold">(Untuk Laporan Aduan, Surat & Sumbangan)</small></label>
+                <div class="input-group">
+                  <span class="input-group-text bg-success text-white fw-bold"><i class="bi bi-whatsapp me-1"></i>+</span>
+                  <input type="text" id="set-rt-wa-number" class="form-control" value="${appSettings.rt_wa_number || '628973366667'}" placeholder="Contoh: 628973366667 atau 08973366667">
+                </div>
+                <small class="text-muted">Nomor WhatsApp RT ini yang akan otomatis dihubungi warga saat mengirim Laporan Pengaduan, Surat Pengantar, atau Sumbangan.</small>
               </div>
               <div class="row g-3 mb-3">
                 <div class="col-md-9">
