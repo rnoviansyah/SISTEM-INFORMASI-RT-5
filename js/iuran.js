@@ -369,31 +369,29 @@ async function prosesKirimBuktiBayar() {
 }
 
 async function verifikasiPembayaranRT(id) {
-  if (!confirm('Apakah Anda yakin ingin memverifikasi pembayaran iuran ini menjadi LUNAS?')) return;
+  showUIConfirm('Apakah Anda yakin ingin memverifikasi pembayaran iuran ini menjadi LUNAS?', async function() {
+    let nowFormatted = new Date().toLocaleDateString('id-ID', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
 
-  let nowFormatted = new Date().toLocaleDateString('id-ID', {
-    day: '2-digit', month: '2-digit', year: 'numeric'
-  }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+    let formData = {
+      status: 'LUNAS',
+      tanggal_bayar: nowFormatted,
+      diterima_oleh: 'RT 05 (' + (session.nama || 'Pengurus') + ')'
+    };
 
-  let formData = {
-    status: 'Lunas',
-    tanggal_bayar: nowFormatted,
-    diterima_oleh: session.nama || 'RT 05'
-  };
+    let res = await safeSupabaseUpdate('Iuran', formData, 'id', id);
 
-  const res = await callGASPost('updateDataDiSheet', {
-    sheetName: 'Iuran',
-    id: id,
-    formData: formData
-  });
-
-  if (res && res.status === 'success') {
-    alert('Pembayaran iuran berhasil diverifikasi menjadi LUNAS!');
-    if (typeof clearAppCache === 'function') clearAppCache();
-    loadIuranView();
-  } else {
-    alert('Gagal memverifikasi: ' + (res ? res.message : 'Terjadi kesalahan'));
-  }
+    if (res && res.status === 'success') {
+      delete menuDataCache['Iuran'];
+      if (bootstrapModalInstance) bootstrapModalInstance.hide();
+      showUIToast('Pembayaran iuran berhasil diverifikasi menjadi LUNAS!', 'success');
+      loadMenu('Iuran');
+      fetchNotifikasi();
+    } else {
+      showUIToast('Gagal memverifikasi: ' + (res ? res.message : 'Terjadi kesalahan'), 'error');
+    }
+  }, 'Verifikasi Iuran');
 }
 
 async function bukaModalTambahIuranRT() {

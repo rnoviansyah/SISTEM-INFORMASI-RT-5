@@ -137,14 +137,14 @@ async function submitAspirasi(e) {
 }
 
 async function hapusAspirasi(id) {
-  if (confirm('Apakah lu yakin ingin menghapus aspirasi ini dari database?')) {
+  showUIConfirm('Apakah Anda yakin ingin menghapus aspirasi ini dari database?', async function() {
     const res = await callGASPost('hapusDataDariSheet', {
       sheetName: 'Aspirasi',
       id: id
     });
-    alert(res ? res.message : 'Berhasil dihapus');
+    showUIToast(res ? res.message : 'Berhasil dihapus', 'success');
     loadMenu('Aspirasi');
-  }
+  }, 'Hapus Aspirasi');
 }
 
 const originalLoadMenuAspirasi = window.loadMenu;

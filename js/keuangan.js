@@ -277,11 +277,11 @@ function hapusDariDetail() {
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   let id = selectedKeuanganRow[idIdx];
 
-  if (confirm(`Apakah Anda yakin ingin menghapus data transaksi ${id}?`)) {
+  showUIConfirm(`Apakah Anda yakin ingin menghapus data transaksi ${id}?`, function() {
     tutupDetailKeuangan();
     editingId = id;
     hapusDataAktif();
-  }
+  }, 'Hapus Transaksi');
 }
 
 function waLaporMasalahKeuangan(id) {

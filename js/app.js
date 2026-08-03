@@ -1,3 +1,100 @@
+// ==========================================================
+// ==== CUSTOM UI TOAST & CONFIRM MODAL (NO BROWSER POPUPS) =
+// ==========================================================
+function showUIToast(message, type = 'auto') {
+  if (!message) return;
+  let strMsg = String(message).trim();
+
+  let toastContainer = document.getElementById('ui-toast-container');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'ui-toast-container';
+    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    toastContainer.style.zIndex = '1099';
+    document.body.appendChild(toastContainer);
+  }
+
+  let isSuccess = (type === 'success') || strMsg.toLowerCase().includes('berhasil') || strMsg.toLowerCase().includes('lunas') || strMsg.toLowerCase().includes('sukses');
+  let isError = (type === 'danger' || type === 'error') || strMsg.toLowerCase().includes('gagal') || strMsg.toLowerCase().includes('error') || strMsg.toLowerCase().includes('ditolak') || strMsg.toLowerCase().includes('wajib') || strMsg.toLowerCase().includes('salah');
+
+  let bgClass = isSuccess ? 'bg-success text-white' : (isError ? 'bg-danger text-white' : 'bg-dark text-white');
+  let icon = isSuccess 
+    ? '<i class="bi bi-check-circle-fill fs-5 me-2"></i>' 
+    : (isError ? '<i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>' : '<i class="bi bi-info-circle-fill fs-5 me-2"></i>');
+
+  let toastId = 'toast-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+  let toastHtml = `
+    <div id="${toastId}" class="toast align-items-center ${bgClass} border-0 shadow-lg mb-2 show rounded-3" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex align-items-center">
+        <div class="toast-body d-flex align-items-center font-sans fw-bold text-xs py-2 px-3">
+          ${icon}
+          <div>${strMsg}</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" onclick="document.getElementById('${toastId}').remove()"></button>
+      </div>
+    </div>`;
+
+  toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+  setTimeout(() => {
+    let el = document.getElementById(toastId);
+    if (el) {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }
+  }, 4500);
+}
+
+window.alert = function(msg) {
+  showUIToast(msg);
+};
+
+function showUIConfirm(text, onConfirm, title = "Konfirmasi Tindakan") {
+  let modalEl = document.getElementById('customConfirmModal');
+  if (!modalEl) {
+    let div = document.createElement('div');
+    div.innerHTML = `
+      <div class="modal fade" id="customConfirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1095;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+          <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-body text-center p-4">
+              <div class="rounded-circle bg-warning-subtle text-warning mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+              </div>
+              <h6 class="fw-bold text-gray-800 mb-2" id="confirmModalTitle">Konfirmasi</h6>
+              <p class="text-xs text-gray-600 mb-4" id="confirmModalText"></p>
+              <div class="d-flex gap-2 justify-content-center">
+                <button type="button" class="btn btn-sm btn-light font-bold px-3 py-2 w-50 rounded-2" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-danger font-bold px-3 py-2 w-50 rounded-2" id="btnConfirmOk">Ya, Lanjutkan</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(div.firstElementChild);
+    modalEl = document.getElementById('customConfirmModal');
+  }
+
+  document.getElementById('confirmModalTitle').innerText = title;
+  document.getElementById('confirmModalText').innerText = text;
+
+  let bsModal = new bootstrap.Modal(modalEl);
+  let btnOk = document.getElementById('btnConfirmOk');
+
+  let newBtnOk = btnOk.cloneNode(true);
+  btnOk.parentNode.replaceChild(newBtnOk, btnOk);
+
+  newBtnOk.addEventListener('click', function() {
+    bsModal.hide();
+    if (typeof onConfirm === 'function') onConfirm();
+  });
+
+  bsModal.show();
+}
+
+window.showUIConfirm = showUIConfirm;
+window.showUIToast = showUIToast;
+
 // Variable Global Core App
 let session = { token: '', role: '', nik: '', nama: '', alamat: '', noHp: '' };
 function getNoWaAdmin() {
@@ -1168,7 +1265,7 @@ function applySessionUI() {
 }
 
 async function doLogout() {
-  if (confirm('Apakah Anda yakin ingin logout?')) {
+  showUIConfirm('Apakah Anda yakin ingin keluar dari sistem aplikasi RT 05?', async function() {
     if (session.token) {
       try { await safeSupabaseDelete('Sessions', 'token', session.token); } catch(e) {}
     }
@@ -1178,7 +1275,7 @@ async function doLogout() {
     document.getElementById('mob-nav').classList.remove('show-nav');
     localStorage.removeItem('rt_user_session');
     location.reload();
-  }
+  }, 'Konfirmasi Logout');
 }
 
 async function checkExistingSession() {
@@ -1549,16 +1646,16 @@ function submitFormBaru(e) {
 async function hapusDataAktif() {
   let targetId = editingId || editingNik;
   if (!targetId) {
-    alert('ID / NIK data tidak ditemukan untuk dihapus.');
+    showUIToast('ID / NIK data tidak ditemukan untuk dihapus.', 'error');
     return;
   }
-  if (confirm('Hapus data ini secara permanen dari database?')) {
+  showUIConfirm('Apakah Anda yakin ingin menghapus data ini secara permanen dari database?', async function() {
     document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Menghapus data...</b></div>';
     delete menuDataCache[currentActiveMenu];
     const res = await callGASPost('hapusDataDariSheet', { sheetName: currentActiveMenu, id: targetId });
-    if (res && res.status === 'success') { bootstrapModalInstance.hide(); alert('Data Berhasil Dihapus!'); loadMenu(currentActiveMenu); fetchNotifikasi(); }
-    else { alert('Gagal menghapus: ' + (res ? res.message : 'Error')); loadMenu(currentActiveMenu); }
-  }
+    if (res && res.status === 'success') { bootstrapModalInstance.hide(); showUIToast('Data Berhasil Dihapus!', 'success'); loadMenu(currentActiveMenu); fetchNotifikasi(); }
+    else { showUIToast('Gagal menghapus: ' + (res ? res.message : 'Error'), 'error'); loadMenu(currentActiveMenu); }
+  }, 'Hapus Data Permanen');
 }
 
 function getTombolAksi(menu, row, headers) {
@@ -1907,16 +2004,17 @@ async function resetPasswordUser(username) {
 }
 
 async function hapusUserAkun(username) {
-  if (confirm(`Apakah Anda yakin ingin menghapus akun user '${username}' secara permanen dari database?`)) {
+  if (!username) return;
+  showUIConfirm(`Apakah Anda yakin ingin menghapus akun user '${username}' secara permanen dari database?`, async function() {
     const res = await callGASPost('hapusUserAkun', { username: username });
     if (res && res.status === 'success') {
       try { await safeSupabaseDelete('Sessions', 'nik', username); } catch(e) {}
-      alert(`Akun '${username}' dan seluruh sesi login aktifnya berhasil dihapus permanen!`);
+      showUIToast(`Akun '${username}' dan seluruh sesi login aktifnya berhasil dihapus permanen!`, 'success');
       renderPengaturanRTView();
     } else {
-      alert('Gagal menghapus user: ' + (res ? res.message : 'Error'));
+      showUIToast('Gagal menghapus user: ' + (res ? res.message : 'Error'), 'error');
     }
-  }
+  }, 'Hapus Akun User');
 }
 
 async function simpanPengumumanWarga(e) {
@@ -1924,24 +2022,24 @@ async function simpanPengumumanWarga(e) {
   let teks = document.getElementById('set-info-warga').value;
   const res = await callGASPost('simpanInfoWarga', { teksBaru: teks });
   if (res && res.status === 'success') {
-    alert('Pengumuman warga berhasil disimpan!');
+    showUIToast('Pengumuman warga berhasil disimpan!', 'success');
     await loadAppSettings();
   } else {
-    alert('Gagal menyimpan pengumuman: ' + (res ? res.message : 'Error'));
+    showUIToast('Gagal menyimpan pengumuman: ' + (res ? res.message : 'Error'), 'error');
   }
 }
 
 async function hapusSesiLogin(token) {
   if (!token) return;
-  if (confirm('Putuskan sesi login ini? Warga yang menggunakan akun ini akan langsung di-logout otomatis dari aplikasinya.')) {
+  showUIConfirm('Putuskan sesi login ini? Warga yang menggunakan akun ini akan langsung di-logout otomatis dari aplikasinya.', async function() {
     const { error } = await safeSupabaseDelete('Sessions', 'token', token);
     if (!error) {
-      alert('Sesi login berhasil dihentikan/dibatalkan!');
+      showUIToast('Sesi login berhasil dihentikan/dibatalkan!', 'success');
       renderPengaturanRTView();
     } else {
-      alert('Gagal menghapus sesi: ' + (error ? error.message : 'Error'));
+      showUIToast('Gagal menghapus sesi: ' + (error ? error.message : 'Error'), 'error');
     }
-  }
+  }, 'Putuskan Sesi Login');
 }
 
 async function renderPengaturanRTView() {
