@@ -26,9 +26,9 @@ const MENU_CACHE_TTL = 30000; // 30 detik
 // ==========================================================
 // Key dibagi agar tidak langsung terbaca sebagai satu string
 const _k1 = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
-const _k2 = '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXV5bHBxaHhhZ2NyYWRmbW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NjI5NTEsImV4cCI6MjEwMTEzODk1MX0';
-const _k3 = '.kI7sP46AIOLsJKyAg4DWQTNhCWCh22PwFMDogXoUlyg';
-const SUPABASE_URL = 'https://kcuuylpqhxagcradfmon.supabase.co';
+const _k2 = '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZmFhZGFub3Fsb3B6YmRrdGNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3NTUyMDAsImV4cCI6MjEwMTMzMTIwMH0';
+const _k3 = '.fL0COA2tG5KCSh5_bClaEUJYc--IIZSqZpSdstpvPBs';
+const SUPABASE_URL = 'https://tmfaadanoqlopzbdktcd.supabase.co';
 const SUPABASE_KEY = _k1 + _k2 + _k3;
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
