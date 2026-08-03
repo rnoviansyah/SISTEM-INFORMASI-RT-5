@@ -27,8 +27,22 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // --- SAFE SUPABASE QUERY HELPERS ---
 async function safeSupabaseSelect(tableName) {
   try {
+    // Khusus tabel Warga, ambil data lewat RPC get_warga_secured agar sensor dilakukan langsung di Database (Aman dari Console)
+    if (tableName.toLowerCase() === 'warga') {
+      let userNik = (session && session.nik) ? String(session.nik).trim() : '';
+      let userRole = (session && session.role) ? String(session.role).trim() : 'Warga';
+      
+      let { data, error } = await db.rpc('get_warga_secured', { 
+        p_nik: userNik, 
+        p_role: userRole 
+      });
+
+      if (!error && data) return { data: makeCaseInsensitive(data), error: null };
+    }
+
+    // Query standar untuk tabel lainnya
     let { data, error } = await db.from(tableName).select('*');
-    if (!error && data && data.length > 0) return { data: makeCaseInsensitive(data), error: null };
+    if (!error && data) return { data: makeCaseInsensitive(data), error: null };
 
     let lowerName = tableName.toLowerCase();
     if (lowerName !== tableName) {
@@ -414,51 +428,7 @@ async function callGASGet(actionName, params = {}) {
       if (!safeData || safeData.length === 0) return { status: 'success', headers: [], rows: [] };
 
       const headers = Object.keys(safeData[0]);
-      const lowerHeaders = headers.map(h => h.toLowerCase().trim());
-      const cleanRole = (session.role || 'warga').toLowerCase();
-      let filteredData = safeData;
-
-      if (cleanRole === 'warga' && session.nik) {
-        let sheetLower = sheetName.toLowerCase();
-        if (sheetLower === 'warga') {
-          let userKk = '';
-          const targetWarga = filteredData.find(w => {
-            let wNik = cariNilaiKolom(w, ['nik', 'ktp']);
-            return wNik && wNik.toString().trim() === session.nik.toString().trim();
-          });
-          if (targetWarga) userKk = cariNilaiKolom(targetWarga, ['kk', 'no_kk']);
-          const kkIdx = lowerHeaders.findIndex(h => h.includes('kk') || h.includes('no_kk'));
-          let sortedFilteredWarga = sortDataNewestFirst(filteredData);
-          let rows = sortedFilteredWarga.map(rowObj => {
-            let rowArr = headers.map(h => rowObj[h] !== null && rowObj[h] !== undefined ? rowObj[h] : '');
-            let rowKk = kkIdx > -1 ? String(rowObj[headers[kkIdx]] || '').trim() : '';
-            let rowNik = cariNilaiKolom(rowObj, ['nik', 'ktp']);
-            let isSameKk = (userKk && rowKk === userKk) || (rowNik && String(rowNik).trim() === session.nik.trim());
-
-            if (isSameKk) {
-              return rowArr;
-            } else {
-              return headers.map((h, idx) => {
-                let hLower = h.toLowerCase().trim();
-                if (['no_hp','hp','wa','telp','nomor_hp'].includes(hLower)) {
-                  return sensorPhoneNumber(rowArr[idx]);
-                }
-                if (['id','no','nama_lengkap','nama_panggilan','nama','jenis_kelamin','foto_url','alamat'].includes(hLower)) return rowArr[idx];
-                else return 'XXXXX';
-              });
-            }
-          });
-          return { status: 'success', headers: headers, rows: rows };
-        } else if (!['keuangan','aset','peminjaman','sumbangan','aspirasi'].includes(sheetLower)) {
-          filteredData = filteredData.filter(row => {
-            let rNik = cariNilaiKolom(row, ['nik', 'ktp']);
-            return rNik && rNik.toString().trim() === session.nik.toString().trim();
-          });
-        }
-      }
-
-      if (!filteredData || filteredData.length === 0) return { status: 'success', headers: headers, rows: [] };
-      let sortedFiltered = sortDataNewestFirst(filteredData);
+      let sortedFiltered = sortDataNewestFirst(safeData);
       const rows = sortedFiltered.map(row => headers.map(h => row[h] !== null && row[h] !== undefined ? row[h] : ''));
       return { status: 'success', headers: headers, rows: rows };
     }
