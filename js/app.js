@@ -279,7 +279,7 @@ async function callGASPost(actionName, extraPayload = {}) {
     }
 
     // ==========================================================
-    // ==== PERBAIKAN UTAMA: UPDATE DATA (MENDUKUNG NIK & ID) ====
+    // ==== UPDATE DATA (MENDUKUNG NIK & ID) ====================
     // ==========================================================
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
@@ -308,7 +308,7 @@ async function callGASPost(actionName, extraPayload = {}) {
     }
 
     // ==========================================================
-    // ==== PERBAIKAN UTAMA: HAPUS DATA (MENDUKUNG NIK & ID) =====
+    // ==== HAPUS DATA (MENDUKUNG NIK & ID) =====================
     // ==========================================================
     if (actionName === 'hapusDataDariSheet') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
@@ -2010,6 +2010,15 @@ document.addEventListener("DOMContentLoaded", function() {
   loadAppSettings();
   checkExistingSession();
   document.addEventListener('submit', e => e.preventDefault());
+
+  // Pengaman Event Listener tombol login agar responsif di semua browser HP
+  const btnMasuk = document.getElementById('btn-masuk');
+  if (btnMasuk) {
+    btnMasuk.addEventListener('click', function(e) {
+      doLogin(e);
+    });
+  }
+
   window.copySingleRek = function(nomor) {
     navigator.clipboard.writeText(nomor)
       .then(() => alert("Nomor " + nomor + " berhasil disalin!"))
@@ -2047,12 +2056,10 @@ function installPWA() {
 console.log("%cMAU NGAPAIN LU? 🤨", "color:#ef4444;font-size:38px;font-weight:900;padding:10px;");
 console.log("%cMending bayar iuran RT 05 daripada ngintipin console 🤣", "color:#2563eb;font-size:14px;font-weight:bold;");
 
-document.addEventListener('contextmenu', e => { e.preventDefault(); alert('MAU NGAPAIN LU? 🤨
-Gak ada harta karun di sini!'); });
+document.addEventListener('contextmenu', e => { e.preventDefault(); alert('MAU NGAPAIN LU? 🤨\nGak ada harta karun di sini!'); });
 document.addEventListener('keydown', e => {
   if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c'].includes(e.key)) || (e.ctrlKey && ['U','u'].includes(e.key))) {
     e.preventDefault();
-    alert('MAU NGAPAIN LU? 🤨
-Kepo banget mau buka Inspect Element!');
+    alert('MAU NGAPAIN LU? 🤨\nKepo banget mau buka Inspect Element!');
   }
 });
