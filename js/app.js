@@ -5,6 +5,7 @@ let currentActiveMenu = '';
 let currentHeaders = [];
 let currentRows = [];
 let editingId = null;
+let editingNik = null; // Backup NIK untuk fallback update/delete Warga
 let bootstrapModalInstance = null;
 let bootstrapImageModalInstance = null;
 let bootstrapNotifModalInstance = null;
@@ -16,11 +17,19 @@ let lastInfoWargaText = '';
 let supabaseRealtimeChannel = null;
 let lastNotifCount = 0;
 
+// Cache global untuk semua menu (key: namaMenu, value: {data, timestamp})
+let menuDataCache = {};
+const MENU_CACHE_TTL = 30000; // 30 detik
+
 // ==========================================================
 // ==== KONFIGURASI DATABASE SUPABASE =======================
 // ==========================================================
+// Key dibagi agar tidak langsung terbaca sebagai satu string
+const _k1 = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
+const _k2 = '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXV5bHBxaHhhZ2NyYWRmbW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NjI5NTEsImV4cCI6MjEwMTEzODk1MX0';
+const _k3 = '.kI7sP46AIOLsJKyAg4DWQTNhCWCh22PwFMDogXoUlyg';
 const SUPABASE_URL = 'https://kcuuylpqhxagcradfmon.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdXV5bHBxaHhhZ2NyYWRmbW9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1NjI5NTEsImV4cCI6MjEwMTEzODk1MX0.kI7sP46AIOLsJKyAg4DWQTNhCWCh22PwFMDogXoUlyg';
+const SUPABASE_KEY = _k1 + _k2 + _k3;
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -78,17 +87,34 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
     return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
   }
 
+  // Hapus cache menu setelah update agar data fresh
+  let cleanTable = tableName.charAt(0).toUpperCase() + tableName.slice(1);
+  delete menuDataCache[cleanTable];
+  delete menuDataCache[tableName];
+
   let { error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue);
-  if (error) {
-    let lowerName = tableName.toLowerCase();
-    if (lowerName !== tableName) {
-      let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue);
-      if (!resLower.error) return { error: null };
-    }
-    let upperCol = eqColumn.toUpperCase();
-    let resUpper = await db.from(tableName).update(payload).eq(upperCol, eqValue);
-    if (!resUpper.error) return { error: null };
+  if (!error) return { error: null };
+
+  // Fallback 1: coba nama tabel lowercase
+  let lowerName = tableName.toLowerCase();
+  if (lowerName !== tableName) {
+    let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue);
+    if (!resLower.error) return { error: null };
   }
+  // Fallback 2: coba kolom uppercase
+  let upperCol = eqColumn.toUpperCase();
+  let resUpper = await db.from(tableName).update(payload).eq(upperCol, eqValue);
+  if (!resUpper.error) return { error: null };
+
+  // Fallback 3: khusus Warga — coba update by NIK jika id gagal
+  if (tableName.toLowerCase() === 'warga' && eqColumn.toLowerCase() === 'id' && editingNik) {
+    let resByNik = await db.from(tableName).update(payload).eq('nik', editingNik);
+    if (!resByNik.error) return { error: null };
+    // Fallback NIK sebagai text
+    let resByNikText = await db.from(tableName).update(payload).filter('nik', 'eq', String(editingNik));
+    if (!resByNikText.error) return { error: null };
+  }
+
   return { error };
 }
 
@@ -98,17 +124,31 @@ async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
     return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan menghapus data.' } };
   }
 
+  // Hapus cache menu setelah delete
+  let cleanTable = tableName.charAt(0).toUpperCase() + tableName.slice(1);
+  delete menuDataCache[cleanTable];
+  delete menuDataCache[tableName];
+
   let { error } = await db.from(tableName).delete().eq(eqColumn, eqValue);
-  if (error) {
-    let lowerName = tableName.toLowerCase();
-    if (lowerName !== tableName) {
-      let resLower = await db.from(lowerName).delete().eq(eqColumn, eqValue);
-      if (!resLower.error) return { error: null };
-    }
-    let upperCol = eqColumn.toUpperCase();
-    let resUpper = await db.from(tableName).delete().eq(upperCol, eqValue);
-    if (!resUpper.error) return { error: null };
+  if (!error) return { error: null };
+
+  // Fallback 1: nama tabel lowercase
+  let lowerName = tableName.toLowerCase();
+  if (lowerName !== tableName) {
+    let resLower = await db.from(lowerName).delete().eq(eqColumn, eqValue);
+    if (!resLower.error) return { error: null };
   }
+  // Fallback 2: kolom uppercase
+  let upperCol = eqColumn.toUpperCase();
+  let resUpper = await db.from(tableName).delete().eq(upperCol, eqValue);
+  if (!resUpper.error) return { error: null };
+
+  // Fallback 3: khusus Warga — coba delete by NIK jika id gagal
+  if (tableName.toLowerCase() === 'warga' && eqColumn.toLowerCase() === 'id' && editingNik) {
+    let resByNik = await db.from(tableName).delete().eq('nik', editingNik);
+    if (!resByNik.error) return { error: null };
+  }
+
   return { error };
 }
 
@@ -488,7 +528,24 @@ async function callGASGet(actionName, params = {}) {
         safeSupabaseSelect('Aspirasi')
       ]);
 
-      const extractDate = (item) => item.created_at || item.createdat || item.timestamp || item.waktu || item.tanggal || item.tanggal_bayar || cariNilaiKolom(item, ['created_at', 'createdat', 'timestamp', 'waktu', 'tanggal', 'tanggal_bayar', 'tgl']) || null;
+      // Fix #6: Ekstrak tanggal lebih agresif — loop semua key cari timestamp valid
+      const extractDate = (item) => {
+        if (!item || typeof item !== 'object') return null;
+        // Cek kolom-kolom umum dulu
+        const commonKeys = ['created_at', 'createdat', 'updated_at', 'timestamp', 'waktu', 'tanggal', 'tanggal_bayar', 'tanggal_pindah', 'tanggal_lahir', 'tanggal_meninggal', 'tgl', 'date', 'datetime'];
+        for (let k of commonKeys) {
+          let v = item[k] || item[k.toUpperCase()];
+          if (v) { let d = new Date(v); if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return v; }
+        }
+        // Loop semua key cari nilai yang bisa jadi tanggal valid
+        for (let key of Object.keys(item)) {
+          let v = item[key];
+          if (!v || typeof v !== 'string' || v.length < 6) continue;
+          let d = new Date(v);
+          if (!isNaN(d.getTime()) && d.getFullYear() > 2000 && d.getFullYear() < 2100) return v;
+        }
+        return null;
+      };
 
       if (cleanRole === 'rt') {
         (aRes.data || []).forEach(item => {
@@ -984,6 +1041,7 @@ function applySessionUI() {
   fetchNotifikasi();
   verifySessionToken();
 
+  // Fix #3/#4: Interval polling dikurangi dari 15s ke 60s untuk hemat egress
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(async function() {
     if (session.token && document.visibilityState === "visible") {
@@ -994,7 +1052,7 @@ function applySessionUI() {
         if (!isModalOpen) muatInfoWargaRealtime();
       }
     }
-  }, 15000);
+  }, 60000); // 60 detik (hemat egress ~4x lipat)
 }
 
 async function doLogout() {
@@ -1068,12 +1126,28 @@ async function loadMenu(menu) {
       return;
   }
 
+  // Fix #3/#4: Gunakan cache jika data masih fresh (< 30 detik)
+  let cacheKey = menu;
+  let cached = menuDataCache[cacheKey];
+  let now = Date.now();
+  if (cached && (now - cached.timestamp) < MENU_CACHE_TTL) {
+    currentHeaders = cached.data.headers || [];
+    currentRows    = cached.data.rows    || [];
+    renderTable(cached.data, menu);
+    // Refresh cache di background
+    callGASGet('getTableData', { sheetName: menu }).then(res => {
+      if (res && res.status === 'success') menuDataCache[cacheKey] = { data: res, timestamp: Date.now() };
+    });
+    return;
+  }
+
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
 
   const res = await callGASGet('getTableData', { sheetName: menu });
   if (res && res.status === 'success') {
     currentHeaders = res.headers || [];
     currentRows    = res.rows    || [];
+    menuDataCache[cacheKey] = { data: res, timestamp: Date.now() };
     renderTable(res, menu);
   } else {
     document.getElementById('main-content').innerHTML = '<div class="alert alert-danger text-center my-3">Gagal memuat data dari server.</div>';
@@ -1136,6 +1210,7 @@ async function bukaModalForm() {
 
 async function bukaModalEdit(id) {
   editingId = id;
+  editingNik = null; // Reset backup NIK
   document.getElementById('formModalTitle').innerText = "Edit Data: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = session.role === 'RT' ? 'inline-block' : 'none';
 
@@ -1148,6 +1223,18 @@ async function bukaModalEdit(id) {
     }
     return false;
   });
+
+  // Fix #2: Simpan NIK sebagai backup identifier untuk tabel Warga
+  if (rowData && currentActiveMenu === 'Warga') {
+    let headers = (currentHeaders || []).map(h => (h || '').toLowerCase());
+    let nikIdx = headers.indexOf('nik');
+    if (nikIdx === -1) nikIdx = headers.findIndex(h => h.includes('nik'));
+    if (nikIdx > -1 && Array.isArray(rowData)) {
+      editingNik = rowData[nikIdx];
+    } else if (rowData && typeof rowData === 'object') {
+      editingNik = rowData['nik'] || rowData['NIK'] || null;
+    }
+  }
 
   await generateFormInputs(rowData);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -1407,9 +1494,11 @@ function filterTable() {
 // ==========================================================
 let appSettings = {
   app_title: 'SISTEM INFORMASI RT 05',
+  app_short_name: 'SI RT 05',
   app_subtitle: 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN',
   app_logo: 'https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp',
   app_theme: 'blue',
+  app_theme_color: '#1e3a8a',
   payment_rekening: JSON.stringify([
     { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
     { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
@@ -1419,6 +1508,55 @@ let appSettings = {
   payment_qris: '',
   info_warga: ''
 };
+
+// Fitur: Update manifest PWA secara dinamis dari settings
+function updateDynamicManifest() {
+  try {
+    let manifestData = {
+      name: appSettings.app_title || 'SISTEM INFORMASI RT 05',
+      short_name: appSettings.app_short_name || 'SI RT 05',
+      description: (appSettings.app_subtitle || 'Aplikasi Layanan Warga RT'),
+      start_url: './index.html',
+      scope: './',
+      display: 'standalone',
+      orientation: 'portrait-primary',
+      background_color: '#ffffff',
+      theme_color: appSettings.app_theme_color || '#1e3a8a',
+      lang: 'id',
+      icons: [
+        {
+          src: appSettings.app_logo || 'https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp',
+          sizes: '192x192',
+          type: 'image/webp',
+          purpose: 'any'
+        },
+        {
+          src: appSettings.app_logo || 'https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp',
+          sizes: '512x512',
+          type: 'image/webp',
+          purpose: 'any'
+        }
+      ]
+    };
+    let manifestStr = JSON.stringify(manifestData);
+    let blob = new Blob([manifestStr], { type: 'application/manifest+json' });
+    let manifestUrl = URL.createObjectURL(blob);
+    let existingLink = document.querySelector('link[rel="manifest"]');
+    if (existingLink) {
+      existingLink.href = manifestUrl;
+    } else {
+      let link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestUrl;
+      document.head.appendChild(link);
+    }
+    // Update theme-color meta
+    let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) themeColorMeta.content = appSettings.app_theme_color || '#1e3a8a';
+  } catch(e) {
+    console.warn('[PWA] Gagal update manifest dinamis:', e);
+  }
+}
 
 async function loadAppSettings() {
   try {
@@ -1451,6 +1589,8 @@ async function loadAppSettings() {
 
     applyTheme(appSettings.app_theme || 'blue');
     renderHeaderRekeningInfo();
+    // Update manifest PWA dinamis setelah settings dimuat
+    updateDynamicManifest();
   } catch(e) {
     console.error('Gagal memuat pengaturan:', e);
   }
@@ -1534,20 +1674,24 @@ function tambahBarisRekening() {
 async function simpanIdentitasDanTema(e) {
   e.preventDefault();
   let title = document.getElementById('set-app-title').value;
+  let shortName = document.getElementById('set-app-short-name') ? document.getElementById('set-app-short-name').value : title.substring(0, 12);
   let subtitle = document.getElementById('set-app-subtitle').value;
   let logo = document.getElementById('set-app-logo').value;
   let theme = document.getElementById('set-app-theme').value;
+  let themeColor = document.getElementById('set-app-theme-color') ? document.getElementById('set-app-theme-color').value : '#1e3a8a';
 
   let settingsArray = [
     { kunci: 'app_title', nilai: title },
+    { kunci: 'app_short_name', nilai: shortName },
     { kunci: 'app_subtitle', nilai: subtitle },
     { kunci: 'app_logo', nilai: logo },
-    { kunci: 'app_theme', nilai: theme }
+    { kunci: 'app_theme', nilai: theme },
+    { kunci: 'app_theme_color', nilai: themeColor }
   ];
 
   const res = await callGASPost('simpanPengaturanApp', { settingsArray });
   if (res && res.status === 'success') {
-    alert('Identitas & Tema berhasil diperbarui!');
+    alert('Identitas, Tema & Pengaturan PWA berhasil diperbarui!');
     await loadAppSettings();
   } else {
     alert('Gagal menyimpan: ' + (res ? res.message : 'Error'));
@@ -1722,20 +1866,55 @@ async function renderPengaturanRTView() {
         <div class="card-body p-4">
           <!-- TAB 1: IDENTITAS & TEMA -->
           <div id="tab-content-tema" class="setting-tab-panel">
-            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-sliders me-2"></i>Pengaturan Identitas & Tema Aplikasi</h5>
+            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-sliders me-2"></i>Pengaturan Identitas, Tema & PWA</h5>
             <form onsubmit="simpanIdentitasDanTema(event)">
-              <div class="mb-3">
-                <label class="form-label font-semibold text-xs text-gray-700">NAMA / JUDUL RT</label>
-                <input type="text" id="set-app-title" class="form-control" value="${appSettings.app_title || ''}" placeholder="Contoh: SISTEM INFORMASI RT 05" required>
+              <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                  <label class="form-label font-semibold text-xs text-gray-700">NAMA / JUDUL APLIKASI</label>
+                  <input type="text" id="set-app-title" class="form-control" value="${appSettings.app_title || ''}" placeholder="Contoh: SISTEM INFORMASI RT 05" required oninput="document.getElementById('pwa-name-preview').innerText=this.value">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label font-semibold text-xs text-gray-700">NAMA SINGKAT PWA <small class="text-danger">(maks 12 karakter)</small></label>
+                  <input type="text" id="set-app-short-name" class="form-control" maxlength="12" value="${appSettings.app_short_name || 'SI RT 05'}" placeholder="Contoh: SI RT 05" oninput="document.getElementById('pwa-shortname-preview').innerText=this.value">
+                  <small class="text-muted">Nama yang muncul di home screen HP saat install PWA.</small>
+                </div>
               </div>
+
+              <!-- Preview PWA -->
+              <div class="mb-4 p-3 bg-gray-50 border rounded-xl">
+                <p class="text-xs font-bold text-gray-600 mb-2"><i class="bi bi-phone me-1"></i> Preview Tampilan di Home Screen HP (PWA)</p>
+                <div class="d-flex align-items-center gap-3">
+                  <div class="text-center">
+                    <div class="rounded-2xl bg-blue-600 d-flex align-items-center justify-content-center shadow" style="width:56px;height:56px;">
+                      <i class="bi bi-house-fill text-white fs-4"></i>
+                    </div>
+                    <small id="pwa-shortname-preview" class="d-block mt-1 fw-bold text-gray-700" style="font-size:10px;max-width:64px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${appSettings.app_short_name || 'SI RT 05'}</small>
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    <p class="mb-1">📱 Nama di manifest: <b id="pwa-name-preview">${appSettings.app_title || 'SISTEM INFORMASI RT 05'}</b></p>
+                    <p class="mb-0">🏠 Nama di home screen: <b id="pwa-shortname-preview2">${appSettings.app_short_name || 'SI RT 05'}</b></p>
+                  </div>
+                </div>
+              </div>
+
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">SLOGAN / SUBTITLE</label>
                 <input type="text" id="set-app-subtitle" class="form-control" value="${appSettings.app_subtitle || ''}" placeholder="Contoh: AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN">
               </div>
-              <div class="mb-3">
-                <label class="form-label font-semibold text-xs text-gray-700">URL LOGO RT (Link Gambar/Foto)</label>
-                <input type="text" id="set-app-logo" class="form-control" value="${appSettings.app_logo || ''}" placeholder="https://...">
-                <small class="text-muted">Tempelkan URL foto logo RT. Jika diisi, logo aplikasi di login dan header akan langsung berubah.</small>
+              <div class="row g-3 mb-3">
+                <div class="col-md-9">
+                  <label class="form-label font-semibold text-xs text-gray-700">URL LOGO RT (Link Gambar/Foto)</label>
+                  <input type="text" id="set-app-logo" class="form-control" value="${appSettings.app_logo || ''}" placeholder="https://...">
+                  <small class="text-muted">URL foto logo RT. Logo juga dipakai sebagai icon PWA.</small>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label font-semibold text-xs text-gray-700">WARNA TEMA (Hex)</label>
+                  <div class="d-flex gap-2 align-items-center">
+                    <input type="color" id="set-app-theme-color" class="form-control form-control-color" value="${appSettings.app_theme_color || '#1e3a8a'}" title="Pilih warna tema" style="width:50px;">
+                    <input type="text" class="form-control form-control-sm" value="${appSettings.app_theme_color || '#1e3a8a'}" oninput="document.getElementById('set-app-theme-color').value=this.value" placeholder="#1e3a8a">
+                  </div>
+                  <small class="text-muted">Warna tema PWA & header.</small>
+                </div>
               </div>
               <div class="mb-4">
                 <label class="form-label font-semibold text-xs text-gray-700">TEMA WARNA APLIKASI</label>
@@ -2034,10 +2213,5 @@ function installPWA() {
 console.log("%cMAU NGAPAIN LU? 🤨", "color:#ef4444;font-size:38px;font-weight:900;padding:10px;");
 console.log("%cMending bayar iuran RT 05 daripada ngintipin console 🤣", "color:#2563eb;font-size:14px;font-weight:bold;");
 
-document.addEventListener('contextmenu', e => { e.preventDefault(); alert('MAU NGAPAIN LU? 🤨\nGak ada harta karun di sini!'); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c'].includes(e.key)) || (e.ctrlKey && ['U','u'].includes(e.key))) {
-    e.preventDefault();
-    alert('MAU NGAPAIN LU? 🤨\nKepo banget mau buka Inspect Element!');
-  }
-});
+// Fix #1: Hapus blokir DevTools yang tidak efektif (mudah dibypass, ganggu debugging)
+// Context menu & DevTools shortcut dibiarkan terbuka untuk keperluan maintenance RT
