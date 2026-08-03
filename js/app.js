@@ -27,12 +27,18 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // --- SAFE SUPABASE QUERY HELPERS ---
 async function safeSupabaseSelect(tableName) {
   try {
+    // Khusus tabel Warga, panggil RPC dengan Token Sesi agar diproses aman di Server/DB
     if (tableName.toLowerCase() === 'warga') {
       let userToken = (session && session.token) ? String(session.token).trim() : '';
-      let { data, error } = await db.rpc('get_warga_secured', { p_token: userToken });
+      
+      let { data, error } = await db.rpc('get_warga_secured', { 
+        p_token: userToken 
+      });
+
       if (!error && data) return { data: makeCaseInsensitive(data), error: null };
     }
 
+    // Query standar untuk tabel lainnya
     let { data, error } = await db.from(tableName).select('*');
     if (!error && data) return { data: makeCaseInsensitive(data), error: null };
 
@@ -67,6 +73,7 @@ async function safeSupabaseInsert(tableName, rows) {
 }
 
 async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
+  // Proteksi Frontend: Hanya RT yang boleh melakukan UPDATE pada tabel Warga
   if (tableName.toLowerCase() === 'warga' && String(session.role || '').toUpperCase() !== 'RT') {
     return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
   }
@@ -86,6 +93,7 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
 }
 
 async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
+  // Proteksi Frontend: Hanya RT yang boleh Hapus
   if (String(session.role || '').toUpperCase() !== 'RT') {
     return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan menghapus data.' } };
   }
@@ -185,6 +193,7 @@ function convertToImageLink(url) {
 // ==========================================================
 async function callGASPost(actionName, extraPayload = {}) {
   try {
+    // 1. Process Login (SERVER-SIDE AMAN VIA SUPABASE RPC)
     if (actionName === 'processLogin') {
       const uClean = extraPayload.username ? extraPayload.username.toString().trim().toLowerCase() : '';
       const pClean = extraPayload.password ? extraPayload.password.toString().trim() : '';
@@ -213,14 +222,14 @@ async function callGASPost(actionName, extraPayload = {}) {
     if (actionName === 'simpanDataKeSheet') {
       const sheetName = extraPayload.sheetName;
       let formData = { ...extraPayload.formData };
-      if (!formData.id && sheetName.toLowerCase() !== 'warga') formData.id = sheetName.substring(0,3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
+      if (!formData.id) formData.id = sheetName.substring(0,3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
       if (session.role !== 'RT' && sheetName !== 'Iuran' && sheetName !== 'Aspirasi') formData['nik'] = session.nik;
       for (let k in formData) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
       const { error } = await safeSupabaseInsert(sheetName, [formData]);
       if (error) return { status: 'error', message: error.message };
-      return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id || formData.nik };
+      return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
     }
 
     if (actionName === 'simpanPengajuanPeminjaman') {
@@ -278,9 +287,6 @@ async function callGASPost(actionName, extraPayload = {}) {
       return { status: 'error', message: 'Data peminjaman tidak ditemukan!' };
     }
 
-    // ==========================================================
-    // ==== PERBAIKAN UTAMA: UPDATE DATA (MENDUKUNG NIK & ID) ====
-    // ==========================================================
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
       const id = extraPayload.id;
@@ -288,44 +294,17 @@ async function callGASPost(actionName, extraPayload = {}) {
       for (let k in formData) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
-
-      let eqCol = 'id';
-      let eqVal = id;
-      if (sheetName.toLowerCase() === 'warga') {
-        eqCol = 'nik';
-        eqVal = formData.nik || id;
-      }
-
-      let resUpdate = await safeSupabaseUpdate(sheetName, formData, eqCol, eqVal);
-      if (resUpdate.error && eqCol === 'nik') {
-        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
-      }
+      let resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
       if (resUpdate.error) {
-        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'NIK', eqVal);
+        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'nik', id);
       }
       if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
       return { status: 'success', message: 'Data berhasil diperbarui!' };
     }
 
-    // ==========================================================
-    // ==== PERBAIKAN UTAMA: HAPUS DATA (MENDUKUNG NIK & ID) =====
-    // ==========================================================
     if (actionName === 'hapusDataDariSheet') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
-      const sheetName = extraPayload.sheetName;
-      const id = extraPayload.id;
-
-      let eqCol = 'id';
-      let eqVal = id;
-      if (sheetName.toLowerCase() === 'warga') {
-        eqCol = 'nik';
-      }
-
-      let { error } = await safeSupabaseDelete(sheetName, eqCol, eqVal);
-      if (error && eqCol === 'nik') {
-        let resLower = await safeSupabaseDelete(sheetName, 'id', id);
-        if (!resLower.error) error = null;
-      }
+      const { error } = await safeSupabaseDelete(extraPayload.sheetName, 'id', extraPayload.id);
       if (error) return { status: 'error', message: error.message };
       return { status: 'success', message: 'Data berhasil dihapus!' };
     }
@@ -492,6 +471,9 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', headers: headers, rows: rows };
     }
 
+    // ==========================================================
+    // ==== GET NOTIFICATIONS (REALTIME - KEBAL NAMA KOLOM) =====
+    // ==========================================================
     if (actionName === 'getNotifications') {
       const cleanRole = (session.role || 'warga').toLowerCase();
       const userNik = (session.nik || '').toString().trim();
@@ -818,6 +800,7 @@ async function fetchNotifikasi(isRealtimeTrigger = false) {
 
     localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
 
+    // Urutkan notifikasi dari TERBARU ke TERLAMA
     rawNotifData.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
 
     let unreadCount = rawNotifData.length;
@@ -2021,6 +2004,7 @@ document.addEventListener("visibilitychange", function() {
   if (document.visibilityState === "visible" && session.token) fetchNotifikasi();
 });
 
+// PWA Service Worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
@@ -2044,15 +2028,16 @@ function installPWA() {
   }
 }
 
+// ==========================================================
+// ==== EASTER EGG ==========================================
+// ==========================================================
 console.log("%cMAU NGAPAIN LU? 🤨", "color:#ef4444;font-size:38px;font-weight:900;padding:10px;");
 console.log("%cMending bayar iuran RT 05 daripada ngintipin console 🤣", "color:#2563eb;font-size:14px;font-weight:bold;");
 
-document.addEventListener('contextmenu', e => { e.preventDefault(); alert('MAU NGAPAIN LU? 🤨
-Gak ada harta karun di sini!'); });
+document.addEventListener('contextmenu', e => { e.preventDefault(); alert('MAU NGAPAIN LU? 🤨\nGak ada harta karun di sini!'); });
 document.addEventListener('keydown', e => {
   if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','i','J','j','C','c'].includes(e.key)) || (e.ctrlKey && ['U','u'].includes(e.key))) {
     e.preventDefault();
-    alert('MAU NGAPAIN LU? 🤨
-Kepo banget mau buka Inspect Element!');
+    alert('MAU NGAPAIN LU? 🤨\nKepo banget mau buka Inspect Element!');
   }
 });
