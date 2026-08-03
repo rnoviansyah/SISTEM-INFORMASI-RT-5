@@ -544,10 +544,29 @@ async function callGASGet(actionName, params = {}) {
       return { status: 'success', data: sortedRiwayat };
     }
 
+const FALLBACK_HEADERS = {
+  'Warga': ['id', 'nama_lengkap', 'nama_panggilan', 'nik', 'no_kk', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat', 'status_nikah', 'status_tinggal', 'pekerjaan', 'no_hp', 'foto_url'],
+  'Iuran': ['id', 'nik', 'nama', 'no_kk', 'bulan', 'tahun', 'nominal', 'status', 'tanggal_bayar', 'diterima_oleh', 'bukti_transfer'],
+  'Pengaduan': ['id', 'nama', 'nik', 'no_hp', 'jenis_aduan', 'keterangan', 'tanggal', 'foto_url', 'status', 'foto_penyelesaian'],
+  'SuratPengantar': ['id', 'nama', 'nik', 'alamat', 'rt', 'jenis_surat', 'status', 'keterangan_admin'],
+  'Keuangan': ['id', 'tanggal', 'pemasukan', 'pengeluaran', 'keterangan', 'saldo', 'foto_url'],
+  'Sumbangan': ['id', 'nama', 'tanggal', 'jenis_sumbangan', 'keterangan', 'nominal', 'bukti_transfer', 'status', 'nik'],
+  'Aset': ['id', 'nama_barang', 'kondisi', 'jumlah', 'status_barang'],
+  'Peminjaman': ['id', 'nama_peminjam', 'id_barang', 'nama_barang', 'jumlah_minta', 'acc', 'keterangan', 'catatan_rt', 'status', 'tanggal', 'nik', 'jumlah'],
+  'Aspirasi': ['id', 'tanggal', 'isi_aspirasi', 'status', 'nik'],
+  'Kelahiran': ['id', 'nama_bayi', 'tanggal_lahir', 'nama_ayah', 'nama_ibu', 'alamat', 'rt'],
+  'Kematian': ['id', 'nama', 'nik', 'no_kk', 'tanggal_meninggal', 'rt', 'alamat', 'keterangan'],
+  'PindahMasuk': ['id', 'nama', 'nik', 'no_kk', 'asal', 'alamat_baru', 'rt', 'tanggal_pindah', 'status_pindah'],
+  'PindahKeluar': ['id', 'nama', 'nik', 'no_kk', 'alamat_tujuan', 'rt', 'rw', 'tanggal_pindah']
+};
+
     if (actionName === 'getTableData') {
       const sheetName = params.sheetName;
       const { data: safeData } = await safeSupabaseSelect(sheetName);
-      if (!safeData || safeData.length === 0) return { status: 'success', headers: [], rows: [] };
+      if (!safeData || safeData.length === 0) {
+        let fallbackH = FALLBACK_HEADERS[sheetName] || FALLBACK_HEADERS['Warga'];
+        return { status: 'success', headers: fallbackH, rows: [] };
+      }
 
       const headers = Object.keys(safeData[0]);
       let sortedFiltered = sortDataNewestFirst(safeData);
@@ -1345,8 +1364,12 @@ async function generateFormInputs(rowData) {
     } catch(e) {}
   }
 
-  for (let idx = 0; idx < currentHeaders.length; idx++) {
-    let h = currentHeaders[idx];
+  let headersToUse = (currentHeaders && currentHeaders.length > 0) 
+    ? currentHeaders 
+    : (FALLBACK_HEADERS[currentActiveMenu] || FALLBACK_HEADERS['Warga']);
+
+  for (let idx = 0; idx < headersToUse.length; idx++) {
+    let h = headersToUse[idx];
     if (['id','no','saldo'].includes(h.toLowerCase())) continue;
     let nameLower = h.toLowerCase().trim();
     let labelText = h.replace(/_/g, ' ').toUpperCase();
