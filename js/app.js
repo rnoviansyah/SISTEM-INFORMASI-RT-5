@@ -264,9 +264,22 @@ async function callGASPost(actionName, extraPayload = {}) {
       let formData = { ...extraPayload.formData };
       if (!formData.id) formData.id = sheetName.substring(0,3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
       if (session.role !== 'RT' && sheetName !== 'Iuran' && sheetName !== 'Aspirasi') formData['nik'] = session.nik;
+
       for (let k in formData) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
+        let kLower = k.toLowerCase();
+        let valStr = String(formData[k] || '').trim();
+        if (valStr === '') {
+          if (['no_hp', 'hp', 'telp', 'wa', 'acc'].includes(kLower)) formData[k] = null;
+          else if (['nik', 'no_kk'].includes(kLower)) formData[k] = Math.floor(1000000000000000 + Math.random() * 9000000000000000);
+          else if (['nominal', 'tahun', 'rt', 'jumlah', 'stok'].includes(kLower)) formData[k] = 0;
+        } else if (['nik', 'no_hp', 'no_kk', 'nominal', 'tahun', 'rt', 'acc', 'jumlah', 'stok'].includes(kLower)) {
+          let numOnly = valStr.replace(/[^0-9]/g, '');
+          if (numOnly) formData[k] = numOnly;
+          else if (['no_hp', 'acc'].includes(kLower)) formData[k] = null;
+        }
       }
+
       const { error } = await safeSupabaseInsert(sheetName, [formData]);
       if (error) return { status: 'error', message: error.message };
       return { status: 'success', message: 'Data berhasil disimpan!', id: formData.id };
@@ -1222,6 +1235,7 @@ function bukaPopUpFoto(urlImg) {
 
 async function bukaModalForm() {
   editingId = null;
+  editingNik = null; // Wajib reset editingNik agar Tambah Data Baru tidak dianggap Edit!
   document.getElementById('formModalTitle').innerText = "Form Input: " + currentActiveMenu;
   document.getElementById('btn-hapus-modal').style.display = 'none';
   await generateFormInputs(null);
