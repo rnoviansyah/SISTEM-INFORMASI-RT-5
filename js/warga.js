@@ -235,24 +235,48 @@ function showDetailWarga(id) {
 }
 
 // Fungsi edit yang dipanggil dari tombol di dalam modal detail warga
-// Langkah: 1) tutup detail, 2) set editingId & editingNik, 3) buka form edit
+// BYPASS bukaModalEdit — langsung pakai data row yang sudah tersimpan
 function editWargaDariDetail() {
   let rId  = window._detailWargaRowId;
   let rNik = window._detailWargaNik;
-  let rRow = window._detailWargaRow;
+  let rRow = window._detailWargaRow; // Array data row yang sudah ada, tidak perlu di-lookup lagi
 
-  // Tutup modal detail dulu
-  tutupDetailWarga();
+  if (!rId && !rNik) {
+    alert('Gagal membuka form edit: data warga tidak ditemukan.');
+    return;
+  }
 
-  // Set global state agar bukaModalEdit tahu ini edit bukan buat baru
+  // Set state global untuk submit form nanti
   editingId  = rId  || null;
   editingNik = rNik || null;
 
-  // Buka form edit dengan data yang sudah ada (slight delay agar detail modal benar2 tertutup)
-  setTimeout(() => {
-    bukaModalEdit(rId);
-  }, 150);
+  // Tutup modal detail
+  tutupDetailWarga();
+
+  // Langsung buka form edit dengan data yang sudah ada (tidak perlu find di currentRows)
+  setTimeout(async () => {
+    try {
+      document.getElementById('formModalTitle').innerText = 'Edit Data: Warga';
+      let btnHapus = document.getElementById('btn-hapus-modal');
+      if (btnHapus) btnHapus.style.display = (session && session.role === 'RT') ? 'inline-block' : 'none';
+
+      // generateFormInputs dengan data row yang sudah pasti ada
+      if (typeof generateFormInputs === 'function') {
+        await generateFormInputs(rRow);
+      }
+
+      // Tampilkan modal Bootstrap form
+      if (!bootstrapModalInstance) {
+        bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
+      }
+      bootstrapModalInstance.show();
+    } catch(err) {
+      console.error('[editWargaDariDetail] Error:', err);
+      alert('Gagal membuka form edit: ' + err.message);
+    }
+  }, 200);
 }
+
 
 function tutupDetailWarga() {
   document.getElementById('modal-detail-warga').classList.add('hidden');

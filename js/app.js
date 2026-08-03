@@ -1284,8 +1284,16 @@ async function generateFormInputs(rowData) {
     let h = currentHeaders[idx];
     if (['id','no','saldo'].includes(h.toLowerCase())) continue;
     let nameLower = h.toLowerCase().trim();
-    let labelText = h.replace('_', ' ').toUpperCase();
-    let val = rowData ? rowData[idx] : "";
+    let labelText = h.replace(/_/g, ' ').toUpperCase();
+
+    let val = "";
+    if (rowData) {
+      if (Array.isArray(rowData)) {
+        val = rowData[idx] !== undefined && rowData[idx] !== null ? rowData[idx] : "";
+      } else if (typeof rowData === 'object') {
+        val = rowData[h] !== undefined && rowData[h] !== null ? rowData[h] : (cariNilaiKolom(rowData, [h]) || "");
+      }
+    }
     if ((nameLower === 'status' || nameLower.includes('penyelesaian') || nameLower.includes('admin')) && (session.role !== 'RT' || !rowData)) continue;
     if (session.role === 'Warga' && !rowData) {
       if (nameLower === 'nik') val = session.nik;
@@ -1410,16 +1418,19 @@ function submitFormBaru(e) {
   document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary mb-2"></div><br><b>Memproses & mengompres foto...</b></div>';
 
   Promise.all(filePromises).then(async () => {
-    if (editingId) {
+    let targetId = editingId || editingNik;
+    if (targetId) {
       for (let k in payload) {
         if ((k.toLowerCase().includes('foto') || k.toLowerCase().includes('bukti')) && !payload[k]) {
           delete payload[k];
         }
       }
-      const res = await callGASPost('updateDataDiSheet', { sheetName: currentActiveMenu, id: editingId, formData: payload });
+      delete menuDataCache[currentActiveMenu];
+      const res = await callGASPost('updateDataDiSheet', { sheetName: currentActiveMenu, id: targetId, formData: payload });
       if (res && res.status === 'success') { bootstrapModalInstance.hide(); alert(res.message); loadMenu(currentActiveMenu); fetchNotifikasi(); }
       else { alert('Gagal memperbarui: ' + (res ? res.message : 'Error')); loadMenu(currentActiveMenu); }
     } else {
+      delete menuDataCache[currentActiveMenu];
       const res = await callGASPost('simpanDataKeSheet', { sheetName: currentActiveMenu, formData: payload });
       if (res && res.status === 'success') {
         bootstrapModalInstance.hide(); alert('Data Berhasil Disimpan!');
@@ -1436,10 +1447,15 @@ function submitFormBaru(e) {
 }
 
 async function hapusDataAktif() {
-  if (!editingId) return;
+  let targetId = editingId || editingNik;
+  if (!targetId) {
+    alert('ID / NIK data tidak ditemukan untuk dihapus.');
+    return;
+  }
   if (confirm('Hapus data ini secara permanen dari database?')) {
     document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Menghapus data...</b></div>';
-    const res = await callGASPost('hapusDataDariSheet', { sheetName: currentActiveMenu, id: editingId });
+    delete menuDataCache[currentActiveMenu];
+    const res = await callGASPost('hapusDataDariSheet', { sheetName: currentActiveMenu, id: targetId });
     if (res && res.status === 'success') { bootstrapModalInstance.hide(); alert('Data Berhasil Dihapus!'); loadMenu(currentActiveMenu); fetchNotifikasi(); }
     else { alert('Gagal menghapus: ' + (res ? res.message : 'Error')); loadMenu(currentActiveMenu); }
   }
