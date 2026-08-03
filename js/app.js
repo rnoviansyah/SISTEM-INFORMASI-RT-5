@@ -67,6 +67,10 @@ async function safeSupabaseInsert(tableName, rows) {
 }
 
 async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
+  if (tableName.toLowerCase() === 'warga' && String(session.role || '').toUpperCase() !== 'RT') {
+    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
+  }
+
   let { error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -82,6 +86,10 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
 }
 
 async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
+  if (String(session.role || '').toUpperCase() !== 'RT') {
+    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan menghapus data.' } };
+  }
+
   let { error } = await db.from(tableName).delete().eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -271,7 +279,7 @@ async function callGASPost(actionName, extraPayload = {}) {
     }
 
     // ==========================================================
-    // ==== UPDATE DATA (BERDASARKAN ID PRIMARY KEY) ============
+    // ==== UPDATE DATA (PENCARIAN GANDA: NIK & ID) ============
     // ==========================================================
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
@@ -281,22 +289,43 @@ async function callGASPost(actionName, extraPayload = {}) {
         if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
       }
 
-      let resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
-      if (resUpdate.error) {
-        let lowerName = sheetName.toLowerCase();
-        let resLower = await db.from(lowerName).update(formData).eq('id', id);
-        if (resLower.error) return { status: 'error', message: resLower.error.message };
+      let resUpdate;
+      if (sheetName.toLowerCase() === 'warga') {
+        let targetNik = formData.nik || formData.NIK || id;
+        resUpdate = await db.from(sheetName).update(formData).eq('nik', targetNik);
+        if (resUpdate.error || !resUpdate.data) {
+          resUpdate = await db.from(sheetName).update(formData).eq('NIK', targetNik);
+        }
+        if (resUpdate.error) {
+          resUpdate = await db.from(sheetName).update(formData).eq('id', id);
+        }
+      } else {
+        resUpdate = await db.from(sheetName).update(formData).eq('id', id);
       }
+
+      if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
       return { status: 'success', message: 'Data berhasil diperbarui!' };
     }
 
     // ==========================================================
-    // ==== HAPUS DATA (BERDASARKAN ID PRIMARY KEY) =============
+    // ==== HAPUS DATA (PENCARIAN GANDA: NIK & ID) =============
     // ==========================================================
     if (actionName === 'hapusDataDariSheet') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
-      const { error } = await safeSupabaseDelete(extraPayload.sheetName, 'id', extraPayload.id);
-      if (error) return { status: 'error', message: error.message };
+      const sheetName = extraPayload.sheetName;
+      const id = extraPayload.id;
+
+      let resDel;
+      if (sheetName.toLowerCase() === 'warga') {
+        resDel = await db.from(sheetName).delete().eq('nik', id);
+        if (resDel.error) {
+          resDel = await db.from(sheetName).delete().eq('id', id);
+        }
+      } else {
+        resDel = await db.from(sheetName).delete().eq('id', id);
+      }
+
+      if (resDel.error) return { status: 'error', message: resDel.error.message };
       return { status: 'success', message: 'Data berhasil dihapus!' };
     }
 
