@@ -216,7 +216,7 @@ function showDetailWarga(id) {
   let actionHtml = '';
   if (session.role === 'RT') {
     actionHtml = `
-      <button onclick="bukaModalEdit('${rowId}'); tutupDetailWarga();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit Data Warga</button>
+      <button onclick="editWargaDariDetail()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm mb-2">Edit Data Warga</button>
       <button onclick="waHubungiWarga('${noHpWarga}'); tutupDetailWarga();" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Kirim WhatsApp</button>`;
   } else if (isSameKk) {
     actionHtml = `
@@ -226,8 +226,32 @@ function showDetailWarga(id) {
       <p class="text-[10px] text-gray-400 text-center italic py-1"><i class="bi bi-shield-lock me-1"></i>Nomor HP disensor untuk privasi sesama warga beda KK.</p>`;
   }
   document.getElementById('warga-action-buttons').innerHTML = actionHtml;
-
   document.getElementById('modal-detail-warga').classList.remove('hidden');
+
+  // Simpan data baris aktif untuk dipakai tombol Edit di dalam modal
+  window._detailWargaRowId = rowId;
+  window._detailWargaNik  = rowNik;
+  window._detailWargaRow  = row;
+}
+
+// Fungsi edit yang dipanggil dari tombol di dalam modal detail warga
+// Langkah: 1) tutup detail, 2) set editingId & editingNik, 3) buka form edit
+function editWargaDariDetail() {
+  let rId  = window._detailWargaRowId;
+  let rNik = window._detailWargaNik;
+  let rRow = window._detailWargaRow;
+
+  // Tutup modal detail dulu
+  tutupDetailWarga();
+
+  // Set global state agar bukaModalEdit tahu ini edit bukan buat baru
+  editingId  = rId  || null;
+  editingNik = rNik || null;
+
+  // Buka form edit dengan data yang sudah ada (slight delay agar detail modal benar2 tertutup)
+  setTimeout(() => {
+    bukaModalEdit(rId);
+  }, 150);
 }
 
 function tutupDetailWarga() {

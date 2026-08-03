@@ -344,8 +344,29 @@ async function callGASPost(actionName, extraPayload = {}) {
 
     if (actionName === 'hapusDataDariSheet') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan menghapus data!' };
-      const { error } = await safeSupabaseDelete(extraPayload.sheetName, 'id', extraPayload.id);
-      if (error) return { status: 'error', message: error.message };
+      const sheetName = extraPayload.sheetName;
+      const targetId  = extraPayload.id;
+      console.log(`[DELETE] Mencoba hapus ${sheetName} id="${targetId}" nik="${editingNik}"`);
+
+      // Coba delete by 'id' terlebih dahulu
+      let { error } = await db.from(sheetName).delete().eq('id', targetId);
+      console.log('[DELETE] by id result:', error ? error.message : 'OK');
+
+      // Fallback: coba delete by NIK (khusus Warga)
+      if (error && sheetName.toLowerCase() === 'warga' && editingNik) {
+        let res2 = await db.from(sheetName).delete().eq('nik', editingNik);
+        console.log('[DELETE] by nik result:', res2.error ? res2.error.message : 'OK');
+        if (!res2.error) error = null;
+      }
+
+      // Fallback terakhir: coba safeSupabaseDelete (dengan semua fallback lainnya)
+      if (error) {
+        const res3 = await safeSupabaseDelete(sheetName, 'id', targetId);
+        if (!res3.error) error = null;
+        else console.error('[DELETE] Semua fallback gagal:', res3.error.message);
+      }
+
+      if (error) return { status: 'error', message: 'Gagal menghapus: ' + error.message };
       return { status: 'success', message: 'Data berhasil dihapus!' };
     }
 
