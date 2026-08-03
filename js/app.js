@@ -27,14 +27,12 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // --- SAFE SUPABASE QUERY HELPERS ---
 async function safeSupabaseSelect(tableName) {
   try {
-    // Khusus tabel Warga, ambil data lewat RPC get_warga_secured agar sensor dilakukan langsung di Database (Aman dari Console)
+    // Khusus tabel Warga, panggil RPC dengan Token Sesi agar diproses aman di Server/DB
     if (tableName.toLowerCase() === 'warga') {
-      let userNik = (session && session.nik) ? String(session.nik).trim() : '';
-      let userRole = (session && session.role) ? String(session.role).trim() : 'Warga';
+      let userToken = (session && session.token) ? String(session.token).trim() : '';
       
       let { data, error } = await db.rpc('get_warga_secured', { 
-        p_nik: userNik, 
-        p_role: userRole 
+        p_token: userToken 
       });
 
       if (!error && data) return { data: makeCaseInsensitive(data), error: null };
@@ -75,6 +73,11 @@ async function safeSupabaseInsert(tableName, rows) {
 }
 
 async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
+  // Proteksi Frontend: Hanya RT yang boleh melakukan UPDATE pada tabel Warga
+  if (tableName.toLowerCase() === 'warga' && String(session.role || '').toUpperCase() !== 'RT') {
+    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
+  }
+
   let { error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -90,6 +93,11 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
 }
 
 async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
+  // Proteksi Frontend: Hanya RT yang boleh Hapus
+  if (String(session.role || '').toUpperCase() !== 'RT') {
+    return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan menghapus data.' } };
+  }
+
   let { error } = await db.from(tableName).delete().eq(eqColumn, eqValue);
   if (error) {
     let lowerName = tableName.toLowerCase();
@@ -792,7 +800,7 @@ async function fetchNotifikasi(isRealtimeTrigger = false) {
 
     localStorage.setItem('rt_notif_times_' + session.nik, JSON.stringify(savedTimestamps));
 
-    // Urutkan notifikasi dari TERBARU ke TERLAMA (Newest first)
+    // Urutkan notifikasi dari TERBARU ke TERLAMA
     rawNotifData.sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
 
     let unreadCount = rawNotifData.length;
@@ -1330,20 +1338,29 @@ async function hapusDataAktif() {
 }
 
 function getTombolAksi(menu, row, headers) {
-  let id = row[0];
-  let lowerHeaders = headers.map(h => h.toLowerCase().trim());
+  let lowerHeaders = headers.map(h => (h || '').toLowerCase().trim());
+  
+  let idIdx = lowerHeaders.indexOf('id');
+  if (idIdx === -1) idIdx = lowerHeaders.findIndex(h => h.includes('id'));
+  if (idIdx === -1) idIdx = lowerHeaders.findIndex(h => h.includes('nik') || h.includes('ktp'));
+  if (idIdx === -1) idIdx = 0;
+
+  let realId = row[idIdx];
+
   let noHpIdx = lowerHeaders.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp') || h.includes('nomor'));
   let noHpWarga = noHpIdx > -1 ? row[noHpIdx] : '';
+
   if (session.role === 'RT') {
-    let btn = `<button class="btn btn-sm btn-outline-primary m-1 fw-bold" onclick="bukaModalEdit('${id}')">Edit/Status</button>`;
-    if (['Pengaduan','SuratPengantar'].includes(menu)) btn += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="waKirimLaporanKeWarga('${id}','${noHpWarga}')"><i class="bi bi-whatsapp me-1"></i>Laporan</button>`;
+    let btn = `<button class="btn btn-sm btn-outline-primary m-1 fw-bold" onclick="bukaModalEdit('${realId}')">Edit/Status</button>`;
+    if (['Pengaduan','SuratPengantar'].includes(menu)) btn += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="waKirimLaporanKeWarga('${realId}','${noHpWarga}')"><i class="bi bi-whatsapp me-1"></i>Laporan</button>`;
     return btn;
   }
+
   if (session.role === 'Warga') {
-    if (menu === 'Pengaduan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('aduan','${id}')"><i class="bi bi-whatsapp me-1"></i>WA Lapor</button>`;
-    if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat','${id}')"><i class="bi bi-whatsapp me-1"></i>WA Surat</button>`;
-    if (menu === 'Keuangan')       return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${id}')">Laporkan</button>`;
-    if (menu === 'Sumbangan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${id}')"><i class="bi bi-whatsapp me-1"></i>Verifikasi</button>`;
+    if (menu === 'Pengaduan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('aduan','${realId}')"><i class="bi bi-whatsapp me-1"></i>WA Lapor</button>`;
+    if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat','${realId}')"><i class="bi bi-whatsapp me-1"></i>WA Surat</button>`;
+    if (menu === 'Keuangan')       return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${realId}')">Laporkan</button>`;
+    if (menu === 'Sumbangan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${realId}')"><i class="bi bi-whatsapp me-1"></i>Verifikasi</button>`;
   }
   return '-';
 }
