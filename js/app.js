@@ -81,41 +81,76 @@ async function safeSupabaseInsert(tableName, rows) {
   return { error };
 }
 
+function sanitizeFormData(sheetName, formData) {
+  if (!formData || typeof formData !== 'object') return formData;
+  let cleanData = { ...formData };
+  for (let k in cleanData) {
+    if (typeof cleanData[k] === 'object' && cleanData[k] !== null && cleanData[k].base64) {
+      cleanData[k] = cleanData[k].base64;
+    }
+    let kLower = k.toLowerCase();
+    let valStr = String(cleanData[k] !== null && cleanData[k] !== undefined ? cleanData[k] : '').trim();
+
+    if (valStr === '') {
+      if (['no_hp', 'hp', 'telp', 'wa', 'acc'].includes(kLower)) {
+        cleanData[k] = null; // ubah string kosong "" jadi NULL untuk bigint no_hp
+      } else if (['nominal', 'tahun', 'rt', 'jumlah', 'stok'].includes(kLower)) {
+        cleanData[k] = 0;
+      }
+    } else if (['nik', 'no_hp', 'no_kk', 'nominal', 'tahun', 'rt', 'acc', 'jumlah', 'stok'].includes(kLower)) {
+      let numOnly = valStr.replace(/[^0-9]/g, '');
+      if (numOnly) {
+        cleanData[k] = numOnly;
+      } else if (['no_hp', 'acc'].includes(kLower)) {
+        cleanData[k] = null;
+      }
+    }
+  }
+  return cleanData;
+}
+
 async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
   // Proteksi Frontend: Hanya RT yang boleh melakukan UPDATE pada tabel Warga
   if (tableName.toLowerCase() === 'warga' && String(session.role || '').toUpperCase() !== 'RT') {
     return { error: { message: 'Akses ditolak! Hanya RT yang diizinkan mengedit data warga.' } };
   }
 
+  // Sanitasi payload dari field kosong bernilai bigint/numeric
+  payload = sanitizeFormData(tableName, payload);
+
   // Hapus cache menu setelah update agar data fresh
   let cleanTable = tableName.charAt(0).toUpperCase() + tableName.slice(1);
   delete menuDataCache[cleanTable];
   delete menuDataCache[tableName];
 
-  let { error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue);
-  if (!error) return { error: null };
+  // 1. Coba update by eqColumn & eqValue (pake .select() untuk pastikan minimal 1 baris terupdate)
+  let { data, error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue).select();
+  if (!error && data && data.length > 0) return { error: null };
 
-  // Fallback 1: coba nama tabel lowercase
+  // 2. Fallback 1: coba nama tabel lowercase
   let lowerName = tableName.toLowerCase();
   if (lowerName !== tableName) {
-    let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue);
-    if (!resLower.error) return { error: null };
+    let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue).select();
+    if (!resLower.error && resLower.data && resLower.data.length > 0) return { error: null };
   }
-  // Fallback 2: coba kolom uppercase
+  // 3. Fallback 2: coba kolom uppercase
   let upperCol = eqColumn.toUpperCase();
-  let resUpper = await db.from(tableName).update(payload).eq(upperCol, eqValue);
-  if (!resUpper.error) return { error: null };
+  let resUpper = await db.from(tableName).update(payload).eq(upperCol, eqValue).select();
+  if (!resUpper.error && resUpper.data && resUpper.data.length > 0) return { error: null };
 
-  // Fallback 3: khusus Warga — coba update by NIK jika id gagal
-  if (tableName.toLowerCase() === 'warga' && eqColumn.toLowerCase() === 'id' && editingNik) {
-    let resByNik = await db.from(tableName).update(payload).eq('nik', editingNik);
-    if (!resByNik.error) return { error: null };
-    // Fallback NIK sebagai text
-    let resByNikText = await db.from(tableName).update(payload).filter('nik', 'eq', String(editingNik));
-    if (!resByNikText.error) return { error: null };
+  // 4. Fallback 3: khusus Warga — coba update by NIK jika id gagal/0 baris
+  if (tableName.toLowerCase() === 'warga') {
+    let targetNik = editingNik || (eqColumn.toLowerCase() === 'nik' ? eqValue : null);
+    if (targetNik) {
+      let numNik = String(targetNik).replace(/[^0-9]/g, '');
+      if (numNik) {
+        let resByNik = await db.from('Warga').update(payload).eq('nik', numNik).select();
+        if (!resByNik.error && resByNik.data && resByNik.data.length > 0) return { error: null };
+      }
+    }
   }
 
-  return { error };
+  return { error: error || { message: 'Gagal memperbarui: Data tidak ditemukan di database!' } };
 }
 
 async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
@@ -129,27 +164,34 @@ async function safeSupabaseDelete(tableName, eqColumn, eqValue) {
   delete menuDataCache[cleanTable];
   delete menuDataCache[tableName];
 
-  let { error } = await db.from(tableName).delete().eq(eqColumn, eqValue);
-  if (!error) return { error: null };
+  // 1. Coba delete dengan .select()
+  let { data, error } = await db.from(tableName).delete().eq(eqColumn, eqValue).select();
+  if (!error && data && data.length > 0) return { error: null };
 
-  // Fallback 1: nama tabel lowercase
+  // 2. Fallback 1: nama tabel lowercase
   let lowerName = tableName.toLowerCase();
   if (lowerName !== tableName) {
-    let resLower = await db.from(lowerName).delete().eq(eqColumn, eqValue);
-    if (!resLower.error) return { error: null };
+    let resLower = await db.from(lowerName).delete().eq(eqColumn, eqValue).select();
+    if (!resLower.error && resLower.data && resLower.data.length > 0) return { error: null };
   }
-  // Fallback 2: kolom uppercase
+  // 3. Fallback 2: kolom uppercase
   let upperCol = eqColumn.toUpperCase();
-  let resUpper = await db.from(tableName).delete().eq(upperCol, eqValue);
-  if (!resUpper.error) return { error: null };
+  let resUpper = await db.from(tableName).delete().eq(upperCol, eqValue).select();
+  if (!resUpper.error && resUpper.data && resUpper.data.length > 0) return { error: null };
 
-  // Fallback 3: khusus Warga — coba delete by NIK jika id gagal
-  if (tableName.toLowerCase() === 'warga' && eqColumn.toLowerCase() === 'id' && editingNik) {
-    let resByNik = await db.from(tableName).delete().eq('nik', editingNik);
-    if (!resByNik.error) return { error: null };
+  // 4. Fallback 3: khusus Warga — coba delete by NIK jika id gagal/0 baris
+  if (tableName.toLowerCase() === 'warga') {
+    let targetNik = editingNik || (eqColumn.toLowerCase() === 'nik' ? eqValue : null);
+    if (targetNik) {
+      let numNik = String(targetNik).replace(/[^0-9]/g, '');
+      if (numNik) {
+        let resByNik = await db.from('Warga').delete().eq('nik', numNik).select();
+        if (!resByNik.error && resByNik.data && resByNik.data.length > 0) return { error: null };
+      }
+    }
   }
 
-  return { error };
+  return { error: error || { message: 'Gagal menghapus: Data tidak ditemukan di database!' } };
 }
 
 function caseInsensitiveObj(obj) {
@@ -343,13 +385,11 @@ async function callGASPost(actionName, extraPayload = {}) {
     if (actionName === 'updateDataDiSheet') {
       const sheetName = extraPayload.sheetName;
       const id = extraPayload.id;
-      let formData = { ...extraPayload.formData };
-      for (let k in formData) {
-        if (typeof formData[k] === 'object' && formData[k] !== null && formData[k].base64) formData[k] = formData[k].base64;
-      }
+      let formData = sanitizeFormData(sheetName, extraPayload.formData);
       let resUpdate = await safeSupabaseUpdate(sheetName, formData, 'id', id);
-      if (resUpdate.error) {
-        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'nik', id);
+      if (resUpdate.error && sheetName.toLowerCase() === 'warga') {
+        let targetNik = editingNik || id;
+        resUpdate = await safeSupabaseUpdate(sheetName, formData, 'nik', targetNik);
       }
       if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
       return { status: 'success', message: 'Data berhasil diperbarui!' };
