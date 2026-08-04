@@ -27,7 +27,8 @@ function renderIuranCustom(data) {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
     let statusLower = statusVal.toLowerCase().trim();
     let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
-    if (!statusLower.includes('lunas') || statusLower.includes('belum')) {
+    let isBelumBayar = statusLower.includes('belum') || (!statusLower.includes('lunas') && !statusLower.includes('menunggu') && !statusLower.includes('verifikasi'));
+    if (isBelumBayar) {
       totalBelumBayar += nominalVal;
     }
   });
@@ -55,17 +56,24 @@ function renderIuranCustom(data) {
           </div>
           <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
         </div>
-        <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
-            <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
-          </div>
-          ${totalBelumBayar > 0 ? `
+        ${totalBelumBayar > 0 ? `
+          <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
+              <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
+            </div>
             <button onclick="bukaModalBayarSekaligusAll()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer">
               <i class="bi bi-wallet2"></i> Bayar Sekaligus
             </button>
-          ` : ''}
-        </div>
+          </div>
+        ` : `
+          <div class="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <p class="text-[10px] text-emerald-600 uppercase font-bold">Status Tagihan</p>
+              <p class="font-bold text-emerald-700 text-sm md:text-base"><i class="bi bi-check-circle-fill me-1"></i> Tidak Ada Tagihan Menunggak</p>
+            </div>
+          </div>
+        `}
       </div>
       <!-- Floating Bar Pilih Tagihan -->
       <div id="selected-iuran-bar" class="hidden bg-blue-50 border border-blue-200 p-3 rounded-2xl flex justify-between items-center text-xs mb-3 shadow-sm">
@@ -262,7 +270,8 @@ function bukaModalBayarSekaligusAll() {
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
     let statusLower = statusVal.toLowerCase().trim();
-    if (!statusLower.includes('lunas') || statusLower.includes('belum')) {
+    let isBelumBayar = statusLower.includes('belum') || (!statusLower.includes('lunas') && !statusLower.includes('menunggu') && !statusLower.includes('verifikasi'));
+    if (isBelumBayar) {
       let rowId = r[idIdx] || '';
       let nominalVal = nominalIdx > -1 ? (Number((r[nominalIdx] || 0).toString().replace(/[^0-9]/g, '')) || 0) : 0;
       let bulan = bulanIdx > -1 ? r[bulanIdx] : '';

@@ -1809,7 +1809,7 @@ function filterTable() {
 let appSettings = {
   app_title: 'SISTEM INFORMASI RT 5',
   app_short_name: 'RT 5',
-  app_subtitle: 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN',
+  app_subtitle: 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien',
   app_logo: './img/logo.webp',
   app_theme: 'blue',
   app_theme_color: '#1e3a8a',
@@ -1842,7 +1842,7 @@ function updateDynamicManifest() {
     let manifestData = {
       name: appSettings.app_title || 'SISTEM INFORMASI RT 5',
       short_name: appSettings.app_short_name || 'RT 5',
-      description: (appSettings.app_subtitle || 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN'),
+      description: (appSettings.app_subtitle || 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien'),
       start_url: absStartUrl,
       scope: absScope,
       display: 'standalone',

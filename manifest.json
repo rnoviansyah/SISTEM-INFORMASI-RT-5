@@ -1,7 +1,7 @@
 {
   "name": "SISTEM INFORMASI RT 5",
   "short_name": "RT 5",
-  "description": "Aplikasi Layanan dan Informasi Warga SISTEM INFORMASI RT 5 - AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN",
+  "description": "Aplikasi Layanan dan Informasi Warga SISTEM INFORMASI RT 5 - Layanan Digital RT 05 / RW 01 • Transparan & Efisien",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
