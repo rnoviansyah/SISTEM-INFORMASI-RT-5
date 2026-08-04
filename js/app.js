@@ -2670,10 +2670,10 @@ async function renderPengaturanRTView() {
               </div>
               <div class="mb-4 p-3 bg-blue-50/70 border border-blue-200 rounded-xl">
                 <label class="form-label font-semibold text-xs text-blue-900 flex items-center gap-1.5 mb-1">
-                  <i class="bi bi-robot text-blue-600"></i> GEMINI AI API KEY (Google AI Studio)
+                  <i class="bi bi-robot text-blue-600"></i> AI API KEY (OpenRouter / Google Gemini)
                 </label>
-                <input type="text" id="set-gemini-api-key" class="form-control form-control-sm font-mono text-xs" value="${appSettings.gemini_api_key || 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw'}" placeholder="Paste Gemini API Key (AIzaSy...)">
-                <small class="text-gray-500 text-[10px] d-block mt-1">Key ini digunakan untuk menjalankan Asisten AI RT 5. Dapatkan gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 font-bold underline">Google AI Studio</a>.</small>
+                <input type="text" id="set-gemini-api-key" class="form-control form-control-sm font-mono text-xs" value="${appSettings.gemini_api_key || ''}" placeholder="Paste API Key OpenRouter (sk-or-v1-...) atau Gemini (AIzaSy...)">
+                <small class="text-gray-500 text-[10px] d-block mt-1">Key ini digunakan untuk menjalankan Asisten AI RT 5. Dapatkan gratis di <a href="https://openrouter.ai" target="_blank" class="text-blue-600 font-bold underline">OpenRouter</a> atau <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 font-bold underline">Google AI Studio</a>.</small>
               </div>
               <button type="submit" class="btn btn-primary fw-bold px-4 py-2"><i class="bi bi-check-circle me-1"></i>Simpan Identitas & Tema</button>
             </form>

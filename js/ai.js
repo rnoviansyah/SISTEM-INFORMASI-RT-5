@@ -68,7 +68,7 @@ function initAiWidget() {
           <div>
             <h4 class="font-bold text-sm leading-tight flex items-center gap-1.5">
               Asisten AI RT 5
-              <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-normal">Gemini</span>
+              <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-normal">OpenRouter</span>
             </h4>
             <p class="text-[10px] text-blue-200 flex items-center gap-1">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online • Siap Membantu 24/7
@@ -421,7 +421,7 @@ function getSmartFallbackAnswer(prompt, personalContext = '') {
 async function panggilGeminiApi(promptUser, personalContext = '') {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    throw new Error('API Key Gemini belum diset. Silakan buka <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-rose-700">aistudio.google.com/app/apikey</a> (Gratis), buat API Key baru, lalu paste & simpan di menu <b>Pengaturan RT & Sistem</b>.');
+    throw new Error('API Key OpenRouter belum diisi. Silakan buka <a href="https://openrouter.ai" target="_blank" class="underline font-bold text-blue-700">openrouter.ai</a> (Gratis 100%), buat API Key baru (sk-or-v1-...), lalu paste & simpan di menu <b>Pengaturan RT & Sistem</b>.');
   }
 
   const rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
@@ -459,116 +459,51 @@ Gaya Bahasa:
 - Nama pengguna saat ini: ${session?.nama || 'Warga'}. Role: ${session?.role || 'Warga'}.
 `;
 
-  const payload = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: `${systemContext}\n\nPertanyaan Warga: ${promptUser}` }
-        ]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 500
-    }
-  };
-
-  const endpoints = [
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+  const openRouterModels = [
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'deepseek/deepseek-r1:free',
+    'mistralai/mistral-7b-instruct:free'
   ];
 
   let lastError = null;
 
-  // 1. OPENROUTER API PROVIDER (Jika Key diawali sk-or-v1-)
-  if (apiKey && apiKey.startsWith('sk-or-v1-')) {
-    const openRouterModels = [
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemma-2-9b-it:free',
-      'deepseek/deepseek-r1:free',
-      'mistralai/mistral-7b-instruct:free'
-    ];
-    for (let model of openRouterModels) {
-      try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': window.location.href,
-            'X-Title': titleApp
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [
-              { role: 'system', content: systemContext },
-              { role: 'user', content: promptUser }
-            ],
-            temperature: 0.7
-          })
-        });
+  for (let model of openRouterModels) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': window.location.href,
+          'X-Title': titleApp
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemContext },
+            { role: 'user', content: promptUser }
+          ],
+          temperature: 0.7,
+          max_tokens: 600
+        })
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.choices && data.choices.length > 0 && data.choices[0].message?.content) {
-            return data.choices[0].message.content;
-          }
-        } else {
-          const errJson = await response.json().catch(() => ({}));
-          lastError = errJson?.error?.message || `OpenRouter HTTP ${response.status}`;
+      if (response.ok) {
+        const data = await response.json();
+        if (data.choices && data.choices.length > 0 && data.choices[0].message?.content) {
+          return data.choices[0].message.content;
         }
-      } catch (e) {
-        lastError = e.message;
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        lastError = errJson?.error?.message || `OpenRouter HTTP ${response.status}`;
       }
+    } catch (e) {
+      lastError = e.message;
     }
   }
 
-  // 2. GOOGLE GEMINI API PROVIDER (Jika Key diawali AIzaSy atau format Google)
-  if (apiKey && !apiKey.startsWith('sk-or-v1-')) {
-    for (let url of endpoints) {
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.candidates && data.candidates.length > 0 && data.candidates[0].content?.parts?.length > 0) {
-            return data.candidates[0].content.parts[0].text;
-          }
-        } else {
-          const errJson = await response.json().catch(() => ({}));
-          lastError = errJson?.error?.message || `HTTP ${response.status}`;
-        }
-      } catch (e) {
-        lastError = e.message;
-      }
-    }
-  }
-
-  // 2. BACKEND AI PROXY (100% BEBAS API KEY, DIJAMIN 100% BERHASIL MENJAWAB)
-  try {
-    const sysShort = `Asisten AI RT 5 (${rtRwText}). Jawab singkat, ramah, santun dalam Bahasa Indonesia.`;
-    const proxyUrl = `https://text.pollinations.ai/${encodeURIComponent(promptUser)}?system=${encodeURIComponent(sysShort)}&seed=${Math.floor(Math.random()*10000)}`;
-    const freeRes = await fetch(proxyUrl);
-    if (freeRes.ok) {
-      const freeText = await freeRes.text();
-      if (freeText && freeText.trim().length > 3) {
-        return freeText.trim();
-      }
-    }
-  } catch(e) {
-    console.warn('[Free Public AI Fallback Error]', e);
-  }
-
-  throw new Error(`API Key Gemini yang terpasang belum valid / telah dicabut Google. Silakan buat API Key gratis yang baru di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-rose-700">aistudio.google.com/app/apikey</a> lalu simpan di menu <b>Pengaturan RT & Sistem</b>.`);
+  throw new Error(`Gagal menghubungi OpenRouter API (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key OpenRouter (sk-or-v1-...) valid di Pengaturan RT.`);
 }
 
 function escapeHtmlAI(text) {
