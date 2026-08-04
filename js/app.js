@@ -1478,6 +1478,7 @@ async function generateFormInputs(rowData) {
       let parts = val.split('/');
       if (parts.length === 3) val = parts[2] + '-' + parts[1] + '-' + parts[0];
     }
+    let safeVal = String(val || '').replace(/"/g, '&quot;');
     let inputHtml = '';
     if (nameLower === 'status' && ['Pengaduan','SuratPengantar','Sumbangan'].includes(currentActiveMenu)) {
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
@@ -1513,8 +1514,10 @@ async function generateFormInputs(rowData) {
         ${opts}
       </select>
       <div id="extra-surat-fields-container" class="p-3 border rounded-3 bg-light mt-2 mb-2" style="display:none;"></div>`;
+    } else if (currentActiveMenu === 'SuratPengantar' && nameLower === 'keterangan') {
+      inputHtml = `<input type="hidden" class="dynamic-input" data-key="${h}" value="${safeVal}">`;
     } else if (nameLower.includes('tanggal')) {
-      inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${val}">`;
+      inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${safeVal}">`;
     } else if (nameLower === 'jenis_kelamin') {
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
         <option value="">-- Pilih Jenis Kelamin --</option>
@@ -1547,12 +1550,16 @@ async function generateFormInputs(rowData) {
       let isNameField = (nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama'));
       let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower.includes('alamat') || (isNameField && currentActiveMenu !== 'Sumbangan'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
       let helpText = (currentActiveMenu === 'Sumbangan' && isNameField) ? `<small class="text-muted text-[10px] d-block mt-1 font-medium">*Bisa diubah jika ingin menggunakan nama <b>"Hamba Allah"</b>.</small>` : '';
-      inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>${helpText}`;
+      inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${safeVal}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>${helpText}`;
     }
-    formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
+    if (currentActiveMenu === 'SuratPengantar' && nameLower === 'keterangan') {
+      formBody.innerHTML += inputHtml;
+    } else {
+      formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
+    }
   }
   if (currentActiveMenu === 'SuratPengantar' && typeof renderExtraSuratFields === 'function') {
-    let jenisSelect = document.querySelector('.dynamic-input[data-key*="jenis"], .dynamic-input[data-key*="perihal"], .dynamic-input[data-key*="keperluan"]');
+    let jenisSelect = document.querySelector('.dynamic-input[data-key*="jenis"], .dynamic-input[data-key*="perihal"], .dynamic-input[data-key*="keperluan"], .dynamic-input[data-key*="JENIS"]');
     let selVal = jenisSelect ? jenisSelect.value : '';
     let existingObj = {};
     if (rowData) {
@@ -1562,9 +1569,11 @@ async function generateFormInputs(rowData) {
         let kIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('catatan'));
         if (kIdx > -1) ketVal = rowData[kIdx];
       } else if (typeof rowData === 'object') {
-        ketVal = rowData.keterangan || rowData.Keterangan || '';
+        ketVal = rowData.keterangan || rowData.Keterangan || rowData.KETERANGAN || '';
       }
-      try { existingObj = JSON.parse(ketVal); } catch(e) { existingObj = { catatan: ketVal }; }
+      if (ketVal) {
+        try { existingObj = JSON.parse(ketVal); } catch(e) { existingObj = { catatan: ketVal }; }
+      }
     }
     if (selVal) {
       renderExtraSuratFields(selVal, existingObj);

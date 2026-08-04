@@ -14,7 +14,15 @@ const JENIS_SURAT_LIST = [
 
 function getKodeSurat(jenisSurat) {
   if (!jenisSurat) return 'SP';
-  let found = JENIS_SURAT_LIST.find(j => j.value.toLowerCase() === jenisSurat.toLowerCase().trim());
+  let str = jenisSurat.toLowerCase().trim();
+  if (str.includes('keramaian') || str.includes('izin')) return 'IZIN';
+  if (str.includes('skck') || str.includes('kepolisian')) return 'SKCK';
+  if (str.includes('sktm') || str.includes('tidak mampu')) return 'SKTM';
+  if (str.includes('skdu') || str.includes('usaha')) return 'SKDU';
+  if (str.includes('pindah')) return 'PINDAH';
+  if (str.includes('nikah')) return 'NIKAH';
+  if (str.includes('waris')) return 'AHLI_WARIS';
+  let found = JENIS_SURAT_LIST.find(j => j.value.toLowerCase() === str || str.includes(j.value.toLowerCase()) || j.value.toLowerCase().includes(str));
   return found ? found.kode : 'SP';
 }
 
