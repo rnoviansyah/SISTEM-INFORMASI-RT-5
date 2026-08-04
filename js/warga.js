@@ -383,8 +383,7 @@ function showDetailWarga(id) {
     actionHtml = `
       <button onclick="waHubungiWarga('${noHpWarga}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hubungi via WhatsApp</button>`;
   } else {
-    actionHtml = `
-      <p class="text-[10px] text-gray-400 text-center italic py-1"><i class="bi bi-shield-lock me-1"></i>Nomor HP disensor untuk privasi sesama warga beda KK.</p>`;
+    actionHtml = '';
   }
   document.getElementById('warga-action-buttons').innerHTML = actionHtml;
   document.getElementById('modal-detail-warga').classList.remove('hidden');
