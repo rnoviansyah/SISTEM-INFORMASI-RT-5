@@ -75,6 +75,34 @@ function showUIConfirm(text, onConfirm, title = "Konfirmasi Tindakan") {
   });
   bsModal.show();
 }
+
+const viewTemplateCache = {};
+async function loadViewTemplate(viewName, fallbackHtml = '') {
+  const container = document.getElementById('main-content');
+  if (!container) return false;
+  if (viewTemplateCache[viewName]) {
+    container.innerHTML = viewTemplateCache[viewName];
+    return true;
+  }
+  try {
+    const res = await fetch(`./views/${viewName}.html?v=` + Date.now());
+    if (res.ok) {
+      const html = await res.text();
+      viewTemplateCache[viewName] = html;
+      container.innerHTML = html;
+      return true;
+    }
+  } catch (err) {
+    console.warn(`[ViewLoader] views/${viewName}.html fetch skipped:`, err);
+  }
+  if (fallbackHtml) {
+    viewTemplateCache[viewName] = fallbackHtml;
+    container.innerHTML = fallbackHtml;
+    return true;
+  }
+  return false;
+}
+window.loadViewTemplate = loadViewTemplate;
 window.showUIConfirm = showUIConfirm;
 window.showUIToast = showUIToast;
 let _rawSession = { token: '', role: '', nik: '', nama: '', alamat: '', noHp: '' };
@@ -1307,13 +1335,22 @@ async function loadMenu(menu) {
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
   switch(menu) {
-    case 'Dashboard':    if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
-    case 'Profil':       if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
-    case 'Warga':        if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
-    case 'Kelahiran':    if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
-    case 'Kematian':     if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
-    case 'PindahMasuk':  if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
-    case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
+    case 'Dashboard':      if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
+    case 'Profil':         if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
+    case 'Warga':          if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
+    case 'Keuangan':       if (typeof loadKeuanganView     === 'function') { loadKeuanganView();     return; } break;
+    case 'Iuran':          if (typeof loadIuranView        === 'function') { loadIuranView();        return; } break;
+    case 'Pengaduan':      if (typeof loadPengaduanView    === 'function') { loadPengaduanView();    return; } break;
+    case 'Surat':
+    case 'SuratPengantar': if (typeof loadSuratView        === 'function') { loadSuratView();        return; } break;
+    case 'Sumbangan':      if (typeof loadSumbanganView    === 'function') { loadSumbanganView();    return; } break;
+    case 'Aset':
+    case 'Inventaris':     if (typeof loadAsetView         === 'function') { loadAsetView();         return; } break;
+    case 'Aspirasi':       if (typeof loadAspirasiView     === 'function') { loadAspirasiView();     return; } break;
+    case 'Kelahiran':      if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
+    case 'Kematian':       if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
+    case 'PindahMasuk':    if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
+    case 'PindahKeluar':   if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
     case 'Pengaturan':
     case 'PengaturanRT':
       if (String(session.role || '').toUpperCase() === 'RT') {
@@ -1352,6 +1389,16 @@ async function loadMenu(menu) {
   }
 }
 function renderTable(data, menu) {
+  if (menu === 'Keuangan' && typeof renderKeuanganCustom === 'function') return renderKeuanganCustom(data);
+  if (menu === 'Iuran' && typeof renderIuranCustom === 'function') return renderIuranCustom(data);
+  if ((menu === 'Aset' || menu === 'Inventaris') && typeof renderAsetCustom === 'function') return renderAsetCustom(data);
+  if (menu === 'Aspirasi' && typeof renderAspirasiView === 'function') return renderAspirasiView(data);
+  if (menu === 'Pengaduan' && typeof renderPengaduanCustom === 'function') return renderPengaduanCustom(data);
+  if ((menu === 'Surat' || menu === 'SuratPengantar') && typeof renderSuratPengantarCustom === 'function') return renderSuratPengantarCustom(data);
+  if (menu === 'Sumbangan' && typeof renderSumbanganCustom === 'function') return renderSumbanganCustom(data);
+  if (menu === 'Warga' && typeof renderWargaCustom === 'function') return renderWargaCustom(data);
+  if (menu === 'Kelahiran' && typeof renderKelahiranCustom === 'function') return renderKelahiranCustom(data);
+
   let html = '';
   let bolehTambah = session.role === 'RT' || (session.role === 'Warga' && ['Pengaduan','SuratPengantar','Sumbangan','Aset','Peminjaman','Aspirasi'].includes(menu));
   if (bolehTambah) {
@@ -1762,7 +1809,10 @@ function filterTable() {
 let appSettings = {
   app_title: 'SISTEM INFORMASI RT 5',
   app_short_name: 'RT 5',
-  app_subtitle: 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN',
+  app_subtitle: 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien',
+  rt_rw_text: 'RT 05 / RW 01',
+  nama_kelurahan: 'Kelurahan Palmerah, Kota Jakarta Barat',
+  alamat_rt: 'Jl. Lingkungan RT 05 / RW 01',
   app_logo: './img/logo.webp',
   app_theme: 'blue',
   app_theme_color: '#1e3a8a',
@@ -1777,7 +1827,8 @@ let appSettings = {
   payment_qris_string: '00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC',
   payment_qris_name: 'RT 5 / RW 01',
   payment_qris: '',
-  info_warga: ''
+  info_warga: '',
+  gemini_api_key: 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw'
 };
 function updateDynamicManifest() {
   try {
@@ -1795,7 +1846,7 @@ function updateDynamicManifest() {
     let manifestData = {
       name: appSettings.app_title || 'SISTEM INFORMASI RT 5',
       short_name: appSettings.app_short_name || 'RT 5',
-      description: (appSettings.app_subtitle || 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN'),
+      description: (appSettings.app_subtitle || 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien'),
       start_url: absStartUrl,
       scope: absScope,
       display: 'standalone',
@@ -1871,16 +1922,100 @@ async function loadAppSettings() {
     console.error('Gagal memuat pengaturan:', e);
   }
 }
-function applyTheme(themeName) {
+function selectThemeOption(themeName) {
+  let inputTheme = document.getElementById('set-app-theme');
+  if (inputTheme) inputTheme.value = themeName;
+  applyTheme(themeName);
+}
+
+function applyTheme(themeName, customHex = null) {
+  let primaryColor = customHex || appSettings.app_theme_color || '#1e3a8a';
+  let secondaryColor = '#3b82f6';
+  let lightColor = '#eff6ff';
+  let gradientEnd = '#2563eb';
+
+  const themePresets = {
+    blue: { primary: '#1e3a8a', secondary: '#3b82f6', light: '#eff6ff', end: '#2563eb' },
+    emerald: { primary: '#065f46', secondary: '#10b981', light: '#ecfdf5', end: '#059669' },
+    indigo: { primary: '#3730a3', secondary: '#6366f1', light: '#eef2ff', end: '#4f46e5' },
+    purple: { primary: '#581c87', secondary: '#a855f7', light: '#faf5ff', end: '#9333ea' },
+    dark: { primary: '#0f172a', secondary: '#64748b', light: '#1e293b', end: '#334155' }
+  };
+
+  if (themePresets[themeName]) {
+    primaryColor = themePresets[themeName].primary;
+    secondaryColor = themePresets[themeName].secondary;
+    lightColor = themePresets[themeName].light;
+    gradientEnd = themePresets[themeName].end;
+  } else if (customHex) {
+    primaryColor = customHex;
+  }
+
   document.body.classList.remove('theme-blue', 'theme-emerald', 'theme-indigo', 'theme-purple', 'theme-dark');
   document.body.classList.add('theme-' + (themeName || 'blue'));
-  if (themeName === 'dark') {
-    document.body.style.backgroundColor = '#0f172a';
-    document.body.style.color = '#f8fafc';
-  } else {
-    document.body.style.backgroundColor = '';
-    document.body.style.color = '';
+
+  document.documentElement.style.setProperty('--primary-blue', primaryColor);
+  document.documentElement.style.setProperty('--secondary-blue', secondaryColor);
+  document.documentElement.style.setProperty('--light-blue', lightColor);
+
+  let styleId = 'dynamic-app-theme-style';
+  let styleEl = document.getElementById(styleId);
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    document.head.appendChild(styleEl);
   }
+
+  styleEl.innerHTML = `
+    :root {
+      --primary-blue: ${primaryColor} !important;
+      --secondary-blue: ${secondaryColor} !important;
+      --light-blue: ${lightColor} !important;
+    }
+    .mobile-header, .sidebar, .bg-blue-900, .bg-blue-800, .bg-blue-700 {
+      background-color: ${primaryColor} !important;
+    }
+    .bg-blue-600 {
+      background-color: ${gradientEnd} !important;
+    }
+    .btn-primary, .bg-primary {
+      background-color: ${primaryColor} !important;
+      border-color: ${primaryColor} !important;
+    }
+    .btn-outline-primary {
+      color: ${primaryColor} !important;
+      border-color: ${primaryColor} !important;
+    }
+    .btn-outline-primary:hover {
+      background-color: ${primaryColor} !important;
+      color: #ffffff !important;
+    }
+    .text-primary, .text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900 {
+      color: ${primaryColor} !important;
+    }
+    .border-primary, .border-blue-600 {
+      border-color: ${primaryColor} !important;
+    }
+    .bg-blue-50, .bg-blue-100 {
+      background-color: ${lightColor} !important;
+    }
+    .bg-gradient-to-r.from-blue-900, .bg-gradient-to-r.from-blue-800, .bg-gradient-to-r.from-blue-700, .bg-gradient-to-r.from-blue-600 {
+      background-image: linear-gradient(to right, ${primaryColor}, ${gradientEnd}) !important;
+    }
+    ${themeName === 'dark' ? `
+      body { background-color: #0f172a !important; color: #f8fafc !important; }
+      .bg-white, .card, .card-custom, .login-box { background-color: #1e293b !important; color: #f8fafc !important; border-color: #334155 !important; }
+      .text-gray-800, .text-gray-700, .text-gray-600, .text-dark { color: #f1f5f9 !important; }
+      .bg-gray-50, .bg-gray-100 { background-color: #334155 !important; color: #f8fafc !important; }
+    ` : `
+      body { background-color: #f8fafc !important; color: #1e293b !important; }
+    `}
+  `;
+
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = primaryColor;
+  appSettings.app_theme_color = primaryColor;
+  appSettings.app_theme = themeName || 'blue';
 }
 function renderHeaderRekeningInfo() {
   let rekEl = document.getElementById('rek-info');
@@ -1990,14 +2125,26 @@ async function simpanIdentitasDanTema(e) {
   let theme = document.getElementById('set-app-theme').value;
   let themeColor = document.getElementById('set-app-theme-color') ? document.getElementById('set-app-theme-color').value : '#1e3a8a';
   let waNumber = document.getElementById('set-rt-wa-number') ? document.getElementById('set-rt-wa-number').value.trim() : '';
+  if (waNumber.startsWith('0')) {
+    waNumber = '62' + waNumber.substring(1);
+  } else if (waNumber.startsWith('+62')) {
+    waNumber = waNumber.substring(1);
+  }
+  let rtRwText = document.getElementById('set-rt-rw-text') ? document.getElementById('set-rt-rw-text').value.trim() : 'RT 05 / RW 01';
+  let namaKelurahan = document.getElementById('set-nama-kelurahan') ? document.getElementById('set-nama-kelurahan').value.trim() : '';
+  let alamatRt = document.getElementById('set-alamat-rt') ? document.getElementById('set-alamat-rt').value.trim() : '';
   let namaSekretaris = document.getElementById('set-nama-sekretaris') ? document.getElementById('set-nama-sekretaris').value.trim() : '';
   let namaRtKetua = document.getElementById('set-nama-rt-ketua') ? document.getElementById('set-nama-rt-ketua').value.trim() : '';
   let ttdSekretaris = document.getElementById('set-ttd-sekretaris') ? document.getElementById('set-ttd-sekretaris').value.trim() : '';
   let ttdKetuaRt = document.getElementById('set-ttd-ketua-rt') ? document.getElementById('set-ttd-ketua-rt').value.trim() : '';
+  let geminiApiKey = document.getElementById('set-gemini-api-key') ? document.getElementById('set-gemini-api-key').value.trim() : '';
   let settingsArray = [
     { kunci: 'app_title', nilai: title },
     { kunci: 'app_short_name', nilai: shortName },
     { kunci: 'app_subtitle', nilai: subtitle },
+    { kunci: 'rt_rw_text', nilai: rtRwText },
+    { kunci: 'nama_kelurahan', nilai: namaKelurahan },
+    { kunci: 'alamat_rt', nilai: alamatRt },
     { kunci: 'app_logo', nilai: logo },
     { kunci: 'app_theme', nilai: theme },
     { kunci: 'app_theme_color', nilai: themeColor },
@@ -2005,7 +2152,8 @@ async function simpanIdentitasDanTema(e) {
     { kunci: 'nama_sekretaris', nilai: namaSekretaris },
     { kunci: 'nama_rt_ketua', nilai: namaRtKetua },
     { kunci: 'ttd_sekretaris', nilai: ttdSekretaris },
-    { kunci: 'ttd_ketua_rt', nilai: ttdKetuaRt }
+    { kunci: 'ttd_ketua_rt', nilai: ttdKetuaRt },
+    { kunci: 'gemini_api_key', nilai: geminiApiKey }
   ];
   const res = await callGASPost('simpanPengaturanApp', { settingsArray });
   if (res && res.status === 'success') {
@@ -2061,9 +2209,9 @@ function handleTtdFileUpload(e, targetType) {
 }
 async function simpanRekeningDanQRIS(e) {
   e.preventDefault();
-  let qrisString = document.getElementById('set-payment-qris-string').value;
-  let qrisName   = document.getElementById('set-payment-qris-name').value;
-  let qrisUrl    = document.getElementById('set-payment-qris').value;
+  let qrisString = document.getElementById('set-payment-qris-string').value.trim();
+  let qrisName   = document.getElementById('set-payment-qris-name').value.trim();
+  let qrisUrl    = document.getElementById('set-payment-qris').value.trim();
   let rekList = [];
   document.querySelectorAll('.row-rek-item').forEach(row => {
     let b = row.querySelector('.inp-rek-bank').value.trim();
@@ -2380,7 +2528,21 @@ async function renderPengaturanRTView() {
               </div>
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">SLOGAN / SUBTITLE</label>
-                <input type="text" id="set-app-subtitle" class="form-control" value="${appSettings.app_subtitle || ''}" placeholder="Contoh: AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN">
+                <input type="text" id="set-app-subtitle" class="form-control" value="${appSettings.app_subtitle || ''}" placeholder="Contoh: Layanan Digital RT 05 / RW 01 • Transparan & Efisien">
+              </div>
+              <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                  <label class="form-label font-semibold text-xs text-gray-700">WILAYAH RT / RW <small class="text-primary font-bold">(Kop Surat & Cetak PDF)</small></label>
+                  <input type="text" id="set-rt-rw-text" class="form-control" value="${appSettings.rt_rw_text || 'RT 05 / RW 01'}" placeholder="Contoh: RT 05 / RW 01">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label font-semibold text-xs text-gray-700">KELURAHAN / KECAMATAN / KOTA</label>
+                  <input type="text" id="set-nama-kelurahan" class="form-control" value="${appSettings.nama_kelurahan || 'Kelurahan Palmerah, Kota Jakarta Barat'}" placeholder="Contoh: Kelurahan Palmerah, Kota Jakarta Barat">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label font-semibold text-xs text-gray-700">ALAMAT SEKRETARIAT RT</label>
+                  <input type="text" id="set-alamat-rt" class="form-control" value="${appSettings.alamat_rt || 'Jl. Lingkungan RT 05 / RW 01'}" placeholder="Contoh: Jl. Anggrek No. 12">
+                </div>
               </div>
               <div class="row g-3 mb-3">
                 <div class="col-md-6">
@@ -2463,8 +2625,8 @@ async function renderPengaturanRTView() {
                 <div class="col-md-4">
                   <label class="form-label font-semibold text-xs text-gray-700">WARNA TEMA (Hex)</label>
                   <div class="d-flex gap-2 align-items-center">
-                    <input type="color" id="set-app-theme-color" class="form-control form-control-color" value="${appSettings.app_theme_color || '#1e3a8a'}" title="Pilih warna tema" style="width:50px;">
-                    <input type="text" class="form-control form-control-sm" value="${appSettings.app_theme_color || '#1e3a8a'}" oninput="document.getElementById('set-app-theme-color').value=this.value" placeholder="#1e3a8a">
+                    <input type="color" id="set-app-theme-color" class="form-control form-control-color" value="${appSettings.app_theme_color || '#1e3a8a'}" title="Pilih warna tema" style="width:50px;" oninput="applyTheme('custom', this.value)">
+                    <input type="text" class="form-control form-control-sm" value="${appSettings.app_theme_color || '#1e3a8a'}" oninput="document.getElementById('set-app-theme-color').value=this.value; applyTheme('custom', this.value);" placeholder="#1e3a8a">
                   </div>
                   <small class="text-muted">Warna tema PWA & header.</small>
                 </div>
@@ -2504,6 +2666,13 @@ async function renderPengaturanRTView() {
                   </div>
                 </div>
                 <input type="hidden" id="set-app-theme" value="${appSettings.app_theme || 'blue'}">
+              </div>
+              <div class="mb-4 p-3 bg-blue-50/70 border border-blue-200 rounded-xl">
+                <label class="form-label font-semibold text-xs text-blue-900 flex items-center gap-1.5 mb-1">
+                  <i class="bi bi-robot text-blue-600"></i> GEMINI AI API KEY (Google AI Studio)
+                </label>
+                <input type="text" id="set-gemini-api-key" class="form-control form-control-sm font-mono text-xs" value="${appSettings.gemini_api_key || 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw'}" placeholder="Paste Gemini API Key (AIzaSy...)">
+                <small class="text-gray-500 text-[10px] d-block mt-1">Key ini digunakan untuk menjalankan Asisten AI RT 5. Dapatkan gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 font-bold underline">Google AI Studio</a>.</small>
               </div>
               <button type="submit" class="btn btn-primary fw-bold px-4 py-2"><i class="bi bi-check-circle me-1"></i>Simpan Identitas & Tema</button>
             </form>

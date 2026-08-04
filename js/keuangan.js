@@ -497,10 +497,12 @@ function cetakLaporanKeuanganPDF() {
   let isRT = (typeof session !== 'undefined' && session.role === 'RT');
   let ttdSekretaris = (isRT && typeof appSettings !== 'undefined' && appSettings.ttd_sekretaris) ? appSettings.ttd_sekretaris : '';
   let ttdKetuaRt    = (isRT && typeof appSettings !== 'undefined' && appSettings.ttd_ketua_rt)    ? appSettings.ttd_ketua_rt    : '';
-  let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT 05';
-  let namaKetuaRt    = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua)    ? appSettings.nama_rt_ketua    : 'Ketua RT 05';
+  let rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
+  let kelurahanText = (typeof appSettings !== 'undefined' && appSettings.nama_kelurahan) ? appSettings.nama_kelurahan : '';
+  let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
+  let namaKetuaRt    = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua)    ? appSettings.nama_rt_ketua    : 'Ketua RT';
   let totalSaldo = totalMasuk - totalKeluar;
-  let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT 5';
+  let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT';
   let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';
   let todayStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   let periodeLabel = { all: 'Semua Periode', hari: 'Hari Ini (' + todayStr + ')', bulan: 'Bulan ' + now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }), tahun: 'Tahun ' + now.getFullYear(), custom: (start || '...') + ' s/d ' + (end || '...') }[p] || 'Semua Periode';
@@ -557,13 +559,13 @@ function cetakLaporanKeuanganPDF() {
   <div class="header-wrap">
     <img src="${logoUrl}" class="header-logo" onerror="this.style.display='none'">
     <div class="header-text">
-      <h1>PENGURUS RUKUN TETANGGA 05 / RW 01</h1>
+      <h1>PENGURUS ${rtRwText.toUpperCase()}</h1>
       <h2>${titleApp}</h2>
-      <p>Sistem Layanan & Informasi Warga Digital - Modern, Transparan & Efisien</p>
+      <p>${kelurahanText ? kelurahanText + ' • ' : ''}Laporan Transparansi Keuangan Warga</p>
     </div>
   </div>
   <div class="doc-title">
-    <h3>Laporan Keuangan RT 05</h3>
+    <h3>Laporan Keuangan ${rtRwText}</h3>
     <p>Periode: ${periodeLabel} &nbsp;|&nbsp; Dicetak: ${todayStr}</p>
   </div>
   <div class="summary-grid">

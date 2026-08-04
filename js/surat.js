@@ -127,10 +127,13 @@ function cetakPDFSuratPengantar(id) {
     keterangan = row.keterangan || row.Keterangan || row.KETERANGAN || (ketIdx > -1 ? row[headers[ketIdx]] : '-');
   }
 
-  let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT 5';
+  let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT';
+  let rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
+  let kelurahanText = (typeof appSettings !== 'undefined' && appSettings.nama_kelurahan) ? appSettings.nama_kelurahan : 'Kelurahan Palmerah, Kota Jakarta Barat';
+  let alamatRtText = (typeof appSettings !== 'undefined' && appSettings.alamat_rt) ? appSettings.alamat_rt : '';
   let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';
-  let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT 05';
-  let namaKetuaRt = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT 05';
+  let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
+  let namaKetuaRt = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
 
   // Tanda tangan hanya ditampilkan jika status surat sudah Selesai/Diterima
   let ttdSekretaris = (isSelesai && typeof appSettings !== 'undefined' && appSettings.ttd_sekretaris) ? appSettings.ttd_sekretaris : '';
@@ -143,7 +146,7 @@ function cetakPDFSuratPengantar(id) {
         judul: 'SURAT PENGANTAR',
         nomorKode: 'SP',
         isi: `
-          <p>Yang bertanda tangan di bawah ini Pengurus Rukun Tetangga (RT) 05, menerangkan dengan sebenarnya bahwa:</p>
+          <p>Yang bertanda tangan di bawah ini Pengurus ${rtRwText}, menerangkan dengan sebenarnya bahwa:</p>
           <table class="table-data">
             <tr><td class="label">Nama Lengkap</td><td width="10">:</td><td><b>${namaWarga}</b></td></tr>
             <tr><td class="label">NIK</td><td>:</td><td>${nikWarga}</td></tr>
@@ -171,7 +174,7 @@ function cetakPDFSuratPengantar(id) {
         .kop-surat { display: flex; align-items: center; border-bottom: 3px double #000; padding-bottom: 12px; margin-bottom: 25px; }
         .kop-logo { width: 85px; height: 85px; object-fit: contain; margin-right: 20px; }
         .kop-text { flex: 1; text-align: center; }
-        .kop-text h2 { margin: 0; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .kop-text h2 { margin: 0; font-size: 15pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
         .kop-text h3 { margin: 2px 0; font-size: 13pt; font-weight: bold; text-transform: uppercase; }
         .kop-text p { margin: 0; font-size: 10pt; font-style: italic; }
         
@@ -203,15 +206,15 @@ function cetakPDFSuratPengantar(id) {
       <div class="kop-surat">
         <img src="${logoUrl}" class="kop-logo" alt="Logo RT">
         <div class="kop-text">
-          <h2>PENGURUS RUKUN TETANGGA 05 / RW 01</h2>
+          <h2>PENGURUS ${rtRwText.toUpperCase()}</h2>
           <h3>${titleApp}</h3>
-          <p>Sistem Layanan & Informasi Warga Digital - Modern, Transparan & Efisien</p>
+          <p>${kelurahanText}${alamatRtText ? ' • ' + alamatRtText : ''}</p>
         </div>
       </div>
 
       <div class="surat-title">
         <h4>${suratContent.judul}</h4>
-        <p>Nomor: ${id} / ${suratContent.nomorKode || 'SP'} / RT.05 / ${new Date().getFullYear()}</p>
+        <p>Nomor: ${id} / ${suratContent.nomorKode || 'SP'} / ${rtRwText.replace(/\s+/g, '')} / ${new Date().getFullYear()}</p>
       </div>
 
       <div class="content">
@@ -226,14 +229,14 @@ function cetakPDFSuratPengantar(id) {
       <table class="ttd-section">
         <tr>
           <td>
-            <p>Dibuat oleh:<br><b>Sekretaris RT 05</b></p>
+            <p>Dibuat oleh:<br><b>Sekretaris ${rtRwText}</b></p>
             <div class="ttd-space">
               ${ttdSekretaris ? `<img src="${ttdSekretaris}" style="max-height: 70px; max-width: 150px; object-fit: contain; margin: 0 auto; display: block;">` : ''}
             </div>
             <p class="ttd-nama">( ${namaSekretaris} )</p>
           </td>
           <td>
-            <p>Tanggal: ${todayStr}<br>Diketahui oleh:<br><b>Ketua RT 05</b></p>
+            <p>Tanggal: ${todayStr}<br>Diketahui oleh:<br><b>Ketua ${rtRwText}</b></p>
             <div class="ttd-space">
               ${ttdKetuaRt ? `<img src="${ttdKetuaRt}" style="max-height: 70px; max-width: 150px; object-fit: contain; margin: 0 auto; display: block;">` : ''}
             </div>

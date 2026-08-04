@@ -31,6 +31,7 @@ function renderSuratBody(jenisSurat, data) {
   let { namaWarga, nikWarga, alamatWarga, keterangan, tanggalSurat } = data;
   let cleanJenis = (jenisSurat || '').split('|')[0].trim();
   let kode = getKodeSurat(cleanJenis);
+  let rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
 
   // Parse extra fields from jenisSurat payload or keterangan
   let extra = {};
@@ -69,9 +70,9 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT PENGANTAR SKCK',
       nomorKode: 'SKCK',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
-        <p>Adalah benar warga RT 05 / RW 01 yang berdomisili di alamat tersebut di atas. Surat pengantar ini dibuat untuk keperluan <b>pengurusan Surat Keterangan Catatan Kepolisian (SKCK)</b> di Kepolisian Sektor (Polsek) setempat.</p>
+        <p>Adalah benar warga ${rtRwText} yang berdomisili di alamat tersebut di atas. Surat pengantar ini dibuat untuk keperluan <b>pengurusan Surat Keterangan Catatan Kepolisian (SKCK)</b> di Kepolisian Sektor (Polsek) setempat.</p>
         <p>Sejauh yang kami ketahui, yang bersangkutan adalah warga yang baik dan tidak pernah terlibat dalam tindak kriminal ataupun kegiatan yang bertentangan dengan hukum.</p>
         <p>Demikian surat pengantar ini kami buat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
       `
@@ -84,7 +85,7 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT KETERANGAN TIDAK MAMPU',
       nomorKode: 'SKTM',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
         <p>Berdasarkan kenyataan yang ada dan pengamatan kami, yang bersangkutan adalah warga yang tergolong dalam <b>kategori kurang mampu / tidak mampu secara ekonomi</b> dan benar-benar membutuhkan bantuan.</p>
         <p>Surat Keterangan Tidak Mampu ini dibuat untuk keperluan: <b>${keperluan}</b></p>
@@ -100,9 +101,9 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT KETERANGAN DOMISILI USAHA',
       nomorKode: 'SKDU',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
-        <p>Yang bersangkutan benar-benar adalah warga RT 05 / RW 01 yang berdomisili di alamat tersebut di atas, dan telah menjalankan usaha dengan keterangan sebagai berikut:</p>
+        <p>Yang bersangkutan benar-benar adalah warga ${rtRwText} yang berdomisili di alamat tersebut di atas, dan telah menjalankan usaha dengan keterangan sebagai berikut:</p>
         <table class="table-data">
           <tr><td class="label">Nama Usaha</td><td width="10">:</td><td><b>${namaUsaha}</b></td></tr>
           <tr><td class="label">Jenis Usaha</td><td>:</td><td>${jenisUsaha}</td></tr>
@@ -119,9 +120,9 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT KETERANGAN PINDAH DOMISILI',
       nomorKode: 'PINDAH',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
-        <p>Adalah benar warga RT 05 / RW 01 yang berdomisili di alamat tersebut di atas. Yang bersangkutan menyatakan akan <b>pindah domisili/tempat tinggal</b> ke alamat:</p>
+        <p>Adalah benar warga ${rtRwText} yang berdomisili di alamat tersebut di atas. Yang bersangkutan menyatakan akan <b>pindah domisili/tempat tinggal</b> ke alamat:</p>
         <table class="table-data">
           <tr><td class="label">Alamat Baru</td><td width="10">:</td><td><b>${alamatBaru}</b></td></tr>
         </table>
@@ -136,9 +137,9 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT PENGANTAR NIKAH',
       nomorKode: 'NIKAH',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
-        <p>Adalah benar warga RT 05 / RW 01 yang berdomisili di alamat tersebut di atas, dan berdasarkan catatan administrasi lingkungan kami, yang bersangkutan berstatus: <b>${statusNikah}</b>.</p>
+        <p>Adalah benar warga ${rtRwText} yang berdomisili di alamat tersebut di atas, dan berdasarkan catatan administrasi lingkungan kami, yang bersangkutan berstatus: <b>${statusNikah}</b>.</p>
         <p>Surat pengantar ini dibuat untuk keperluan <b>pengurusan pernikahan / akad nikah</b> di Kantor Urusan Agama (KUA) setempat.</p>
         <p>Demikian surat pengantar ini kami buat dengan sebenarnya untuk digunakan sebagaimana mestinya.</p>
       `
@@ -153,9 +154,9 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT KETERANGAN AHLI WARIS',
       nomorKode: 'AW',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan dengan sesungguhnya bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan dengan sesungguhnya bahwa:</p>
         ${dataWargaTable}
-        <p>Adalah benar warga RT 05 / RW 01. Yang bersangkutan merupakan ahli waris sah dari almarhum/almarhumah:</p>
+        <p>Adalah benar warga ${rtRwText}. Yang bersangkutan merupakan ahli waris sah dari almarhum/almarhumah:</p>
         <table class="table-data">
           <tr><td class="label">Nama Almarhum/ah</td><td width="10">:</td><td><b>${namaAlmarhum}</b></td></tr>
           <tr><td class="label">Tanggal Meninggal</td><td>:</td><td>${tglMeninggal}</td></tr>
@@ -175,7 +176,7 @@ function renderSuratBody(jenisSurat, data) {
       judul: 'SURAT KETERANGAN IZIN KERAMAIAN',
       nomorKode: 'IZIN',
       isi: `
-        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (RT) 05 / RW 01, menerangkan bahwa:</p>
+        <p>Yang bertanda tangan di bawah ini, Ketua Rukun Tetangga (${rtRwText}), menerangkan bahwa:</p>
         ${dataWargaTable}
         <p>Telah mengajukan permohonan izin untuk menyelenggarakan kegiatan/acara dengan rincian sebagai berikut:</p>
         <table class="table-data">
@@ -196,14 +197,11 @@ function renderSuratBody(jenisSurat, data) {
     judul: 'SURAT PENGANTAR',
     nomorKode: 'SP',
     isi: `
-      <p>Yang bertanda tangan di bawah ini Pengurus Rukun Tetangga (RT) 05, menerangkan dengan sebenarnya bahwa:</p>
+      <p>Yang bertanda tangan di bawah ini Pengurus Rukun Tetangga (${rtRwText}), menerangkan dengan sebenarnya bahwa:</p>
       ${dataWargaTable}
-      <table class="table-data">
-        <tr><td class="label">Keperluan / Jenis Surat</td><td width="10">:</td><td><b>${cleanJenis}</b></td></tr>
-        <tr><td class="label">Keterangan Tambahan</td><td>:</td><td>${cleanKeterangan}</td></tr>
-        <tr><td class="label">Tanggal Pengajuan</td><td>:</td><td>${tanggalSurat}</td></tr>
-      </table>
-      <p>Demikian Surat Pengantar ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
+      <p>Berdasarkan catatan administrasi kami, yang bersangkutan adalah warga ${rtRwText} yang berdomisili di alamat tersebut di atas.</p>
+      <p>Surat Pengantar ini dibuat untuk keperluan: <b>${cleanKeterangan}</b>.</p>
+      <p>Demikian Surat Pengantar ini kami buat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
     `
   };
 }

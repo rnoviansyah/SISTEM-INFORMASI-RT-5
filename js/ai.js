@@ -1,0 +1,319 @@
+/* =========================================================
+   ASISTEN AI RT 5 (POWERED BY GOOGLE GEMINI AI)
+   ========================================================= */
+
+let geminiApiKeyDefault = 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw';
+
+function getGeminiApiKey() {
+  if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
+    return appSettings.gemini_api_key.trim();
+  }
+  return geminiApiKeyDefault;
+}
+
+// Inisialisasi Widget Floating Chat AI saat halaman siap
+document.addEventListener('DOMContentLoaded', () => {
+  initAiWidget();
+});
+
+// Bila DOM sudah terlanjur loaded
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(initAiWidget, 500);
+}
+
+function initAiWidget() {
+  if (document.getElementById('ai-chat-widget')) return;
+
+  const widgetHtml = `
+    <!-- FLOATING BUTTON AI -->
+    <div id="ai-chat-button" onclick="toggleAiChat()" class="fixed bottom-20 right-4 z-40 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-3.5 rounded-full shadow-lg cursor-pointer flex items-center gap-2 transition-all transform hover:scale-105" title="Tanya Asisten AI RT 5">
+      <i class="bi bi-robot text-xl"></i>
+      <span class="text-xs font-bold pe-1 hidden md:inline">Tanya AI RT</span>
+      <span class="absolute -top-1 -right-1 flex h-3 w-3">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+      </span>
+    </div>
+
+    <!-- WINDOW CHATBOX AI -->
+    <div id="ai-chat-widget" class="hidden fixed bottom-20 right-4 z-50 w-[92vw] max-w-[380px] h-[520px] max-h-[80vh] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transition-all duration-300 font-sans">
+      
+      <!-- Header Chatbot -->
+      <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 text-white p-4 flex items-center justify-between shadow-md">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center text-xl text-emerald-300">
+            <i class="bi bi-robot"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-sm leading-tight flex items-center gap-1.5">
+              Asisten AI RT 5
+              <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-normal">Gemini</span>
+            </h4>
+            <p class="text-[10px] text-blue-200 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online • Siap Membantu 24/7
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button onclick="toggleAiChat()" class="text-white/80 hover:text-white text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content / Chat Body -->
+      <div id="ai-chat-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/50 text-xs">
+        
+        <!-- Welcome Message -->
+        <div class="flex gap-2.5 items-start">
+          <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+            <i class="bi bi-robot"></i>
+          </div>
+          <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm max-w-[85%] text-gray-700 space-y-1.5">
+            <p class="font-semibold text-blue-900">Halo ${session?.nama ? session.nama.split(' ')[0] : 'Warga'}! 👋</p>
+            <p>Saya **Asisten AI RT 05**. Ada yang bisa saya bantu terkait layanan RT, iuran, pengaduan, atau syarat pengajuan surat?</p>
+          </div>
+        </div>
+
+        <!-- Quick Suggestions -->
+        <div id="ai-quick-chips" class="pt-2 space-y-1.5">
+          <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-1">Rekomendasi Pertanyaan:</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="kirimPesanAI('Berapa nominal iuran bulanan warga RT 5?')" class="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-xl text-[11px] font-medium shadow-2xs transition text-left">
+              💳 Informasi Iuran RT
+            </button>
+            <button onclick="kirimPesanAI('Bagaimana cara mengajukan Surat Pengantar RT?')" class="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-xl text-[11px] font-medium shadow-2xs transition text-left">
+              📄 Syarat Surat Pengantar
+            </button>
+            <button onclick="kirimPesanAI('Bagaimana cara menyampaikan pengaduan atau keluhan warga?')" class="bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1.5 rounded-xl text-[11px] font-medium shadow-2xs transition text-left">
+              📢 Cara Buat Pengaduan
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Typing Indicator (Hidden by default) -->
+      <div id="ai-typing-indicator" class="hidden px-4 py-2 bg-gray-50 flex items-center gap-2 text-[11px] text-gray-400 italic border-t border-gray-100">
+        <div class="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] animate-pulse">
+          <i class="bi bi-robot"></i>
+        </div>
+        <span>AI sedang mengetik jawaban...</span>
+      </div>
+
+      <!-- Input Area -->
+      <div class="p-3 bg-white border-t border-gray-100 flex items-center gap-2">
+        <input type="text" id="ai-chat-input" onkeypress="if(event.key==='Enter') kirimPesanAI()" placeholder="Ketik pertanyaan seputar RT 5..." class="flex-1 bg-gray-100 border-0 focus:ring-2 focus:ring-blue-600 rounded-2xl text-xs py-2.5 px-3.5 text-gray-800 placeholder-gray-400 outline-none">
+        <button onclick="kirimPesanAI()" class="bg-blue-600 hover:bg-blue-700 text-white w-9 h-9 rounded-2xl flex items-center justify-center shadow-md transition shrink-0">
+          <i class="bi bi-send-fill text-xs"></i>
+        </button>
+      </div>
+
+    </div>
+  `;
+
+  const div = document.createElement('div');
+  div.innerHTML = widgetHtml;
+  document.body.appendChild(div);
+}
+
+function toggleAiChat() {
+  const widget = document.getElementById('ai-chat-widget');
+  const btn = document.getElementById('ai-chat-button');
+  if (!widget) {
+    initAiWidget();
+    return;
+  }
+  if (widget.classList.contains('hidden')) {
+    widget.classList.remove('hidden');
+    if (btn) btn.classList.add('hidden');
+    setTimeout(() => {
+      const input = document.getElementById('ai-chat-input');
+      if (input) input.focus();
+    }, 100);
+  } else {
+    widget.classList.add('hidden');
+    if (btn) btn.classList.remove('hidden');
+  }
+}
+
+async function kirimPesanAI(pesanTeksCustom = null) {
+  const inputEl = document.getElementById('ai-chat-input');
+  const pesan = pesanTeksCustom || (inputEl ? inputEl.value.trim() : '');
+  if (!pesan) return;
+
+  if (inputEl) inputEl.value = '';
+
+  // Sembunyikan quick chips jika ada
+  const quickChips = document.getElementById('ai-quick-chips');
+  if (quickChips) quickChips.style.display = 'none';
+
+  const container = document.getElementById('ai-chat-messages');
+
+  // 1. Tambahkan Bubble Chat User
+  const userBubble = `
+    <div class="flex gap-2.5 items-start justify-end">
+      <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-sm max-w-[85%] text-xs">
+        <p>${escapeHtmlAI(pesan)}</p>
+      </div>
+      <div class="w-7 h-7 rounded-xl bg-gray-200 text-gray-600 flex items-center justify-center text-xs shrink-0 font-bold">
+        ${session?.nama ? session.nama.substring(0, 1).toUpperCase() : 'W'}
+      </div>
+    </div>
+  `;
+  container.innerHTML += userBubble;
+  container.scrollTop = container.scrollHeight;
+
+  // 2. Tampilkan Typing Indicator
+  const typingEl = document.getElementById('ai-typing-indicator');
+  if (typingEl) typingEl.classList.remove('hidden');
+
+  // 3. Panggil API Gemini AI
+  try {
+    const aiResponse = await panggilGeminiApi(pesan);
+    
+    if (typingEl) typingEl.classList.add('hidden');
+
+    const formattedAnswer = formatMarkdownAI(aiResponse);
+
+    // 4. Tambahkan Bubble Chat AI
+    const aiBubble = `
+      <div class="flex gap-2.5 items-start">
+        <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+          <i class="bi bi-robot"></i>
+        </div>
+        <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm max-w-[85%] text-gray-700 leading-relaxed text-xs space-y-1">
+          ${formattedAnswer}
+        </div>
+      </div>
+    `;
+    container.innerHTML += aiBubble;
+    container.scrollTop = container.scrollHeight;
+
+  } catch (err) {
+    if (typingEl) typingEl.classList.add('hidden');
+    console.error('[Gemini AI Error]', err);
+
+    const errorBubble = `
+      <div class="flex gap-2.5 items-start">
+        <div class="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+        </div>
+        <div class="bg-rose-50 border border-rose-200 p-3 rounded-2xl rounded-tl-none text-rose-800 text-xs">
+          <p class="font-bold">Mohon Maaf 🙏</p>
+          <p class="text-[11px] mt-0.5">${err.message || 'Sistem AI sedang sibuk atau API Key memerlukan konfirmasi. Silakan coba lagi.'}</p>
+        </div>
+      </div>
+    `;
+    container.innerHTML += errorBubble;
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+async function panggilGeminiApi(promptUser) {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Gemini API Key belum dikonfigurasi di aplikasi.');
+  }
+
+  const rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
+  const titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT';
+  const kelurahanText = (typeof appSettings !== 'undefined' && appSettings.nama_kelurahan) ? appSettings.nama_kelurahan : '';
+  const namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
+  const namaKetua = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
+
+  const systemContext = `
+Kamu adalah "Asisten AI Resmi ${rtRwText}", sebuah asisten digital khusus lingkungan RT dan layanan kemasyarakatan.
+
+INFORMASI LINGKUNGAN:
+- Nama Wilayah: ${rtRwText} ${kelurahanText ? '(' + kelurahanText + ')' : ''}
+- Nama Aplikasi: ${titleApp}
+- Pengurus RT: ${namaKetua} & ${namaSekretaris}
+- Lingkup Tugas Utama:
+  1. Iuran & Keuangan RT: Pembayaran iuran bulanan, status lunas, QRIS, transparansi kas.
+  2. Pengaduan & Ketertiban: Penanganan keluhan warga, keamanan, kebersihan, kerja bakti.
+  3. Pengajuan Surat: Surat Pengantar RT, Domisili, SKCK, SKTM, Pindah, Nikah, Ahli Waris, Izin Keramaian.
+  4. Layanan Kependudukan & Informasi Warga: Data warga, jadwal kegiatan RT, kontak pengurus.
+
+ATURAN KETAT (STRICT GUARDRAIL):
+1. **FOKUS KHUSUS RT & KEMASYARAKATAN**: Kamu HANYA boleh menjawab pertanyaan yang berkaitan dengan layanan RT, aplikasi, iuran, pengaduan, pengajuan surat, ketertiban lingkungan, atau administrasi kependudukan (KTP/KK/Kelurahan).
+2. **BATASI DI LUAR KONTEKS**: Jika pengguna bertanya hal di luar konteks RT / kependudukan (seperti sepak bola, hiburan, gosip, game, film, atau pertanyaan acak yang tidak ada hubungannya dengan lingkungan RT/warga), tolak secara ramah dan santun.
+   Contoh jawaban penolakan sopan:
+   "Mohon maaf 🙏, sebagai Asisten AI Resmi ${rtRwText}, saya khusus bertugas membantu informasi seputar layanan RT, iuran, pengaduan, pengajuan surat, dan administrasi kependudukan warga. Ada yang bisa saya bantu terkait layanan RT kita?"
+
+Gaya Bahasa:
+- Gunakan Bahasa Indonesia yang sopan, santun, dan profesional.
+- Gunakan emoji pendukung seperlunya.
+- Singkat, padat, dan jelas.
+- Nama pengguna saat ini: ${session?.nama || 'Warga'}. Role: ${session?.role || 'Warga'}.
+`;
+
+  const payload = {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: `${systemContext}\n\nPertanyaan Warga: ${promptUser}` }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 500
+    }
+  };
+
+  // Coba Endpoint 1: gemini-1.5-flash, jika gagal coba gemini-2.0-flash
+  const endpoints = [
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`
+  ];
+
+  let lastError = null;
+
+  for (let url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content?.parts?.length > 0) {
+          return data.candidates[0].content.parts[0].text;
+        }
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        lastError = errJson?.error?.message || `HTTP ${response.status}`;
+      }
+    } catch (e) {
+      lastError = e.message;
+    }
+  }
+
+  throw new Error(`Gagal menghubungi Gemini AI (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key Gemini valid.`);
+}
+
+function escapeHtmlAI(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatMarkdownAI(text) {
+  if (!text) return '';
+  let formatted = escapeHtmlAI(text);
+  
+  // Bold **text**
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic *text*
+  formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // New lines to <br>
+  formatted = formatted.replace(/\n/g, '<br>');
+
+  return formatted;
+}
