@@ -89,8 +89,9 @@ function renderIuranCustom(data) {
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
             <h5 class="font-bold text-gray-900 text-xs mb-0.5" id="qris-merchant-name">SHN GROUP</h5>
             <p class="text-[9px] text-gray-500 font-mono mb-2">DYNAMIC QRIS (NOMINAL OTOMATIS TERISI)</p>
-            <div id="qris-canvas-container" class="flex justify-center p-2 bg-white rounded-xl shadow-inner border border-gray-100">
-              <canvas id="qris-canvas" class="max-w-[200px] max-h-[200px]"></canvas>
+            <div id="qris-canvas-container" class="flex justify-center p-2 bg-white rounded-xl shadow-inner border border-gray-100 min-h-[200px] items-center">
+              <img id="qris-dynamic-img" src="" class="max-w-[200px] max-h-[200px] rounded-lg shadow-sm" alt="Dynamic QRIS">
+              <canvas id="qris-canvas" class="hidden max-w-[200px] max-h-[200px]"></canvas>
             </div>
           </div>
         </div>
@@ -228,11 +229,12 @@ function generateDynamicQRIS(staticQris, nominal) {
 }
 function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   activeBayarId = id;
+  switchTabBayar('qris');
   let infoEl = document.getElementById('info-bayar-target');
   if (infoEl) {
     infoEl.innerText = `Iuran ${bulan} ${tahun} - Rp ${Number(nominal).toLocaleString('id-ID')}`;
   }
-  let fileInp = document.getElementById('iuran-bukti-file');
+  let fileInp = document.getElementById('file-bukti-iuran');
   if (fileInp) fileInp.value = '';
   let baseStaticQris = (typeof appSettings !== 'undefined' && appSettings.payment_qris_string)
     ? appSettings.payment_qris_string
@@ -240,11 +242,11 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   let qrisDinamisString = generateDynamicQRIS(baseStaticQris, nominal);
   let qrImgEl = document.getElementById('qris-dynamic-img');
   if (qrImgEl) {
-    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrisDinamisString)}`;
+    qrImgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrisDinamisString)}`;
   }
   let merchantEl = document.getElementById('qris-merchant-name');
   if (merchantEl) {
-    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'RT 5 / RW 01';
+    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'SHN GROUP';
   }
   let tfBox = document.getElementById('content-tf');
   if (tfBox) {
@@ -270,18 +272,22 @@ function tutupModalBayarIuran() {
   let modal = document.getElementById('modal-bayar-iuran');
   if (modal) modal.classList.add('hidden');
 }
+async function submitBuktiIuran(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  return prosesKirimBuktiBayar();
+}
 async function prosesKirimBuktiBayar() {
   if (!activeBayarId) {
     alert('ID Tagihan iuran tidak ditemukan!');
     return;
   }
-  let fileInp = document.getElementById('iuran-bukti-file');
+  let fileInp = document.getElementById('file-bukti-iuran') || document.getElementById('iuran-bukti-file');
   let file = fileInp && fileInp.files ? fileInp.files[0] : null;
   if (!file) {
     alert('Silakan pilih dan upload foto bukti transfer terlebih dahulu!');
     return;
   }
-  let btnSubmit = document.getElementById('btn-kirim-bukti');
+  let btnSubmit = document.getElementById('btn-submit-iuran') || document.getElementById('btn-kirim-bukti');
   if (btnSubmit) {
     btnSubmit.disabled = true;
     btnSubmit.innerText = 'Mengunggah & Mengirim...';
@@ -316,6 +322,7 @@ async function prosesKirimBuktiBayar() {
     }
   }
 }
+window.submitBuktiIuran = submitBuktiIuran;
 async function verifikasiPembayaranRT(id) {
   showUIConfirm('Apakah Anda yakin ingin memverifikasi pembayaran iuran ini menjadi LUNAS?', async function() {
     let nowFormatted = new Date().toLocaleDateString('id-ID', {
