@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SISTEM INFORMASI RT 05</title>
+  <title>SISTEM INFORMASI RT 5</title>
   
   <!-- META TAG KHUSUS PWA MOBILE -->
   <meta name="theme-color" content="#1e3a8a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SI RT 05">
-  <link rel="apple-touch-icon" href="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp">
+  <meta name="apple-mobile-web-app-title" content="RT 5">
+  <link rel="apple-touch-icon" href="./img/logo.webp">
 
   <!-- MANIFEST PWA -->
   <link rel="manifest" href="./manifest.json">
@@ -85,19 +85,19 @@
 
   <!-- LOGIN CONTAINER -->
   <div id="login-container" class="login-box text-center">
-    <img id="login-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
-    <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 05</h3>
+    <img id="login-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
+    <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 5</h3>
     <p id="login-app-subtitle" class="text-muted mb-4"><small>AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</small></p>
     <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga" onkeypress="if(event.key==='Enter') doLogin()"></div>
     <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') doLogin()"></div>
     <button class="btn btn-primary w-100 fw-bold py-2" id="btn-masuk" onclick="doLogin(event)">Masuk</button>
-    <div id="login-msg" class="text-danger mt-3 small"></div>
+    <div id="login-msg" class="text-danger mt-2 small font-bold"></div>
   </div>
 
   <!-- MOBILE HEADER -->
   <div class="mobile-header" id="mob-header">
     <div class="d-flex align-items-center gap-2">
-      <img id="mob-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo" class="rounded-circle app-logo-img" style="width: 32px; height: 32px; object-fit: cover;">
+      <img id="mob-app-logo" src="img/logo.webp" alt="Logo" class="rounded-circle app-logo-img" style="width: 32px; height: 32px; object-fit: cover;">
       <h6><span id="mob-app-title">SISTEM INFORMASI RT 5</span> <br><span id="mob-app-subtitle" style="font-size: 0.6rem; font-weight: 400; opacity: 0.9;">AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN</span></h6>
     </div>
     <div class="d-flex align-items-center gap-2">
@@ -120,12 +120,12 @@
       <!-- Sidebar Menu (Desktop) -->
       <div class="col-md-2 sidebar p-0">
         <div class="text-center mb-3 mt-2 px-3">
-          <img id="sidebar-app-logo" src="https://file.aiquickdraw.com/imgcompressed/img/compressed_517f8d7424520a05c902d8a1c25e1ab6.webp" alt="Logo RT" class="rounded-circle mb-2 shadow app-logo-img" style="width: 55px; height: 55px; object-fit: cover;">
-          <h5 id="sidebar-app-title" class="fw-bold mb-0 border-0 pb-0">Menu RT 05</h5>
+          <img id="sidebar-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
+          <h5 id="sidebar-app-title" class="fw-bold mb-0 border-0 pb-0">SISTEM INFORMASI RT 5</h5>
         </div>
 
         <div class="px-3 mb-2">
-          <button id="btn-install-pwa" onclick="installPWA()" class="btn btn-success btn-sm w-100 font-bold shadow-sm" style="display:none;">
+          <button id="btn-install-pwa" onclick="installPWA()" class="btn btn-success btn-sm w-100 font-bold shadow-sm">
             <i class="bi bi-download me-1"></i> Install Aplikasi RT
           </button>
         </div>

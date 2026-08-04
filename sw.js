@@ -1,10 +1,5 @@
-// ============================================================
-// SERVICE WORKER - SI RT 05 | Cache First Strategy
-// ============================================================
-const CACHE_VERSION = 'rt05-v3';
-const CACHE_NAME = `rt05-shell-${CACHE_VERSION}`;
-
-// File app shell yang di-cache saat install
+const CACHE_VERSION = 'kahfi-v1';
+const CACHE_NAME = `kahfi-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',
   './index.html',
@@ -25,21 +20,14 @@ const APP_SHELL = [
   './js/pindah_masuk.js',
   './js/pindah_keluar.js'
 ];
-
-// URL yang TIDAK di-cache (Supabase API & CDN dinamis)
 const NEVER_CACHE = [
   'supabase.co',
   'cdn.jsdelivr.net',
   'cdn.tailwindcss.com',
-  'aiquickdraw.com',
   'lh3.googleusercontent.com',
   'drive.google.com',
   'wa.me'
 ];
-
-// ============================================================
-// INSTALL: Cache app shell
-// ============================================================
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -51,10 +39,6 @@ self.addEventListener('install', (event) => {
       .then(() => self.skipWaiting())
   );
 });
-
-// ============================================================
-// ACTIVATE: Hapus cache lama
-// ============================================================
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -69,30 +53,19 @@ self.addEventListener('activate', (event) => {
     }).then(() => self.clients.claim())
   );
 });
-
-// ============================================================
-// FETCH: Strategi berdasarkan jenis request
-// ============================================================
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-
-  // Jangan cache request ke Supabase API, CDN eksternal, atau non-GET
   const shouldSkip = NEVER_CACHE.some(domain => url.includes(domain))
     || event.request.method !== 'GET'
     || url.startsWith('chrome-extension://')
     || url.includes('data:');
-
   if (shouldSkip) {
     event.respondWith(fetch(event.request));
     return;
   }
-
-  // CACHE FIRST: Untuk app shell (JS, HTML lokal)
-  // Coba cache dulu, jika tidak ada baru fetch network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Perbarui cache di background (stale-while-revalidate)
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
@@ -104,11 +77,8 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           })
           .catch(() => cachedResponse);
-
         return cachedResponse;
       }
-
-      // Tidak ada di cache, fetch dari network dan simpan
       return fetch(event.request)
         .then((networkResponse) => {
           if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'opaque') {
@@ -121,11 +91,23 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Offline fallback: kembalikan index.html untuk navigasi
           if (event.request.destination === 'document') {
             return caches.match('./index.html');
           }
         });
+    })
+  );
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (let client of clientList) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow('./');
     })
   );
 });
