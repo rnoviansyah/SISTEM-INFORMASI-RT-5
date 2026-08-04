@@ -1,19 +1,15 @@
 let rawKeluargaData = [];
 let profilHeaders = [];
-
 function renderProfilCustom(res) {
   let pribadi = res.pribadi || {};
   let keluarga = res.keluarga || [];
   profilHeaders = res.headers || [];
   rawKeluargaData = keluarga;
-
-  // 1. Render Data Pribadi (Left Card)
   let pribadiHtml = '';
   profilHeaders.forEach(h => {
     let labelText = h.replace(/_/g, ' ').toUpperCase();
     let val = pribadi[h] || '-';
     let hLower = h.toLowerCase().trim();
-
     if (hLower.includes('foto') || hLower.includes('bukti')) {
       pribadiHtml += `
         <div class="border-b pb-2">
@@ -28,13 +24,9 @@ function renderProfilCustom(res) {
         </div>`;
     }
   });
-
-  // 2. Filter Header untuk Tabel Keluarga
   let displayHeaders = profilHeaders.filter(h => !['no_kk', 'alamat'].includes(h.toLowerCase().trim()));
-  
   let html = `
     <div class="p-1 text-gray-800 font-sans space-y-4">
-      
       <!-- HEADER & TOMBOL KEMBALI -->
       <div class="flex justify-between items-center mb-2">
         <h2 class="font-bold text-base text-gray-800"><i class="bi bi-person-vcard-fill me-2 text-primary"></i>Profil Saya & Keluarga</h2>
@@ -42,9 +34,7 @@ function renderProfilCustom(res) {
           <i class="bi bi-arrow-left"></i> Dashboard
         </button>
       </div>
-
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-        
         <!-- CARD DATA PRIBADI -->
         <div class="md:col-span-5 bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
           <h3 class="font-bold text-xs text-blue-600 uppercase tracking-wide border-b pb-2"><i class="bi bi-person-badge me-1"></i> Data Pribadi Anda</h3>
@@ -52,14 +42,12 @@ function renderProfilCustom(res) {
             ${pribadiHtml}
           </div>
         </div>
-
         <!-- CARD ANGGOTA KELUARGA -->
         <div class="md:col-span-7 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
           <div class="flex justify-between items-center mb-3 border-b pb-2">
             <h3 class="font-bold text-xs text-emerald-600 uppercase tracking-wide"><i class="bi bi-houses-fill me-1"></i> Anggota Keluarga (1 KK)</h3>
             <span class="bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-full text-[10px] font-bold">${keluarga.length} Orang</span>
           </div>
-
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
@@ -70,7 +58,6 @@ function renderProfilCustom(res) {
               </thead>
               <tbody id="keluarga-table-body">
   `;
-
   if (keluarga.length === 0) {
     html += `<tr><td colspan="${displayHeaders.length + 1}" class="text-center p-4 text-gray-400">Tidak ada anggota keluarga lain dengan No KK yang sama.</td></tr>`;
   } else {
@@ -78,7 +65,6 @@ function renderProfilCustom(res) {
       let memberId = member.id || member.nik || i;
       html += `<tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailKeluarga('${memberId}')">`;
       html += `<td class="p-3 text-center text-gray-400">${i + 1}</td>`;
-      
       displayHeaders.forEach(h => {
         let val = member[h] || '-';
         if (h.toLowerCase().includes('foto') || h.toLowerCase().includes('bukti')) {
@@ -87,25 +73,20 @@ function renderProfilCustom(res) {
           html += `<td class="p-3 font-medium text-gray-800 text-nowrap">${val}</td>`;
         }
       });
-
       html += `</tr>`;
     });
   }
-
   html += `
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
     </div>
-
     <!-- MODAL DETAIL ANGGOTA KELUARGA -->
     <div id="modal-detail-keluarga" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
         <button onclick="tutupDetailKeluarga()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
-        
         <div class="mb-3 border-b pb-2 pe-6">
           <h3 class="font-bold text-gray-800 text-sm">Rincian Anggota Keluarga</h3>
         </div>
@@ -114,22 +95,17 @@ function renderProfilCustom(res) {
       </div>
     </div>
   `;
-
   document.getElementById('main-content').innerHTML = html;
 }
-
 function showDetailKeluarga(identifier) {
   if (!rawKeluargaData) return;
   let member = rawKeluargaData.find(m => (m.id == identifier || m.nik == identifier));
   if (!member) return;
-
   let detailHtml = '';
   let fotoUrl = '';
-
   profilHeaders.forEach(h => {
     let val = member[h] || '-';
     let hLower = h.toLowerCase().trim();
-
     if (hLower.includes('foto') || hLower.includes('bukti')) {
       if (val && val !== '-' && val !== '***Rahasia***') {
         fotoUrl = val;
@@ -142,7 +118,6 @@ function showDetailKeluarga(identifier) {
         </div>`;
     }
   });
-
   if (fotoUrl) {
     detailHtml += `
       <div class="mt-2">
@@ -150,28 +125,21 @@ function showDetailKeluarga(identifier) {
         <img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm">
       </div>`;
   }
-
   document.getElementById('modal-detail-keluarga-body').innerHTML = detailHtml;
   document.getElementById('modal-detail-keluarga').classList.remove('hidden');
 }
-
 function tutupDetailKeluarga() {
   document.getElementById('modal-detail-keluarga').classList.add('hidden');
 }
-
 async function loadProfilView() {
   const res = await callGASGet('getProfileData', { nik: session.nik });
   if (!res) return;
-
   if (res.status === 'error') {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger text-center my-3">${res.message}</div>`;
     return;
   }
-
   renderProfilCustom(res);
 }
-
-// HOOK UNTUK SYSTEM NAVIGATION
 const originalLoadMenuProfil = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Profil') {
@@ -181,7 +149,6 @@ window.loadMenu = async function(menu) {
     if (titleEl) titleEl.innerText = 'Profil Saya';
     document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data profil & keluarga...</small></div>';
     if (document.getElementById('rek-info')) document.getElementById('rek-info').style.display = 'none';
-
     await loadProfilView();
   } else {
     if (typeof originalLoadMenuProfil === 'function') originalLoadMenuProfil(menu);

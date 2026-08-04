@@ -1,8 +1,6 @@
-const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri RT 05. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
-
+const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri SISTEM INFORMASI RT 5. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
 let infoWargaTimer = null;
-let dashboardCache = null; // Memory cache agar perpindahan menu instan
-
+let dashboardCache = null;
 function linkify(text) {
   if (!text) return '';
   let urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -10,7 +8,6 @@ function linkify(text) {
     return `<a href="${url}" target="_blank" class="text-blue-600 underline fw-bold" style="color: #2563eb; text-decoration: underline;" onclick="event.stopPropagation();">${url}</a>`;
   });
 }
-
 async function muatInfoWargaRealtime() {
   const teks = await callGASGet('getInfoWarga');
   let el = document.getElementById('infoWargaTextDisplay');
@@ -21,25 +18,20 @@ async function muatInfoWargaRealtime() {
     el.innerHTML = linkify(finalText);
   }
 }
-
 async function simpanInfoWarga() {
   let textarea = document.getElementById('editInfoTextarea');
   let textBaru = textarea ? textarea.value : '';
-  
   if (textBaru) {
     let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
     if (btnSimpan) {
       btnSimpan.innerText = 'Menyimpan...';
       btnSimpan.disabled = true;
     }
-
     const res = await callGASPost('simpanInfoWarga', { teksBaru: textBaru });
-
     if (btnSimpan) {
       btnSimpan.innerText = 'Simpan Perubahan';
       btnSimpan.disabled = false;
     }
-    
     if (res && res.status === 'success') {
       alert('Informasi Warga berhasil diperbarui!');
       let modalEl = document.getElementById('modalEditInfo');
@@ -47,74 +39,55 @@ async function simpanInfoWarga() {
         let modalInstance = bootstrap.Modal.getInstance(modalEl);
         if (modalInstance) modalInstance.hide();
       }
-      
-      // Cleanup backdrop sisa agar layar tidak freeze
       setTimeout(() => {
         document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
       }, 300);
-
       muatInfoWargaRealtime();
     } else {
       alert('Gagal menyimpan: ' + (res ? res.message : 'Respon kosong'));
     }
   }
 }
-
 async function bukaModalEditInfo() {
   let modalEl = document.getElementById('modalEditInfo');
   if (!modalEl) return;
-
-  // Pindahkan elemen modal ke body agar tidak terhalang z-index/stacking context dari #main-content
   if (modalEl.parentElement !== document.body) {
     document.body.appendChild(modalEl);
   }
-
-  // Bersihkan sisa backdrop yang bikin freeze/layar hitam
   document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
   document.body.classList.remove('modal-open');
   document.body.style.overflow = '';
   document.body.style.paddingRight = '';
-
   let textarea = document.getElementById('editInfoTextarea');
   if (textarea) textarea.value = "Memuat data dari database...";
-  
   let modalInstance = bootstrap.Modal.getInstance(modalEl);
   if (modalInstance) {
     modalInstance.dispose();
   }
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
-
   const teks = await callGASGet('getInfoWarga');
   let rawText = (typeof teks === 'string') ? teks : (teks && teks.data ? teks.data : '');
   if (textarea) {
     textarea.value = (rawText && rawText.trim() !== '') ? rawText : defaultInfoText;
   }
 }
-
 async function loadDashboardView() {
   currentActiveMenu = 'Dashboard';
   if (typeof syncActiveNav === 'function') syncActiveNav('Dashboard');
-  
   let titleEl = document.getElementById('page-title');
   if (titleEl) titleEl.innerText = 'Dashboard Utama';
   if (document.getElementById('rek-info')) document.getElementById('rek-info').style.display = 'none';
-
-  // Hapus modal duplikat jika ada di document.body dari render sebelumnya
   let oldModal = document.getElementById('modalEditInfo');
   if (oldModal) oldModal.remove();
-
-  // 1. TAMPILKAN INSTAN JIKA ADA CACHE MEMORI
   if (dashboardCache) {
     renderDashboardLayout(dashboardCache);
-    fetchFreshDashboardData(); // Refresh diam-diam di background
+    fetchFreshDashboardData();
     return;
   }
-
-  // 2. TAMPILKAN SKELETON LOADING BILA PERTAMA KALI BUKA (0 ms Delay Sensation)
   document.getElementById('main-content').innerHTML = `
     <div class="p-2 space-y-4">
       <div class="animate-pulse bg-blue-100/60 h-24 rounded-2xl w-full mb-3"></div>
@@ -126,10 +99,8 @@ async function loadDashboardView() {
       </div>
     </div>
   `;
-
   await fetchFreshDashboardData();
 }
-
 async function fetchFreshDashboardData() {
   const res = await callGASGet('getDashboardSummary');
   if (res && res.status === 'success') {
@@ -137,10 +108,8 @@ async function fetchFreshDashboardData() {
     renderDashboardLayout(res);
   }
 }
-
 function renderDashboardLayout(res) {
   let htmlLayout = '';
-  
   if (res.role === 'RT') {
     htmlLayout = `
       <div class="row text-center d-none d-md-flex g-4 mb-4">
@@ -148,7 +117,6 @@ function renderDashboardLayout(res) {
         <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Aduan Masuk</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
         <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-cash-stack text-success me-2"></i>Data Transaksi</h5><h2 class="fw-bold text-success mt-2">${res.keuangan || 0} Laporan</h2></div></div>
       </div>
-
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
           <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
@@ -181,7 +149,6 @@ function renderDashboardLayout(res) {
         <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-file-earmark-text-fill text-primary me-2"></i>Surat Saya</h5><h2 class="fw-bold text-primary mt-2">${res.surat || 0} Pengajuan</h2></div></div>
         <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-gift-fill text-success me-2"></i>Sumbangan Saya</h5><h2 class="fw-bold text-success mt-2">${res.sumbangan || 0} Data</h2></div></div>
       </div>
-
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
           <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
@@ -203,11 +170,9 @@ function renderDashboardLayout(res) {
       </div>
     `;
   }
-
   let btnEditAdmin = res.role === 'RT' 
     ? `<button class="btn btn-warning btn-sm fw-bold me-2" onclick="bukaModalEditInfo()"><i class="bi bi-pencil-square me-1"></i> Edit Info Warga</button>` 
     : '';
-
   htmlLayout += `
     <div class="card card-custom mt-2">
       <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-2">
@@ -219,7 +184,6 @@ function renderDashboardLayout(res) {
       </div>
       <p id="infoWargaTextDisplay" class="text-muted small mb-0"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</p>
     </div>
-
     <!-- Modal Edit Informasi Khusus RT Admin -->
     <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
@@ -242,11 +206,8 @@ function renderDashboardLayout(res) {
       </div>
     </div>
   `;
-  
   document.getElementById('main-content').innerHTML = htmlLayout;
-
   muatInfoWargaRealtime();
-
   if (infoWargaTimer) clearInterval(infoWargaTimer);
   infoWargaTimer = setInterval(muatInfoWargaRealtime, 10000);
 }
