@@ -1518,9 +1518,8 @@ async function generateFormInputs(rowData) {
     ? currentHeaders 
     : (FALLBACK_HEADERS[currentActiveMenu] || FALLBACK_HEADERS['Warga']);
   for (let idx = 0; idx < headersToUse.length; idx++) {
-    let h = headersToUse[idx];
-    if (['id','no','saldo'].includes(h.toLowerCase())) continue;
     let nameLower = h.toLowerCase().trim();
+    if (['id','no','saldo','ttd_pemohon','tanda_tangan'].includes(nameLower)) continue;
     let labelText = h.replace(/_/g, ' ').toUpperCase();
     let val = "";
     if (rowData) {
