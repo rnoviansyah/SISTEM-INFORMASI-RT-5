@@ -105,7 +105,9 @@ function cetakPDFSuratPengantar(id) {
   let jenisIdx = headers.findIndex(h => h.includes('jenis') || h.includes('perihal') || h.includes('keperluan') || h.includes('surat'));
   let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
   let rtIdx = headers.findIndex(h => h.includes('rt'));
-  let ketIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('ket') || h.includes('admin'));
+  let ketIdx = headers.indexOf('keterangan');
+  if (ketIdx === -1) ketIdx = headers.findIndex(h => h.includes('keterangan') && !h.includes('admin'));
+  if (ketIdx === -1) ketIdx = headers.findIndex(h => h.includes('catatan') || h.includes('ket'));
 
   let statusIdx = headers.findIndex(h => h === 'status' || h.includes('status'));
   let statusSurat = statusIdx > -1 ? (row[statusIdx] || '') : '';
@@ -117,7 +119,13 @@ function cetakPDFSuratPengantar(id) {
   let jenisSurat = jenisIdx > -1 ? (row[jenisIdx] || 'Surat Pengantar') : 'Surat Pengantar';
   let tanggalSurat = tglIdx > -1 ? (row[tglIdx] || '-') : '-';
   let rtWarga = rtIdx > -1 ? (row[rtIdx] || '05') : '05';
-  let keterangan = ketIdx > -1 ? (row[ketIdx] || '-') : '-';
+  
+  let keterangan = '-';
+  if (Array.isArray(row)) {
+    keterangan = ketIdx > -1 ? (row[ketIdx] || '-') : '-';
+  } else if (typeof row === 'object') {
+    keterangan = row.keterangan || row.Keterangan || row.KETERANGAN || (ketIdx > -1 ? row[headers[ketIdx]] : '-');
+  }
 
   let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT 5';
   let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';

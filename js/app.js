@@ -1576,7 +1576,15 @@ async function generateFormInputs(rowData) {
         try { existingObj = JSON.parse(rawJenisStr.split('|').slice(1).join('|')); } catch(e) {}
       }
       if (Object.keys(existingObj).length === 0) {
-        let ketVal = (typeof cariNilaiKolom === 'function') ? cariNilaiKolom(rowData, ['keterangan', 'catatan', 'ket', 'keperluan']) : '';
+        let ketVal = '';
+        if (Array.isArray(rowData)) {
+          let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
+          let kIdx = headers.indexOf('keterangan');
+          if (kIdx === -1) kIdx = headers.findIndex(h => h.includes('keterangan') && !h.includes('admin'));
+          if (kIdx > -1) ketVal = rowData[kIdx];
+        } else if (typeof rowData === 'object') {
+          ketVal = rowData.keterangan || rowData.Keterangan || rowData.KETERANGAN || '';
+        }
         if (ketVal && ketVal !== '{' && ketVal !== 'null') {
           let trimmed = String(ketVal).trim();
           if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
