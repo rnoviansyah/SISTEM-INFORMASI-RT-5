@@ -75,34 +75,6 @@ function showUIConfirm(text, onConfirm, title = "Konfirmasi Tindakan") {
   });
   bsModal.show();
 }
-
-const viewTemplateCache = {};
-async function loadViewTemplate(viewName, fallbackHtml = '') {
-  const container = document.getElementById('main-content');
-  if (!container) return false;
-  if (viewTemplateCache[viewName]) {
-    container.innerHTML = viewTemplateCache[viewName];
-    return true;
-  }
-  try {
-    const res = await fetch(`./views/${viewName}.html?v=` + Date.now());
-    if (res.ok) {
-      const html = await res.text();
-      viewTemplateCache[viewName] = html;
-      container.innerHTML = html;
-      return true;
-    }
-  } catch (err) {
-    console.warn(`[ViewLoader] views/${viewName}.html fetch skipped:`, err);
-  }
-  if (fallbackHtml) {
-    viewTemplateCache[viewName] = fallbackHtml;
-    container.innerHTML = fallbackHtml;
-    return true;
-  }
-  return false;
-}
-window.loadViewTemplate = loadViewTemplate;
 window.showUIConfirm = showUIConfirm;
 window.showUIToast = showUIToast;
 let _rawSession = { token: '', role: '', nik: '', nama: '', alamat: '', noHp: '' };
@@ -1335,22 +1307,13 @@ async function loadMenu(menu) {
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
   switch(menu) {
-    case 'Dashboard':      if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
-    case 'Profil':         if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
-    case 'Warga':          if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
-    case 'Keuangan':       if (typeof loadKeuanganView     === 'function') { loadKeuanganView();     return; } break;
-    case 'Iuran':          if (typeof loadIuranView        === 'function') { loadIuranView();        return; } break;
-    case 'Pengaduan':      if (typeof loadPengaduanView    === 'function') { loadPengaduanView();    return; } break;
-    case 'Surat':
-    case 'SuratPengantar': if (typeof loadSuratView        === 'function') { loadSuratView();        return; } break;
-    case 'Sumbangan':      if (typeof loadSumbanganView    === 'function') { loadSumbanganView();    return; } break;
-    case 'Aset':
-    case 'Inventaris':     if (typeof loadAsetView         === 'function') { loadAsetView();         return; } break;
-    case 'Aspirasi':       if (typeof loadAspirasiView     === 'function') { loadAspirasiView();     return; } break;
-    case 'Kelahiran':      if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
-    case 'Kematian':       if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
-    case 'PindahMasuk':    if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
-    case 'PindahKeluar':   if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
+    case 'Dashboard':    if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
+    case 'Profil':       if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
+    case 'Warga':        if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
+    case 'Kelahiran':    if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
+    case 'Kematian':     if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
+    case 'PindahMasuk':  if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
+    case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
     case 'Pengaturan':
     case 'PengaturanRT':
       if (String(session.role || '').toUpperCase() === 'RT') {
@@ -1389,16 +1352,6 @@ async function loadMenu(menu) {
   }
 }
 function renderTable(data, menu) {
-  if (menu === 'Keuangan' && typeof renderKeuanganCustom === 'function') return renderKeuanganCustom(data);
-  if (menu === 'Iuran' && typeof renderIuranCustom === 'function') return renderIuranCustom(data);
-  if ((menu === 'Aset' || menu === 'Inventaris') && typeof renderAsetCustom === 'function') return renderAsetCustom(data);
-  if (menu === 'Aspirasi' && typeof renderAspirasiView === 'function') return renderAspirasiView(data);
-  if (menu === 'Pengaduan' && typeof renderPengaduanCustom === 'function') return renderPengaduanCustom(data);
-  if ((menu === 'Surat' || menu === 'SuratPengantar') && typeof renderSuratPengantarCustom === 'function') return renderSuratPengantarCustom(data);
-  if (menu === 'Sumbangan' && typeof renderSumbanganCustom === 'function') return renderSumbanganCustom(data);
-  if (menu === 'Warga' && typeof renderWargaCustom === 'function') return renderWargaCustom(data);
-  if (menu === 'Kelahiran' && typeof renderKelahiranCustom === 'function') return renderKelahiranCustom(data);
-
   let html = '';
   let bolehTambah = session.role === 'RT' || (session.role === 'Warga' && ['Pengaduan','SuratPengantar','Sumbangan','Aset','Peminjaman','Aspirasi'].includes(menu));
   if (bolehTambah) {
@@ -1809,7 +1762,7 @@ function filterTable() {
 let appSettings = {
   app_title: 'SISTEM INFORMASI RT 5',
   app_short_name: 'RT 5',
-  app_subtitle: 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien',
+  app_subtitle: 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN',
   app_logo: './img/logo.webp',
   app_theme: 'blue',
   app_theme_color: '#1e3a8a',
@@ -1842,7 +1795,7 @@ function updateDynamicManifest() {
     let manifestData = {
       name: appSettings.app_title || 'SISTEM INFORMASI RT 5',
       short_name: appSettings.app_short_name || 'RT 5',
-      description: (appSettings.app_subtitle || 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien'),
+      description: (appSettings.app_subtitle || 'AMAN, BERSIH, MODERN, TRANSPARAN DAN EFISIEN'),
       start_url: absStartUrl,
       scope: absScope,
       display: 'standalone',
@@ -2037,11 +1990,6 @@ async function simpanIdentitasDanTema(e) {
   let theme = document.getElementById('set-app-theme').value;
   let themeColor = document.getElementById('set-app-theme-color') ? document.getElementById('set-app-theme-color').value : '#1e3a8a';
   let waNumber = document.getElementById('set-rt-wa-number') ? document.getElementById('set-rt-wa-number').value.trim() : '';
-  if (waNumber.startsWith('0')) {
-    waNumber = '62' + waNumber.substring(1);
-  } else if (waNumber.startsWith('+62')) {
-    waNumber = waNumber.substring(1);
-  }
   let namaSekretaris = document.getElementById('set-nama-sekretaris') ? document.getElementById('set-nama-sekretaris').value.trim() : '';
   let namaRtKetua = document.getElementById('set-nama-rt-ketua') ? document.getElementById('set-nama-rt-ketua').value.trim() : '';
   let ttdSekretaris = document.getElementById('set-ttd-sekretaris') ? document.getElementById('set-ttd-sekretaris').value.trim() : '';
@@ -2113,9 +2061,9 @@ function handleTtdFileUpload(e, targetType) {
 }
 async function simpanRekeningDanQRIS(e) {
   e.preventDefault();
-  let qrisString = document.getElementById('set-payment-qris-string').value.trim();
-  let qrisName   = document.getElementById('set-payment-qris-name').value.trim();
-  let qrisUrl    = document.getElementById('set-payment-qris').value.trim();
+  let qrisString = document.getElementById('set-payment-qris-string').value;
+  let qrisName   = document.getElementById('set-payment-qris-name').value;
+  let qrisUrl    = document.getElementById('set-payment-qris').value;
   let rekList = [];
   document.querySelectorAll('.row-rek-item').forEach(row => {
     let b = row.querySelector('.inp-rek-bank').value.trim();
