@@ -1,3 +1,6 @@
+// ============================================================
+// Developed by Rizky Noviansyah
+// ============================================================
 function showUIToast(message, type = 'auto') {
   if (!message) return;
   let strMsg = String(message).trim();

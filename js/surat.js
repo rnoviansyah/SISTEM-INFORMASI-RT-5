@@ -1,3 +1,6 @@
+// ============================================================
+// Developed by Rizky Noviansyah
+// ============================================================
 let rawSuratData = [];
 let selectedSuratRow = null;
 function renderSuratPengantarCustom(data) {

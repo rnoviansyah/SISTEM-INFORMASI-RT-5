@@ -1,3 +1,6 @@
+// ============================================================
+// Developed by Rizky Noviansyah
+// ============================================================
 const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri SISTEM INFORMASI RT 5. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
 let infoWargaTimer = null;
 let dashboardCache = null;

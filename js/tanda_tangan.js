@@ -1,5 +1,6 @@
 // ============================================================
 // TANDA TANGAN PEMOHON - Inline Canvas Module
+// Developed by Rizky Noviansyah
 // Untuk Menu Surat Pengantar RT
 // ============================================================
 

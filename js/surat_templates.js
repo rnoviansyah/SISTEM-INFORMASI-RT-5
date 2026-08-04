@@ -1,5 +1,6 @@
 // ============================================================
 // SURAT TEMPLATES - Template PDF per Jenis Surat RT 05
+// Developed by Rizky Noviansyah
 // ============================================================
 const JENIS_SURAT_LIST = [
   { value: 'Surat Pengantar Umum',             kode: 'SP',         label: 'Surat Pengantar Umum' },
