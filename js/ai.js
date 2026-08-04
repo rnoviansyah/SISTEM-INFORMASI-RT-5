@@ -482,8 +482,51 @@ Gaya Bahasa:
 
   let lastError = null;
 
-  // 1. Coba Endpoint Resmi Google Gemini API (Jika user menginput API Key valid)
-  if (apiKey) {
+  // 1. OPENROUTER API PROVIDER (Jika Key diawali sk-or-v1-)
+  if (apiKey && apiKey.startsWith('sk-or-v1-')) {
+    const openRouterModels = [
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemma-2-9b-it:free',
+      'deepseek/deepseek-r1:free',
+      'mistralai/mistral-7b-instruct:free'
+    ];
+    for (let model of openRouterModels) {
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': window.location.href,
+            'X-Title': titleApp
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemContext },
+              { role: 'user', content: promptUser }
+            ],
+            temperature: 0.7
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.choices && data.choices.length > 0 && data.choices[0].message?.content) {
+            return data.choices[0].message.content;
+          }
+        } else {
+          const errJson = await response.json().catch(() => ({}));
+          lastError = errJson?.error?.message || `OpenRouter HTTP ${response.status}`;
+        }
+      } catch (e) {
+        lastError = e.message;
+      }
+    }
+  }
+
+  // 2. GOOGLE GEMINI API PROVIDER (Jika Key diawali AIzaSy atau format Google)
+  if (apiKey && !apiKey.startsWith('sk-or-v1-')) {
     for (let url of endpoints) {
       try {
         const response = await fetch(url, {
