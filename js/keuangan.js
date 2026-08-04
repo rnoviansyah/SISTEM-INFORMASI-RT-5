@@ -311,6 +311,11 @@ function cetakLaporanKeuanganPDF() {
     </tr>`;
   }).join('');
 
+  let isRT = (typeof session !== 'undefined' && session.role === 'RT');
+  let ttdSekretaris = (isRT && typeof appSettings !== 'undefined' && appSettings.ttd_sekretaris) ? appSettings.ttd_sekretaris : '';
+  let ttdKetuaRt    = (isRT && typeof appSettings !== 'undefined' && appSettings.ttd_ketua_rt)    ? appSettings.ttd_ketua_rt    : '';
+  let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT 05';
+  let namaKetuaRt    = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua)    ? appSettings.nama_rt_ketua    : 'Ketua RT 05';
   let totalSaldo = totalMasuk - totalKeluar;
   let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT 5';
   let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';
@@ -409,14 +414,14 @@ function cetakLaporanKeuanganPDF() {
   </table>
   <div class="ttd-section">
     <div class="ttd-box">
-      <p>Dibuat oleh,<br><b>Sekretaris RT 05</b></p>
-      <div class="ttd-line"></div>
-      <p class="ttd-name">( ................................ )</p>
+      <p>Dibuat oleh,<br><b>${namaSekretaris}</b></p>
+      ${ttdSekretaris ? `<img src="${ttdSekretaris}" style="max-height:70px; max-width:160px; object-fit:contain; display:block; margin:10px auto 0;">` : '<div class="ttd-line"></div>'}
+      <p class="ttd-name">( ${isRT ? namaSekretaris : '................................'} )</p>
     </div>
     <div class="ttd-box">
-      <p>Diketahui oleh,<br><b>Ketua RT 05</b></p>
-      <div class="ttd-line"></div>
-      <p class="ttd-name">( ................................ )</p>
+      <p>Diketahui oleh,<br><b>${namaKetuaRt}</b></p>
+      ${ttdKetuaRt ? `<img src="${ttdKetuaRt}" style="max-height:70px; max-width:160px; object-fit:contain; display:block; margin:10px auto 0;">` : '<div class="ttd-line"></div>'}
+      <p class="ttd-name">( ${isRT ? namaKetuaRt : '................................'} )</p>
     </div>
   </div>
   <div class="footer-note">Laporan ini dicetak secara otomatis oleh ${titleApp} pada ${todayStr}. Dokumen ini sah tanpa tanda tangan basah apabila dicetak dari sistem.</div>
