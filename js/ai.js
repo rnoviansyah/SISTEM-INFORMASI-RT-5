@@ -2,7 +2,7 @@
    ASISTEN AI RT 5 (POWERED BY GOOGLE GEMINI AI)
    ========================================================= */
 
-let geminiApiKeyDefault = 'AQ.Ab8RN6KcMDqKhTyZxUnQ2v10IaqcNqTkGvBpf8yk0qkSIVLzAg';
+let geminiApiKeyDefault = 'AQ.Ab8RN6KcMDqKhTyZxUnQ2v10IaqcNqTkGvBpf8yk0qkSlVLzAg';
 
 function getGeminiApiKey() {
   if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
