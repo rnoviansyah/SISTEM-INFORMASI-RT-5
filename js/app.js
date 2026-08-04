@@ -1496,6 +1496,22 @@ async function generateFormInputs(rowData) {
         <option value="JALANAN" ${val.toUpperCase()==='JALANAN'?'selected':''}>JALANAN</option>
         <option value="LAINNYA" ${val.toUpperCase()==='LAINNYA'?'selected':''}>LAINNYA</option>
       </select>`;
+    } else if (currentActiveMenu === 'SuratPengantar' && (nameLower.includes('jenis') || nameLower.includes('perihal') || nameLower.includes('keperluan'))) {
+      let optList = (typeof JENIS_SURAT_LIST !== 'undefined') ? JENIS_SURAT_LIST : [
+        { value: 'Surat Pengantar Umum', label: 'Surat Pengantar Umum' },
+        { value: 'Pengantar SKCK', label: 'Pengantar SKCK' },
+        { value: 'Surat Keterangan Tidak Mampu', label: 'Surat Keterangan Tidak Mampu (SKTM)' },
+        { value: 'Surat Keterangan Domisili Usaha', label: 'Surat Keterangan Domisili Usaha (SKDU)' },
+        { value: 'Surat Keterangan Pindah', label: 'Surat Keterangan Pindah Domisili' },
+        { value: 'Pengantar Nikah', label: 'Surat Pengantar Nikah' },
+        { value: 'Surat Keterangan Ahli Waris', label: 'Surat Keterangan Ahli Waris' },
+        { value: 'Surat Izin Keramaian', label: 'Surat Izin Keramaian/Acara' }
+      ];
+      let opts = optList.map(o => `<option value="${o.value}" ${val.toLowerCase().trim()===o.value.toLowerCase().trim()?'selected':''}>${o.label}</option>`).join('');
+      inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
+        <option value="">-- Pilih Jenis Surat Pengantar --</option>
+        ${opts}
+      </select>`;
     } else if (nameLower.includes('tanggal')) {
       inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${val}">`;
     } else if (nameLower === 'jenis_kelamin') {

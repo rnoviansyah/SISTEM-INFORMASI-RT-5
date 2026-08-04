@@ -128,6 +128,26 @@ function cetakPDFSuratPengantar(id) {
   let ttdSekretaris = (isSelesai && typeof appSettings !== 'undefined' && appSettings.ttd_sekretaris) ? appSettings.ttd_sekretaris : '';
   let ttdKetuaRt = (isSelesai && typeof appSettings !== 'undefined' && appSettings.ttd_ketua_rt) ? appSettings.ttd_ketua_rt : '';
 
+  let suratDataPayload = { namaWarga, nikWarga, alamatWarga, keterangan, tanggalSurat };
+  let suratContent = (typeof renderSuratBody === 'function') 
+    ? renderSuratBody(jenisSurat, suratDataPayload)
+    : {
+        judul: 'SURAT PENGANTAR',
+        nomorKode: 'SP',
+        isi: `
+          <p>Yang bertanda tangan di bawah ini Pengurus Rukun Tetangga (RT) 05, menerangkan dengan sebenarnya bahwa:</p>
+          <table class="table-data">
+            <tr><td class="label">Nama Lengkap</td><td width="10">:</td><td><b>${namaWarga}</b></td></tr>
+            <tr><td class="label">NIK</td><td>:</td><td>${nikWarga}</td></tr>
+            <tr><td class="label">Alamat / No. Rumah</td><td>:</td><td>${alamatWarga}</td></tr>
+            <tr><td class="label">Keperluan / Jenis Surat</td><td>:</td><td><b>${jenisSurat}</b></td></tr>
+            <tr><td class="label">Keterangan Tambahan</td><td>:</td><td>${keterangan}</td></tr>
+            <tr><td class="label">Tanggal Pengajuan</td><td>:</td><td>${tanggalSurat}</td></tr>
+          </table>
+          <p>Demikian Surat Pengantar ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
+        `
+      };
+
   let todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
   let printWindow = window.open('', '_blank', 'width=800,height=900');
@@ -136,7 +156,7 @@ function cetakPDFSuratPengantar(id) {
     <html lang="id">
     <head>
       <meta charset="UTF-8">
-      <title>Surat Pengantar - ${namaWarga}</title>
+      <title>${suratContent.judul} - ${namaWarga}</title>
       <style>
         @page { size: A4; margin: 20mm; }
         body { font-family: 'Times New Roman', Times, serif; color: #000; background: #fff; margin: 0; padding: 20px; font-size: 12pt; line-height: 1.5; }
@@ -152,11 +172,11 @@ function cetakPDFSuratPengantar(id) {
         .surat-title p { margin: 3px 0 0 0; font-size: 11pt; }
         
         .content { margin-bottom: 30px; text-align: justify; }
-        .table-data { width: 100%; margin: 15px 0 20px 20px; border-collapse: collapse; }
+        .table-data { width: 100%; margin: 12px 0 15px 15px; border-collapse: collapse; }
         .table-data td { padding: 4px 8px; vertical-align: top; font-size: 11pt; }
         .table-data td.label { width: 180px; }
         
-        .ttd-section { width: 100%; margin-top: 50px; border-collapse: collapse; page-break-inside: avoid; }
+        .ttd-section { width: 100%; margin-top: 40px; border-collapse: collapse; page-break-inside: avoid; }
         .ttd-section td { width: 50%; text-align: center; vertical-align: top; padding: 0 10px; font-size: 11pt; }
         .ttd-space { height: 75px; display: flex; align-items: center; justify-content: center; }
         .ttd-nama { font-weight: bold; text-decoration: underline; }
@@ -182,47 +202,12 @@ function cetakPDFSuratPengantar(id) {
       </div>
 
       <div class="surat-title">
-        <h4>SURAT PENGANTAR</h4>
-        <p>Nomor: ${id} / SP / RT.05 / ${new Date().getFullYear()}</p>
+        <h4>${suratContent.judul}</h4>
+        <p>Nomor: ${id} / ${suratContent.nomorKode || 'SP'} / RT.05 / ${new Date().getFullYear()}</p>
       </div>
 
       <div class="content">
-        <p>Yang bertanda tangan di bawah ini Pengurus Rukun Tetangga (RT) 05, menerangkan dengan sebenarnya bahwa:</p>
-
-        <table class="table-data">
-          <tr>
-            <td class="label">Nama Lengkap</td>
-            <td width="10">:</td>
-            <td><b>${namaWarga}</b></td>
-          </tr>
-          <tr>
-            <td class="label">NIK</td>
-            <td>:</td>
-            <td>${nikWarga}</td>
-          </tr>
-          <tr>
-            <td class="label">Alamat / No. Rumah</td>
-            <td>:</td>
-            <td>${alamatWarga}</td>
-          </tr>
-          <tr>
-            <td class="label">Keperluan / Jenis Surat</td>
-            <td>:</td>
-            <td><b>${jenisSurat}</b></td>
-          </tr>
-          <tr>
-            <td class="label">Keterangan Tambahan</td>
-            <td>:</td>
-            <td>${keterangan}</td>
-          </tr>
-          <tr>
-            <td class="label">Tanggal Pengajuan</td>
-            <td>:</td>
-            <td>${tanggalSurat}</td>
-          </tr>
-        </table>
-
-        <p>Demikian Surat Pengantar ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
+        ${suratContent.isi}
       </div>
 
       ${!isSelesai ? `<div style="text-align:center; margin: 20px 0; padding: 10px; border: 2px dashed #f59e0b; border-radius: 8px; background: #fffbeb;">
