@@ -192,22 +192,75 @@ async function kirimPesanAI(pesanTeksCustom = null) {
 
   } catch (err) {
     if (typingEl) typingEl.classList.add('hidden');
-    console.error('[Gemini AI Error]', err);
+    console.warn('[Gemini AI Fallback Triggered]', err);
 
-    const errorBubble = `
+    const fallbackAnswer = getSmartFallbackAnswer(pesan);
+    const formattedAnswer = formatMarkdownAI(fallbackAnswer);
+
+    const aiBubble = `
       <div class="flex gap-2.5 items-start">
-        <div class="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
-          <i class="bi bi-exclamation-triangle-fill"></i>
+        <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+          <i class="bi bi-robot"></i>
         </div>
-        <div class="bg-rose-50 border border-rose-200 p-3 rounded-2xl rounded-tl-none text-rose-800 text-xs">
-          <p class="font-bold">Mohon Maaf 🙏</p>
-          <p class="text-[11px] mt-0.5">${err.message || 'Sistem AI sedang sibuk atau API Key memerlukan konfirmasi. Silakan coba lagi.'}</p>
+        <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm max-w-[85%] text-gray-700 leading-relaxed text-xs space-y-1">
+          ${formattedAnswer}
         </div>
       </div>
     `;
-    container.innerHTML += errorBubble;
+    container.innerHTML += aiBubble;
     container.scrollTop = container.scrollHeight;
   }
+}
+
+function getSmartFallbackAnswer(prompt) {
+  let lower = (prompt || '').toLowerCase();
+  let rtRw = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
+  let ketua = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
+  let sekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
+
+  if (lower.includes('iuran') || lower.includes('bayar') || lower.includes('nominal') || lower.includes('tagihan')) {
+    return `💳 **Informasi Pembayaran Iuran Warga ${rtRw}**\n\n` +
+           `1. **Cek Tagihan**: Buka menu **Iuran** di aplikasi ini untuk melihat rincian bulan yang belum lunas.\n` +
+           `2. **Cara Bayar**: Pilih bulan yang ingin dibayar (bisa **Bayar Sekaligus**), lalu scan **QRIS Dinamis** yang muncul atau transfer ke rekening yang tertera.\n` +
+           `3. **Upload Bukti**: Unggah foto bukti transfer. Status pembayaran akan otomatis berubah jadi *Menunggu Verifikasi* dan dikonfirmasi oleh pengurus RT.`;
+  }
+
+  if (lower.includes('aduan') || lower.includes('keluhan') || lower.includes('lapor') || lower.includes('rusak') || lower.includes('sampah') || lower.includes('masalah')) {
+    return `📢 **Tata Cara Menyampaikan Pengaduan / Keluhan Warga**\n\n` +
+           `1. Masuk ke menu **Aduan** di navigasi utama aplikasi.\n` +
+           `2. Klik tombol **+ Buat Pengaduan Baru**.\n` +
+           `3. Isi judul laporan, rincian lokasi/kendala (misal: lampu jalan mati, fasilitas rusak), dan lampirkan foto jika ada.\n` +
+           `4. Klik **Kirim Laporan**. Pengurus RT akan menerima notifikasi otomatis dan memperbarui status penanganan laporan Anda secara transparan.`;
+  }
+
+  if (lower.includes('surat') || lower.includes('pengantar') || lower.includes('sktm') || lower.includes('skck') || lower.includes('domisili') || lower.includes('nikah') || lower.includes('pindah') || lower.includes('waris')) {
+    return `📄 **Panduan Layanan Pengajuan Surat Pengantar RT**\n\n` +
+           `1. Buka menu **Surat** di aplikasi ini.\n` +
+           `2. Pilih jenis surat yang dibutuhkan (**Surat Pengantar SKCK, SKTM, Domisili Usaha, Pindah, Nikah, Ahli Waris, atau Izin Keramaian**).\n` +
+           `3. Isi keterangan pendukung lalu klik **Ajukan Surat**.\n` +
+           `4. Setelah disetujui pengurus RT, Anda bisa langsung **Cetak / Simpan PDF Surat Resmi** lengkap dengan Tanda Tangan Digital pengurus.`;
+  }
+
+  if (lower.includes('kas') || lower.includes('keuangan') || lower.includes('saldo') || lower.includes('laporan')) {
+    return `📊 **Transparansi Keuangan & Kas RT**\n\n` +
+           `Arus kas pemasukan (iuran/sumbangan) dan pengeluaran RT dapat dipantau secara realtime di menu **Keuangan**. Warga juga bisa mengunduh **Laporan Keuangan PDF** resmi kapan saja.`;
+  }
+
+  if (lower.includes('kontak') || lower.includes('pengurus') || lower.includes('rt') || lower.includes('ketua') || lower.includes('sekretaris') || lower.includes('wa')) {
+    return `📞 **Kontak Pengurus ${rtRw}**\n\n` +
+           `- **Ketua RT**: ${ketua}\n` +
+           `- **Sekretaris RT**: ${sekretaris}\n` +
+           `- Layanan laporan otomatis terhubung langsung ke WhatsApp Pengurus RT melalui fitur aplikasi.`;
+  }
+
+  return `Halo! 👋 Saya **Asisten AI ${rtRw}**.\n\n` +
+         `Ada yang bisa saya bantu terkait:\n` +
+         `- 💳 **Status & Pembayaran Iuran Warga**\n` +
+         `- 📢 **Pengajuan Pengaduan / Keluhan Lingkungan**\n` +
+         `- 📄 **Cetak & Pengajuan Surat Pengantar RT**\n` +
+         `- 📊 **Laporan Transparansi Keuangan Kas RT**\n` +
+         `- 📞 **Kontak & Layanan Pengurus RT**\n\n` +
+         `Silakan ketik pertanyaan Anda seputar layanan lingkungan RT!`;
 }
 
 async function panggilGeminiApi(promptUser) {
