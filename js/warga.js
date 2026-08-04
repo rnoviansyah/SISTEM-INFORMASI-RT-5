@@ -323,11 +323,16 @@ function showDetailWarga(id) {
            <small class="text-[10px] text-gray-400 block mt-1">Belum ada foto yang diunggah</small>`
       }
     </div>`;
-  let detailHtml = imgHtml;
+  let detailHtml = (isSameKk || session.role === 'RT') ? imgHtml : '';
+  let safeFieldsForPublic = ['nama', 'name', 'nama_lengkap', 'alamat', 'address', 'jenis_kelamin', 'gender', 'jk', 'status_tinggal', 'status_huni', 'pekerjaan', 'kerja', 'job'];
   currentHeaders.forEach((h, idx) => {
     let hLower = (h || '').toLowerCase().trim();
-    if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no') return;
+    if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no' || hLower === 'id') return;
     let valDisplay = row[idx] || '-';
+    if (!isSameKk && session.role !== 'RT') {
+      let isSafe = safeFieldsForPublic.some(sf => hLower.includes(sf));
+      if (!isSafe) return;
+    }
     if (!isSameKk && ['no_hp','hp','wa','telp','nomor_hp'].includes(hLower)) {
       valDisplay = (typeof sensorPhoneNumber === 'function') ? sensorPhoneNumber(valDisplay) : '****';
     }
@@ -337,6 +342,12 @@ function showDetailWarga(id) {
         <p class="font-semibold text-gray-800">${valDisplay}</p>
       </div>`;
   });
+  if (!isSameKk && session.role !== 'RT') {
+    detailHtml += `
+      <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+        <p class="text-[10px] text-amber-700 font-bold"><i class="bi bi-shield-lock me-1"></i> Data sensitif (NIK, No KK, Tempat/Tanggal Lahir, Status Nikah, No HP) disembunyikan untuk privasi warga beda KK.</p>
+      </div>`;
+  }
   document.getElementById('modal-detail-warga-body').innerHTML = detailHtml;
   let actionHtml = '';
   if (session.role === 'RT') {
