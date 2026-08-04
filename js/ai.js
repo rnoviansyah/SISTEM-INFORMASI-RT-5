@@ -248,13 +248,20 @@ async function getUserPersonalDataContext(prompt = '') {
   let isRT = isUserAdminRT();
   let info = [];
 
-  // Jika RT Admin nanya NIK/data warga tertentu (misal: "berapa nik rizka?")
+  // Jika Pengurus RT mencari data Warga (misal: "nik rizka")
   if (isRT && prompt) {
     let lowerP = prompt.toLowerCase();
-    try {
-      let wargaList = (typeof rawWargaData !== 'undefined' && Array.isArray(rawWargaData)) ? rawWargaData : [];
-      let searchKey = lowerP.replace(/berapa|nik|no|kk|siapa|data|alamat|nomor/g, '').trim();
-      if (searchKey.length >= 2) {
+    let searchKey = lowerP.replace(/berapa|nik|no|kk|siapa|data|alamat|nomor|apa/g, '').trim();
+    if (searchKey.length >= 2) {
+      try {
+        let wargaList = (typeof rawWargaData !== 'undefined' && Array.isArray(rawWargaData) && rawWargaData.length > 0) ? rawWargaData : [];
+        if (wargaList.length === 0 && typeof callGASGet === 'function') {
+          try {
+            const res = await callGASGet('getTableData', { sheetName: 'Warga' });
+            if (res && res.rows) wargaList = res.rows;
+          } catch(e) {}
+        }
+
         let matched = wargaList.filter(r => JSON.stringify(r).toLowerCase().includes(searchKey));
         if (matched.length > 0) {
           let text = matched.slice(0, 3).map(r => {
@@ -265,9 +272,11 @@ async function getUserPersonalDataContext(prompt = '') {
             return `• **Nama**: ${nama}\n  - NIK: **${nik}**\n  - No KK: ${noKk}\n  - No HP: ${noHp}`;
           }).join('\n\n');
           info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\n${text}`);
+        } else {
+          info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\nData warga dengan nama/kata kunci **"${searchKey}"** tidak ditemukan di database RT.`);
         }
-      }
-    } catch(e) {}
+      } catch(e) {}
+    }
   }
 
   // Aduan
@@ -333,7 +342,7 @@ function getSmartFallbackAnswer(prompt, personalContext = '') {
 
   // Jika RT Admin menanyakan data warga (misal: "nik rizka")
   if (isRT && personalContext && personalContext.includes('Hasil Pencarian Data Warga')) {
-    return `${personalContext}\n\n*Data disajikan khusus untuk Pengurus RT yang sedang aktif.*`;
+    return `${personalContext}\n\n*Data disajikan khusus untuk Pengurus RT.*`;
   }
 
   // PRIVACY SECURITY FILTER FOR WARGA ROLE ONLY
