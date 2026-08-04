@@ -216,20 +216,22 @@ async function kirimPesanAI(pesanTeksCustom = null) {
 
   } catch (err) {
     if (typingEl) typingEl.classList.add('hidden');
-    console.error('[Gemini API Error]', err);
+    console.warn('[Gemini AI Fallback Triggered]', err);
 
-    const errorBubble = `
+    const fallbackAnswer = getSmartFallbackAnswer(pesan, personalContext);
+    const formattedAnswer = formatMarkdownAI(fallbackAnswer);
+
+    const aiBubble = `
       <div class="flex gap-2.5 items-start">
-        <div class="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
-          <i class="bi bi-exclamation-triangle-fill"></i>
+        <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+          <i class="bi bi-robot"></i>
         </div>
-        <div class="bg-rose-50 border border-rose-200 p-3 rounded-2xl rounded-tl-none text-rose-800 text-xs max-w-[85%]">
-          <p class="font-bold">Gagal Menghubungi API Gemini ⚠️</p>
-          <p class="text-[11px] mt-0.5">${escapeHtmlAI(err.message || 'Koneksi ke API Gemini gagal.')}</p>
+        <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm max-w-[85%] text-gray-700 leading-relaxed text-xs space-y-1">
+          ${formattedAnswer}
         </div>
       </div>
     `;
-    container.innerHTML += errorBubble;
+    container.innerHTML += aiBubble;
     container.scrollTop = container.scrollHeight;
   }
 }
