@@ -309,8 +309,23 @@ async function getUserPersonalDataContext(prompt = '') {
   return info.join('\n\n');
 }
 
+function normalizeTypoText(text) {
+  let s = (text || '').toLowerCase().trim();
+  s = s.replace(/\budh\b|\bsudrh\b|\bsda\b|\bsdh\b|\budah\b/g, 'sudah');
+  s = s.replace(/\bblm\b|\bblom\b|\bbelom\b|\bblung\b/g, 'belum');
+  s = s.replace(/\bslsai\b|\bselsei\b|\bslesai\b|\bselse\b/g, 'selesai');
+  s = s.replace(/\bbyr\b|\bbyar\b|\bbayr\b|\biram\b|\biurn\b|\biran\b|\btagihn\b|\btginan\b/g, 'iuran');
+  s = s.replace(/\blprn\b|\blaporn\b|\blapor\b|\blpos\b|\blpor\b|\badun\b|\badng\b|\bkluhan\b|\bkeluh\b|\bkeluhann\b/g, 'aduan');
+  s = s.replace(/\bsrat\b|\bsurt\b|\bpngntar\b|\bpngantar\b|\bsktm\b|\bskck\b/g, 'surat');
+  s = s.replace(/\bkuangn\b|\bkeuangn\b|\bkas\b|\bsald\b|\blapkeu\b|\buang\b/g, 'keuangan');
+  s = s.replace(/\bnmr\b|\bnmer\b|\bnomr\b|\bnomer\b|\bnk\b/g, 'nik');
+  s = s.replace(/\bkntak\b|\bwa\b|\bwhatsapp\b|\bnohp\b|\bthp\b/g, 'kontak');
+  return s;
+}
+
 function getSmartFallbackAnswer(prompt, personalContext = '') {
-  let lower = (prompt || '').toLowerCase();
+  let rawLower = (prompt || '').toLowerCase();
+  let lower = normalizeTypoText(prompt);
   let rtRw = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
   let ketua = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
   let sekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
