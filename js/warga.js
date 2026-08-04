@@ -214,8 +214,8 @@ function filterDataWarga() {
     let kkIdxTbl = headers.findIndex(h => h.includes('kk') || h.includes('no_kk'));
     let userKkTbl = '';
     if (!isRT && userNik) {
-      let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === userNik);
-      if (myW) userKkTbl = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+      let myW = (rawWargaData || []).find(w => String(w[nikIdx] || '').trim() === userNik);
+      if (myW && kkIdxTbl > -1) userKkTbl = String(myW[kkIdxTbl] || '').trim();
     }
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
@@ -266,8 +266,8 @@ function bukaModalRumah(key) {
   let userNik = (session && session.nik) ? String(session.nik).trim() : '';
   let isRT = String(session.role || '').toUpperCase() === 'RT';
   if (!isRT && userNik) {
-    let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === userNik);
-    if (myW) userKk = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+    let myW = (rawWargaData || []).find(w => String(w[nikIdx] || '').trim() === userNik);
+    if (myW && kkIdx > -1) userKk = String(myW[kkIdx] || '').trim();
   }
   let html = '';
   group.rows.forEach((r, idx) => {
@@ -332,8 +332,8 @@ function showDetailWarga(id) {
   let rowNik = row[nikIdx] !== undefined ? String(row[nikIdx] || '').trim() : '';
   let userKk = '';
   if (session.role === 'Warga' && session.nik) {
-    let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === session.nik.trim());
-    if (myW) userKk = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+    let myW = (rawWargaData || []).find(w => String(w[nikIdx] || '').trim() === session.nik.trim());
+    if (myW && kkIdx > -1) userKk = String(myW[kkIdx] || '').trim();
   }
   let isSameKk = (session.role === 'RT') || (rowNik && rowNik === session.nik.trim()) || (userKk && rowKk && userKk === rowKk);
   let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
