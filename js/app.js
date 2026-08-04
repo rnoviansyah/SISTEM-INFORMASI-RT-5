@@ -1389,6 +1389,16 @@ async function loadMenu(menu) {
   }
 }
 function renderTable(data, menu) {
+  if (menu === 'Keuangan' && typeof renderKeuanganCustom === 'function') return renderKeuanganCustom(data);
+  if (menu === 'Iuran' && typeof renderIuranCustom === 'function') return renderIuranCustom(data);
+  if ((menu === 'Aset' || menu === 'Inventaris') && typeof renderAsetCustom === 'function') return renderAsetCustom(data);
+  if (menu === 'Aspirasi' && typeof renderAspirasiView === 'function') return renderAspirasiView(data);
+  if (menu === 'Pengaduan' && typeof renderPengaduanCustom === 'function') return renderPengaduanCustom(data);
+  if ((menu === 'Surat' || menu === 'SuratPengantar') && typeof renderSuratPengantarCustom === 'function') return renderSuratPengantarCustom(data);
+  if (menu === 'Sumbangan' && typeof renderSumbanganCustom === 'function') return renderSumbanganCustom(data);
+  if (menu === 'Warga' && typeof renderWargaCustom === 'function') return renderWargaCustom(data);
+  if (menu === 'Kelahiran' && typeof renderKelahiranCustom === 'function') return renderKelahiranCustom(data);
+
   let html = '';
   let bolehTambah = session.role === 'RT' || (session.role === 'Warga' && ['Pengaduan','SuratPengantar','Sumbangan','Aset','Peminjaman','Aspirasi'].includes(menu));
   if (bolehTambah) {

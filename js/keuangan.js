@@ -249,14 +249,65 @@ function waLaporMasalahKeuangan(id) {
 async function loadKeuanganView() {
   currentActiveMenu = 'Keuangan';
   syncActiveNav('Keuangan');
-  document.getElementById('page-title').innerText = 'Laporan Keuangan';
-  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan...</small></div>';
+  document.getElementById('page-title').innerText = 'Laporan Keuangan & Kas RT';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan & sumbangan terverifikasi...</small></div>';
   document.getElementById('rek-info').style.display = 'none';
-  const res = await callGASGet('getTableData', { sheetName: 'Keuangan' });
-  if (res) {
-    currentHeaders = res.headers || [];
-    currentRows = res.rows || [];
-    renderKeuanganCustom(res);
+
+  const [resKeuangan, resSumbangan] = await Promise.all([
+    callGASGet('getTableData', { sheetName: 'Keuangan' }),
+    callGASGet('getTableData', { sheetName: 'Sumbangan' }).catch(() => null)
+  ]);
+
+  if (resKeuangan && resKeuangan.status === 'success') {
+    let headers = (resKeuangan.headers || []).map(h => h.toLowerCase().trim());
+    let rows = [...(resKeuangan.rows || [])];
+
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let existingIds = new Set(rows.map(r => String(r[idIdx] || '').toLowerCase()));
+
+    if (resSumbangan && resSumbangan.rows && resSumbangan.headers) {
+      let sHeaders = resSumbangan.headers.map(h => h.toLowerCase().trim());
+      let sIdIdx = sHeaders.indexOf('id') > -1 ? sHeaders.indexOf('id') : 0;
+      let sTglIdx = sHeaders.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+      let sNamaIdx = sHeaders.findIndex(h => h.includes('nama'));
+      let sNominalIdx = sHeaders.findIndex(h => h.includes('nominal') || h.includes('jumlah') || h.includes('pemasukan'));
+      let sKetIdx = sHeaders.findIndex(h => h.includes('keterangan') || h.includes('jenis') || h.includes('peruntukan'));
+      let sStatusIdx = sHeaders.indexOf('status');
+      let sFotoIdx = sHeaders.findIndex(h => h.includes('foto') || h.includes('bukti'));
+
+      resSumbangan.rows.forEach(sRow => {
+        let sStatus = sStatusIdx > -1 ? String(sRow[sStatusIdx] || '').toLowerCase().trim() : '';
+        let isApproved = sStatus.includes('diterima') || sStatus.includes('selesai') || sStatus.includes('lunas') || sStatus.includes('acc') || sStatus.includes('terverifikasi');
+        let sId = sRow[sIdIdx] || '';
+
+        if (isApproved && sId && !existingIds.has(String(sId).toLowerCase())) {
+          let sTgl = sTglIdx > -1 ? sRow[sTglIdx] : '';
+          let sNama = sNamaIdx > -1 ? sRow[sNamaIdx] : 'Warga';
+          let sNominal = sNominalIdx > -1 ? (Number(String(sRow[sNominalIdx]).replace(/[^0-9]/g, '')) || 0) : 0;
+          let sKetDetail = sKetIdx > -1 ? sRow[sKetIdx] : '';
+          let sFoto = sFotoIdx > -1 ? sRow[sFotoIdx] : '-';
+
+          let newRow = [];
+          resKeuangan.headers.forEach(h => {
+            let hLower = h.toLowerCase().trim();
+            if (hLower === 'id') newRow.push(sId);
+            else if (hLower.includes('tanggal') || hLower.includes('tgl')) newRow.push(sTgl || new Date().toLocaleDateString('id-ID'));
+            else if (hLower === 'keterangan') newRow.push(`[Sumbangan Warga] ${sNama}${sKetDetail ? ` - ${sKetDetail}` : ''}`);
+            else if (hLower === 'pemasukan') newRow.push(sNominal);
+            else if (hLower === 'pengeluaran') newRow.push(0);
+            else if (hLower.includes('foto') || hLower.includes('bukti')) newRow.push(sFoto || '-');
+            else newRow.push('-');
+          });
+          rows.push(newRow);
+        }
+      });
+    }
+
+    currentHeaders = resKeuangan.headers;
+    currentRows = rows;
+    renderKeuanganCustom({ headers: resKeuangan.headers, rows: rows });
+  } else {
+    document.getElementById('main-content').innerHTML = '<div class="alert alert-danger text-center my-3">Gagal memuat data keuangan dari server.</div>';
   }
 }
 window.loadKeuanganView = loadKeuanganView;
