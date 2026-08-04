@@ -31,7 +31,7 @@ function initInlineCanvas(existingDataUrl = '') {
     // Draw guideline
     drawCanvasGuideline();
 
-    inlineCtx.strokeStyle = '#1e3a8a';
+    inlineCtx.strokeStyle = '#000000';
     inlineCtx.lineWidth = 2.5;
     inlineCtx.lineCap = 'round';
     inlineCtx.lineJoin = 'round';
@@ -87,7 +87,7 @@ function attachInlineCanvasEvents() {
     if (!inlineIsDrawing) return;
     e.preventDefault();
     let pos = getInlinePos(e);
-    inlineCtx.strokeStyle = '#1e3a8a';
+    inlineCtx.strokeStyle = '#000000';
     inlineCtx.lineWidth = 2.5;
     inlineCtx.lineCap = 'round';
     inlineCtx.lineJoin = 'round';
@@ -122,7 +122,7 @@ function attachInlineCanvasEvents() {
     e.preventDefault();
     let touch = e.touches[0];
     let pos = getInlinePos(touch);
-    inlineCtx.strokeStyle = '#1e3a8a';
+    inlineCtx.strokeStyle = '#000000';
     inlineCtx.lineWidth = 2.5;
     inlineCtx.lineCap = 'round';
     inlineCtx.lineJoin = 'round';
