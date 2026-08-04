@@ -445,41 +445,55 @@ Gaya Bahasa:
   };
 
   const endpoints = [
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(apiKey)}`
   ];
 
-  // 1. Coba Endpoint Resmi Google Gemini
-  for (let url of endpoints) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify(payload)
-      });
+  let lastError = null;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content?.parts?.length > 0) {
-          return data.candidates[0].content.parts[0].text;
+  // 1. Coba Endpoint Resmi Google Gemini API (Jika user menginput API Key valid)
+  if (apiKey) {
+    for (let url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.candidates && data.candidates.length > 0 && data.candidates[0].content?.parts?.length > 0) {
+            return data.candidates[0].content.parts[0].text;
+          }
+        } else {
+          const errJson = await response.json().catch(() => ({}));
+          lastError = errJson?.error?.message || `HTTP ${response.status}`;
         }
-      } else {
-        const errJson = await response.json().catch(() => ({}));
-        lastError = errJson?.error?.message || `HTTP ${response.status}`;
+      } catch (e) {
+        lastError = e.message;
       }
-    } catch (e) {
-      lastError = e.message;
     }
   }
 
-  // 2. FALLBACK UTAMA: Free Public AI Proxy Engine (Powered by Gemini / OpenAI, Tanpa API Key)
+  // 2. BACKEND AI PROXY (100% BEBAS API KEY & TANPA LIMIT URL): Memastikan AI SELALU Menjawab!
   try {
-    const fullPrompt = `${systemContext}\n\nPertanyaan Warga: ${promptUser}`;
-    const freeRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=gemini`);
+    const freeRes = await fetch(`https://text.pollinations.ai/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemContext },
+          { role: 'user', content: promptUser }
+        ],
+        model: 'gemini',
+        seed: Math.floor(Math.random() * 1000000)
+      })
+    });
     if (freeRes.ok) {
       const freeText = await freeRes.text();
       if (freeText && freeText.trim().length > 5) {
@@ -490,7 +504,7 @@ Gaya Bahasa:
     console.warn('[Free Public AI Fallback Error]', e);
   }
 
-  throw new Error(`Gagal menghubungi Gemini AI (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key Gemini valid.`);
+  throw new Error(`Gagal menghubungi Gemini AI (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key Gemini diset dengan benar.`);
 }
 
 function escapeHtmlAI(text) {
