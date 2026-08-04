@@ -62,7 +62,7 @@ function renderIuranCustom(data) {
           </div>
           ${totalBelumBayar > 0 ? `
             <button onclick="bukaModalBayarSekaligusAll()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer">
-              <i class="bi bi-qr-code-scan"></i> Bayar Sekaligus (QRIS Dinamis)
+              <i class="bi bi-wallet2"></i> Bayar Sekaligus
             </button>
           ` : ''}
         </div>
@@ -99,8 +99,7 @@ function renderIuranCustom(data) {
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
-            <h5 class="font-bold text-gray-900 text-xs mb-0.5" id="qris-merchant-name">SHN GROUP</h5>
-            <p class="text-[9px] text-gray-500 font-mono mb-2">DYNAMIC QRIS (NOMINAL OTOMATIS TERISI)</p>
+            <h5 class="font-bold text-gray-900 text-xs mb-2" id="qris-merchant-name">SHN GROUP</h5>
             <div id="qris-canvas-container" class="flex justify-center p-2 bg-white rounded-xl shadow-inner border border-gray-100 min-h-[200px] items-center">
               <img id="qris-dynamic-img" src="" class="max-w-[200px] max-h-[200px] rounded-lg shadow-sm" alt="Dynamic QRIS">
               <canvas id="qris-canvas" class="hidden max-w-[200px] max-h-[200px]"></canvas>
