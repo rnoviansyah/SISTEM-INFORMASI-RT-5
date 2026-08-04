@@ -1443,6 +1443,9 @@ async function bukaModalForm() {
   await generateFormInputs(null);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
   bootstrapModalInstance.show();
+  if (currentActiveMenu === 'SuratPengantar' && typeof initInlineCanvas === 'function') {
+    initInlineCanvas('');
+  }
 }
 async function bukaModalEdit(id) {
   editingId = id;
@@ -1471,6 +1474,19 @@ async function bukaModalEdit(id) {
   await generateFormInputs(rowData);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
   bootstrapModalInstance.show();
+  if (currentActiveMenu === 'SuratPengantar' && typeof initInlineCanvas === 'function') {
+    let existingTTD = '';
+    if (rowData) {
+      if (Array.isArray(rowData)) {
+        let hh = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
+        let ttdIdx = hh.findIndex(h => h.includes('ttd_pemohon') || h.includes('tanda_tangan'));
+        if (ttdIdx > -1) existingTTD = rowData[ttdIdx] || '';
+      } else if (typeof rowData === 'object') {
+        existingTTD = rowData.ttd_pemohon || rowData.tanda_tangan || '';
+      }
+    }
+    initInlineCanvas(existingTTD);
+  }
 }
 async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
@@ -1720,8 +1736,8 @@ function submitFormBaru(e) {
       payload[ketKey] = JSON.stringify(extraObj);
     }
     // ── Sertakan Tanda Tangan Pemohon ──────────────────────
-    if (typeof getTTDPemohon === 'function') {
-      let ttdData = getTTDPemohon();
+    if (typeof getTTDPemohonInline === 'function') {
+      let ttdData = getTTDPemohonInline();
       if (ttdData) payload['ttd_pemohon'] = ttdData;
     }
   }
