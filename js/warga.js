@@ -288,7 +288,7 @@ function bukaModalRumah(key) {
     html += `
       <div class="bg-gray-50/80 p-3 rounded-2xl border border-gray-200/80 flex items-center justify-between gap-3 hover:bg-white hover:shadow-sm transition">
         <div class="flex items-center gap-3">
-          ${showFoto && hasFoto 
+          ${hasFoto 
             ? `<img src="${fotoDirectUrl}" class="w-10 h-10 rounded-full object-cover border shadow-sm cursor-pointer" onclick="bukaPopUpFoto('${fotoUrl}')">`
             : `<div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm shadow-inner"><i class="bi bi-person-fill"></i></div>`
           }
@@ -348,7 +348,7 @@ function showDetailWarga(id) {
            <small class="text-[10px] text-gray-400 block mt-1">Belum ada foto yang diunggah</small>`
       }
     </div>`;
-  let detailHtml = (isSameKk || session.role === 'RT') ? imgHtml : '';
+  let detailHtml = imgHtml;
   let safeFieldsForPublic = ['nama', 'name', 'nama_lengkap', 'alamat', 'address', 'jenis_kelamin', 'gender', 'jk', 'status_tinggal', 'status_huni'];
   currentHeaders.forEach((h, idx) => {
     let hLower = (h || '').toLowerCase().trim();
