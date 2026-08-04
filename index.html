@@ -252,6 +252,43 @@
     </div>
   </div>
 
+  <!-- MODAL TANDA TANGAN PEMOHON -->
+  <div id="modal-ttd-pemohon" class="hidden fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="tutupModalTandaTangan()"></div>
+    <!-- Panel -->
+    <div class="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden" style="z-index:1;">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-blue-800 to-blue-600 px-5 py-4 flex items-center justify-between">
+        <div>
+          <h5 class="text-white font-bold text-base mb-0"><i class="bi bi-pen-fill me-2"></i>Tanda Tangan Pemohon</h5>
+          <p class="text-blue-200 text-xs mt-0.5">Buat tanda tangan Anda di area bawah ini</p>
+        </div>
+        <button onclick="tutupModalTandaTangan()" class="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-xl font-bold">&times;</button>
+      </div>
+      <!-- Canvas Area -->
+      <div class="px-4 pt-4 pb-2">
+        <div class="relative border-2 border-blue-200 rounded-2xl overflow-hidden bg-white shadow-inner" style="touch-action: none;">
+          <canvas id="canvas-ttd-pemohon" class="w-full block cursor-crosshair" style="height: 180px; display:block;"></canvas>
+          <div class="absolute top-2 left-3 text-[10px] text-gray-300 font-medium select-none pointer-events-none">Tanda tangani di sini</div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="hapusTandaTangan()" type="button"
+            class="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 rounded-xl text-sm transition">
+            <i class="bi bi-arrow-counterclockwise"></i> Ulangi
+          </button>
+          <button id="btn-konfirmasi-ttd" onclick="konfirmasiTandaTangan()" type="button" disabled
+            class="flex-1 flex items-center justify-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-sm transition opacity-50">
+            <i class="bi bi-check-circle-fill"></i> Gunakan TTD Ini
+          </button>
+        </div>
+        <p class="text-center text-[10px] text-gray-400 mt-2 mb-3">
+          <i class="bi bi-hand-index-thumb me-1"></i>Gunakan jari atau stylus untuk menandatangani
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- BOOTSTRAP JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -265,6 +302,7 @@
   <script src="js/warga.js?v=3.0"></script>
   <script src="js/iuran.js?v=3.0"></script>
   <script src="js/pengaduan.js?v=3.0"></script>
+  <script src="js/tanda_tangan.js?v=3.0"></script>
   <script src="js/surat_templates.js?v=3.0"></script>
   <script src="js/surat.js?v=3.0"></script>
   <script src="js/keuangan.js?v=3.0"></script>

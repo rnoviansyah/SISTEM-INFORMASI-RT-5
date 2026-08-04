@@ -1606,6 +1606,10 @@ async function generateFormInputs(rowData) {
       formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
     }
   }
+  // ── Reset session TTD saat buka form baru ──────────────────
+  if (currentActiveMenu === 'SuratPengantar' && !rowData) {
+    if (typeof resetTTDSession === 'function') resetTTDSession();
+  }
   if (currentActiveMenu === 'SuratPengantar' && typeof renderExtraSuratFields === 'function') {
     let jenisSelect = document.querySelector('.dynamic-input[data-key*="jenis"], .dynamic-input[data-key*="perihal"], .dynamic-input[data-key*="keperluan"], .dynamic-input[data-key*="JENIS"]');
     let selVal = jenisSelect ? jenisSelect.value : '';
@@ -1646,7 +1650,23 @@ async function generateFormInputs(rowData) {
       renderExtraSuratFields(selVal, existingObj);
     }
   }
+  // ── Tambahkan field Tanda Tangan Pemohon ──────────────────
+  if (currentActiveMenu === 'SuratPengantar' && typeof renderFieldTTDPemohon === 'function') {
+    // Ambil TTD tersimpan dari rowData jika ada (kolom ttd_pemohon)
+    let existingTTD = '';
+    if (rowData) {
+      if (Array.isArray(rowData)) {
+        let hh = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
+        let ttdIdx = hh.findIndex(h => h.includes('ttd_pemohon') || h.includes('tanda_tangan'));
+        if (ttdIdx > -1) existingTTD = rowData[ttdIdx] || '';
+      } else if (typeof rowData === 'object') {
+        existingTTD = rowData.ttd_pemohon || rowData.tanda_tangan || '';
+      }
+    }
+    formBody.innerHTML += renderFieldTTDPemohon(existingTTD);
+  }
 }
+
 function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75) {
   return new Promise((resolve, reject) => {
     let reader = new FileReader();
@@ -1698,6 +1718,11 @@ function submitFormBaru(e) {
       let ketKey = Object.keys(payload).find(k => k.toLowerCase() === 'keterangan' || (k.toLowerCase().includes('keterangan') && !k.toLowerCase().includes('admin')));
       if (!ketKey) ketKey = 'keterangan';
       payload[ketKey] = JSON.stringify(extraObj);
+    }
+    // ── Sertakan Tanda Tangan Pemohon ──────────────────────
+    if (typeof getTTDPemohon === 'function') {
+      let ttdData = getTTDPemohon();
+      if (ttdData) payload['ttd_pemohon'] = ttdData;
     }
   }
   let filePromises = [];

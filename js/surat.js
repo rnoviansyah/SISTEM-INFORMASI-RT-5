@@ -121,10 +121,20 @@ function cetakPDFSuratPengantar(id) {
   let rtWarga = rtIdx > -1 ? (row[rtIdx] || '05') : '05';
   
   let keterangan = '-';
+  let ttdPemohon = '';
+  let namaPemohon = namaWarga;
   if (Array.isArray(row)) {
     keterangan = ketIdx > -1 ? (row[ketIdx] || '-') : '-';
+    // Ambil TTD pemohon dari kolom ttd_pemohon
+    let ttdIdx = headers.findIndex(h => h.includes('ttd_pemohon') || h.includes('tanda_tangan'));
+    if (ttdIdx > -1) ttdPemohon = row[ttdIdx] || '';
   } else if (typeof row === 'object') {
     keterangan = row.keterangan || row.Keterangan || row.KETERANGAN || (ketIdx > -1 ? row[headers[ketIdx]] : '-');
+    ttdPemohon = row.ttd_pemohon || row.tanda_tangan || '';
+  }
+  // Fallback ke sessionStorage jika TTD belum disimpan ke DB (form baru)
+  if (!ttdPemohon && typeof getTTDPemohon === 'function') {
+    ttdPemohon = getTTDPemohon() || '';
   }
 
   let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT';
@@ -220,6 +230,24 @@ function cetakPDFSuratPengantar(id) {
       <div class="content">
         ${suratContent.isi}
       </div>
+
+      <!-- Tanda Tangan Pemohon -->
+      ${ttdPemohon ? `
+      <div style="margin: 30px 0 20px 0; page-break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+              <p style="font-size: 11pt; margin: 0 0 5px 0;">Yang bertanda tangan / menyetujui,<br><b>Pemohon</b></p>
+              <div style="height: 85px; display: flex; align-items: center; justify-content: flex-start; padding: 5px 0;">
+                <img src="${ttdPemohon}" style="max-height: 80px; max-width: 200px; object-fit: contain;" alt="TTD Pemohon">
+              </div>
+              <p style="font-weight: bold; text-decoration: underline; font-size: 11pt; margin: 0;">( ${namaPemohon} )</p>
+            </td>
+            <td style="width: 50%; vertical-align: top;"></td>
+          </tr>
+        </table>
+      </div>
+      <hr style="border: none; border-top: 1px dashed #ccc; margin: 15px 0;">` : ''}
 
       ${!isSelesai ? `<div style="text-align:center; margin: 20px 0; padding: 10px; border: 2px dashed #f59e0b; border-radius: 8px; background: #fffbeb;">
         <p style="color:#b45309; font-weight:bold; font-size:11pt; margin:0;">⚠️ SURAT INI BELUM DISETUJUI / STATUS: ${statusSurat || 'Belum di verifikasi'}</p>
