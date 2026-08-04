@@ -107,6 +107,10 @@ function cetakPDFSuratPengantar(id) {
   let rtIdx = headers.findIndex(h => h.includes('rt'));
   let ketIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('ket') || h.includes('admin'));
 
+  let statusIdx = headers.findIndex(h => h === 'status' || h.includes('status'));
+  let statusSurat = statusIdx > -1 ? (row[statusIdx] || '') : '';
+  let isSelesai = ['selesai', 'diterima', 'approved', 'disetujui'].includes(statusSurat.toLowerCase().trim());
+
   let namaWarga = namaIdx > -1 ? (row[namaIdx] || '-') : '-';
   let nikWarga = nikIdx > -1 ? (row[nikIdx] || '-') : '-';
   let alamatWarga = alamatIdx > -1 ? (row[alamatIdx] || '-') : '-';
@@ -119,6 +123,10 @@ function cetakPDFSuratPengantar(id) {
   let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';
   let namaSekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT 05';
   let namaKetuaRt = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT 05';
+
+  // Tanda tangan hanya ditampilkan jika status surat sudah Selesai/Diterima
+  let ttdSekretaris = (isSelesai && typeof appSettings !== 'undefined' && appSettings.ttd_sekretaris) ? appSettings.ttd_sekretaris : '';
+  let ttdKetuaRt = (isSelesai && typeof appSettings !== 'undefined' && appSettings.ttd_ketua_rt) ? appSettings.ttd_ketua_rt : '';
 
   let todayStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -150,7 +158,7 @@ function cetakPDFSuratPengantar(id) {
         
         .ttd-section { width: 100%; margin-top: 50px; border-collapse: collapse; page-break-inside: avoid; }
         .ttd-section td { width: 50%; text-align: center; vertical-align: top; padding: 0 10px; font-size: 11pt; }
-        .ttd-space { height: 75px; }
+        .ttd-space { height: 75px; display: flex; align-items: center; justify-content: center; }
         .ttd-nama { font-weight: bold; text-decoration: underline; }
         
         @media print {
@@ -217,16 +225,25 @@ function cetakPDFSuratPengantar(id) {
         <p>Demikian Surat Pengantar ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya.</p>
       </div>
 
+      ${!isSelesai ? `<div style="text-align:center; margin: 20px 0; padding: 10px; border: 2px dashed #f59e0b; border-radius: 8px; background: #fffbeb;">
+        <p style="color:#b45309; font-weight:bold; font-size:11pt; margin:0;">⚠️ SURAT INI BELUM DISETUJUI / STATUS: ${statusSurat || 'Belum di verifikasi'}</p>
+        <p style="color:#92400e; font-size:9pt; margin:4px 0 0 0;">Tanda tangan akan muncul setelah status surat diubah menjadi <b>Selesai</b> atau <b>Diterima</b> oleh RT.</p>
+      </div>` : ''}
+
       <table class="ttd-section">
         <tr>
           <td>
             <p>Dibuat oleh:<br><b>Sekretaris RT 05</b></p>
-            <div class="ttd-space"></div>
+            <div class="ttd-space">
+              ${ttdSekretaris ? `<img src="${ttdSekretaris}" style="max-height: 70px; max-width: 150px; object-fit: contain; margin: 0 auto; display: block;">` : ''}
+            </div>
             <p class="ttd-nama">( ${namaSekretaris} )</p>
           </td>
           <td>
             <p>Tanggal: ${todayStr}<br>Diketahui oleh:<br><b>Ketua RT 05</b></p>
-            <div class="ttd-space"></div>
+            <div class="ttd-space">
+              ${ttdKetuaRt ? `<img src="${ttdKetuaRt}" style="max-height: 70px; max-width: 150px; object-fit: contain; margin: 0 auto; display: block;">` : ''}
+            </div>
             <p class="ttd-nama">( ${namaKetuaRt} )</p>
           </td>
         </tr>
