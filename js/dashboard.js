@@ -83,29 +83,33 @@ async function loadDashboardView() {
   if (document.getElementById('rek-info')) document.getElementById('rek-info').style.display = 'none';
   let oldModal = document.getElementById('modalEditInfo');
   if (oldModal) oldModal.remove();
-  if (dashboardCache) {
-    renderDashboardLayout(dashboardCache);
-    fetchFreshDashboardData();
-    return;
-  }
-  document.getElementById('main-content').innerHTML = `
-    <div class="p-2 space-y-4">
-      <div class="animate-pulse bg-blue-100/60 h-24 rounded-2xl w-full mb-3"></div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
-        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
-        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
-        <div class="animate-pulse bg-gray-200 h-20 rounded-xl"></div>
-      </div>
-    </div>
-  `;
+
+  let initialRes = dashboardCache || {
+    role: session?.role || 'Warga',
+    warga: 0, aduan: 0, keuangan: 0, surat: 0, sumbangan: 0
+  };
+  renderDashboardLayout(initialRes);
   await fetchFreshDashboardData();
 }
 async function fetchFreshDashboardData() {
-  const res = await callGASGet('getDashboardSummary');
-  if (res && res.status === 'success') {
-    dashboardCache = res;
-    renderDashboardLayout(res);
+  try {
+    const res = await callGASGet('getDashboardSummary');
+    if (res && res.status === 'success') {
+      dashboardCache = res;
+      renderDashboardLayout(res);
+    } else if (!dashboardCache) {
+      renderDashboardLayout({
+        role: session?.role || 'Warga',
+        warga: 0, aduan: 0, keuangan: 0, surat: 0, sumbangan: 0
+      });
+    }
+  } catch(e) {
+    if (!dashboardCache) {
+      renderDashboardLayout({
+        role: session?.role || 'Warga',
+        warga: 0, aduan: 0, keuangan: 0, surat: 0, sumbangan: 0
+      });
+    }
   }
 }
 function renderDashboardLayout(res) {
