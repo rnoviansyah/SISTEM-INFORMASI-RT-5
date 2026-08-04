@@ -42,30 +42,24 @@ async function renderIuranCustom(data) {
             <i class="bi bi-plus-circle-fill"></i> + Tambah Tagihan / Iuran Warga
           </button>
         </div>
-            <p class="text-gray-500 font-bold">DANA: <span class="text-blue-700 font-mono">08973366667</span></p>
-            <p class="text-gray-500 font-bold">GoPay: <span class="text-blue-700 font-mono">08973366667</span></p>
-            <p class="text-[10px] text-gray-400">Atas Nama: RIZKY NOVIANSYAH</p>
-          </div>
-        </div>
-        <!-- UPLOAD BUKTI TRANSFER -->
-        <div class="mt-3 text-left border-t pt-3">
-          <label class="font-bold text-gray-700 text-xs mb-1 block"><i class="bi bi-upload me-1 text-blue-600"></i>Upload Bukti Transfer (Foto)</label>
-          <input type="file" id="iuran-bukti-file" accept="image/*" class="w-full text-xs p-1.5 border rounded-xl bg-gray-50">
-          <small class="text-[9px] text-gray-400 mt-1 block">*Harap lampirkan foto struk / screenshot transfer yang jelas.</small>
-        </div>
-        <div class="mt-4 space-y-2">
-          <button id="btn-kirim-bukti" onclick="prosesKirimBuktiBayar()" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-1">
-            <i class="bi bi-send-check-fill"></i> Kirim Bukti Pembayaran
-          </button>
-          <button onclick="kirimKonfirmasiWA()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
-            <i class="bi bi-whatsapp"></i> Konfirmasi via WhatsApp
-          </button>
-          <button onclick="tutupModalBayarIuran()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.getElementById('main-content').innerHTML = html;
+      `;
+    } else {
+      rtContainer.innerHTML = '';
+    }
+  }
+
+  let elNama = document.getElementById('iuran-nama-warga');
+  if (elNama) elNama.innerText = session.nama || session.nik;
+
+  let elNikRole = document.getElementById('iuran-nik-role');
+  if (elNikRole) elNikRole.innerText = `NIK: ${session.nik} | Role: ${session.role}`;
+
+  let elTotal = document.getElementById('total-belum-bayar');
+  if (elTotal) elTotal.innerText = `Rp ${totalBelumBayar.toLocaleString('id-ID')}`;
+
+  let elListTitle = document.getElementById('iuran-list-title');
+  if (elListTitle) elListTitle.innerText = session.role === 'RT' ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga';
+
   renderListBulanDatabase(rows, headers);
 }
 function renderListBulanDatabase(rows, headers) {
