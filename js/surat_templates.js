@@ -31,9 +31,27 @@ function renderSuratBody(jenisSurat, data) {
   let { namaWarga, nikWarga, alamatWarga, keterangan, tanggalSurat } = data;
   let kode = getKodeSurat(jenisSurat);
 
-  // Parse keterangan as JSON for extra fields (optional)
+  // Parse keterangan as JSON for extra fields (with smart fallback)
   let extra = {};
-  try { extra = JSON.parse(keterangan); } catch(e) { extra = { catatan: keterangan || '' }; }
+  if (keterangan && keterangan !== '{' && keterangan !== 'null' && keterangan !== '-') {
+    if (typeof keterangan === 'object') {
+      extra = keterangan;
+    } else if (typeof keterangan === 'string') {
+      let trimmed = keterangan.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try { extra = JSON.parse(trimmed); } catch(e) { extra = {}; }
+      } else {
+        extra = {
+          catatan: trimmed,
+          nama_acara: trimmed,
+          nama_usaha: trimmed,
+          keperluan: trimmed,
+          alamat_baru: trimmed,
+          nama_almarhum: trimmed
+        };
+      }
+    }
+  }
 
   const dataWargaTable = `
     <table class="table-data">
@@ -213,11 +231,11 @@ window.renderExtraSuratFields = function(selectedJenis, existingVal = {}) {
         </div>
         <div class="col-6 col-md-3 mb-1">
           <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Jam Mulai</label>
-          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_mulai" value="${existingVal.jam_mulai || '08:00'}">
+          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_mulai" value="${existingVal.jam_mulai || ''}">
         </div>
         <div class="col-6 col-md-3 mb-1">
           <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Jam Selesai</label>
-          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_selesai" value="${existingVal.jam_selesai || '23:00'}">
+          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_selesai" value="${existingVal.jam_selesai || ''}">
         </div>
       </div>`;
   } else if (kode === 'SKDU') {
