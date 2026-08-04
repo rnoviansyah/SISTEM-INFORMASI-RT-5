@@ -109,9 +109,27 @@ async function fetchFreshDashboardData() {
   }
 }
 function renderDashboardLayout(res) {
-  let htmlLayout = '';
+  let btnEditAdmin = res.role === 'RT' 
+    ? `<button class="btn btn-warning btn-sm fw-bold me-2" onclick="bukaModalEditInfo()"><i class="bi bi-pencil-square me-1"></i> Edit Info Warga</button>` 
+    : '';
+
+  let infoCardHtml = `
+    <div class="card card-custom mb-4 shadow-sm border-0 bg-white">
+      <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-2">
+        <h5 class="fw-bold text-dark mb-2 mb-md-0 flex items-center gap-2"><i class="bi bi-megaphone-fill text-blue-600"></i> Informasi & Pengumuman Warga</h5>
+        <div class="d-flex align-items-center">
+          ${btnEditAdmin}
+          <button class="btn btn-outline-primary btn-sm fw-bold d-none d-md-block" onclick="loadMenu('Profil')"><i class="bi bi-person-vcard me-1"></i> Buka Profil & Keluarga</button>
+        </div>
+      </div>
+      <p id="infoWargaTextDisplay" class="text-muted small mb-0"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</p>
+    </div>
+  `;
+
+  let htmlLayout = infoCardHtml;
+
   if (res.role === 'RT') {
-    htmlLayout = `
+    htmlLayout += `
       <div class="row text-center d-none d-md-flex g-4 mb-4">
         <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-people-fill text-primary me-2"></i>Total Warga</h5><h2 class="fw-bold text-primary mt-2">${res.warga || 0} Warga</h2></div></div>
         <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Aduan Masuk</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
@@ -143,7 +161,7 @@ function renderDashboardLayout(res) {
       </div>
     `;
   } else {
-    htmlLayout = `
+    htmlLayout += `
       <div class="row text-center d-none d-md-flex g-4 mb-4">
         <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-chat-left-dots-fill text-warning me-2"></i>Aduan Saya</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
         <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-file-earmark-text-fill text-primary me-2"></i>Surat Saya</h5><h2 class="fw-bold text-primary mt-2">${res.surat || 0} Pengajuan</h2></div></div>
@@ -170,20 +188,6 @@ function renderDashboardLayout(res) {
       </div>
     `;
   }
-  let btnEditAdmin = res.role === 'RT' 
-    ? `<button class="btn btn-warning btn-sm fw-bold me-2" onclick="bukaModalEditInfo()"><i class="bi bi-pencil-square me-1"></i> Edit Info Warga</button>` 
-    : '';
-  htmlLayout += `
-    <div class="card card-custom mt-2">
-      <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-2">
-        <h5 class="fw-bold text-dark mb-2 mb-md-0"><i class="bi bi-clock-history me-2"></i>Informasi Warga</h5>
-        <div class="d-flex align-items-center">
-          ${btnEditAdmin}
-          <button class="btn btn-outline-primary btn-sm fw-bold d-none d-md-block" onclick="loadMenu('Profil')"><i class="bi bi-person-vcard me-1"></i> Buka Profil & Keluarga</button>
-        </div>
-      </div>
-      <p id="infoWargaTextDisplay" class="text-muted small mb-0"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</p>
-    </div>
     <!-- Modal Edit Informasi Khusus RT Admin -->
     <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
