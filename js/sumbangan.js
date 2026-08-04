@@ -121,7 +121,14 @@ function showDetailSumbangan(id) {
   let actionHtml = '';
   if (session.role === 'RT') {
     actionHtml = `
-      <button onclick="bukaModalEdit('${id}'); tutupDetailSumbangan();" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>`;
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="verifikasiSumbanganRT('${id}', 'Diterima')" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1">
+          <i class="bi bi-check-circle-fill"></i> ACC / Terima
+        </button>
+        <button onclick="bukaModalEdit('${id}'); tutupDetailSumbangan();" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">
+          Edit Data
+        </button>
+      </div>`;
   } else {
     actionHtml = `
       <button onclick="waVerifikasiSumbangan('${id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Verifikasi via WhatsApp</button>`;
@@ -134,6 +141,46 @@ function tutupDetailSumbangan() {
 }
 function waVerifikasiSumbangan(id) {
   bukaWa(noWaAdmin, `ID sumbangan ${id} mohon di verifikasi.`);
+}
+async function verifikasiSumbanganRT(id, status = 'Diterima') {
+  showUIConfirm(`Apakah Anda yakin ingin memverifikasi sumbangan ${id} dengan status "${status}" dan secara otomatis memasukkannya ke Kas Keuangan RT?`, async function() {
+    let headers = currentHeaders.map(h => h.toLowerCase().trim());
+    let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+    let row = rawSumbanganData.find(r => r[idIdx] === id);
+    let payload = { status: status };
+    if (typeof menuDataCache !== 'undefined') {
+      delete menuDataCache['Sumbangan'];
+      delete menuDataCache['Keuangan'];
+    }
+    const res = await callGASPost('updateDataDiSheet', { sheetName: 'Sumbangan', id: id, formData: payload });
+    if (row) {
+      let namaIdx = headers.findIndex(h => h.includes('nama'));
+      let nominalIdx = headers.findIndex(h => h.includes('nominal') || h.includes('jumlah') || h.includes('pemasukan'));
+      let ketIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('jenis') || h.includes('peruntukan'));
+      let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+      let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl') || h.includes('waktu'));
+
+      let namaVal = namaIdx > -1 ? row[namaIdx] : 'Warga';
+      let nominalVal = nominalIdx > -1 ? row[nominalIdx] : 0;
+      let ketVal = ketIdx > -1 ? row[ketIdx] : '';
+      let fotoVal = fotoIdx > -1 ? row[fotoIdx] : '-';
+      let tglVal = tglIdx > -1 ? row[tglIdx] : new Date().toLocaleDateString('id-ID');
+
+      await callGASPost('simpanDataKeSheet', {
+        sheetName: 'Keuangan',
+        formData: {
+          tanggal: tglVal,
+          keterangan: `[Sumbangan Warga] ${namaVal}${ketVal ? ` - ${ketVal}` : ''}`,
+          pemasukan: nominalVal,
+          pengeluaran: 0,
+          bukti_foto: fotoVal
+        }
+      }).catch(() => null);
+    }
+    tutupDetailSumbangan();
+    showUIToast(res && res.message ? res.message : 'Sumbangan Berhasil Diverifikasi & Ditambahkan ke Kas Keuangan RT!', 'success');
+    loadSumbanganView();
+  }, 'Verifikasi Sumbangan RT');
 }
 async function loadSumbanganView() {
   currentActiveMenu = 'Sumbangan';
