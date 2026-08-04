@@ -1335,13 +1335,22 @@ async function loadMenu(menu) {
   document.getElementById('rek-info').style.display = (menu === 'Sumbangan') ? 'block' : 'none';
   if (document.getElementById('searchInput')) document.getElementById('searchInput').value = "";
   switch(menu) {
-    case 'Dashboard':    if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
-    case 'Profil':       if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
-    case 'Warga':        if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
-    case 'Kelahiran':    if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
-    case 'Kematian':     if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
-    case 'PindahMasuk':  if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
-    case 'PindahKeluar': if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
+    case 'Dashboard':      if (typeof loadDashboardView   === 'function') { loadDashboardView();   return; } break;
+    case 'Profil':         if (typeof loadProfilView       === 'function') { loadProfilView();       return; } break;
+    case 'Warga':          if (typeof loadWargaView        === 'function') { loadWargaView();        return; } break;
+    case 'Keuangan':       if (typeof loadKeuanganView     === 'function') { loadKeuanganView();     return; } break;
+    case 'Iuran':          if (typeof loadIuranView        === 'function') { loadIuranView();        return; } break;
+    case 'Pengaduan':      if (typeof loadPengaduanView    === 'function') { loadPengaduanView();    return; } break;
+    case 'Surat':
+    case 'SuratPengantar': if (typeof loadSuratView        === 'function') { loadSuratView();        return; } break;
+    case 'Sumbangan':      if (typeof loadSumbanganView    === 'function') { loadSumbanganView();    return; } break;
+    case 'Aset':
+    case 'Inventaris':     if (typeof loadAsetView         === 'function') { loadAsetView();         return; } break;
+    case 'Aspirasi':       if (typeof loadAspirasiView     === 'function') { loadAspirasiView();     return; } break;
+    case 'Kelahiran':      if (typeof loadKelahiranView    === 'function') { loadKelahiranView();    return; } break;
+    case 'Kematian':       if (typeof loadKematianView     === 'function') { loadKematianView();     return; } break;
+    case 'PindahMasuk':    if (typeof loadPindahMasukView  === 'function') { loadPindahMasukView();  return; } break;
+    case 'PindahKeluar':   if (typeof loadPindahKeluarView === 'function') { loadPindahKeluarView(); return; } break;
     case 'Pengaturan':
     case 'PengaturanRT':
       if (String(session.role || '').toUpperCase() === 'RT') {

@@ -246,20 +246,24 @@ function waLaporMasalahKeuangan(id) {
   let msg = `Halo RT 5, saya mau melaporkan kendala/pertanyaan terkait Transaksi Keuangan dengan ID: ${id}`;
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(msg)}`, '_blank');
 }
+async function loadKeuanganView() {
+  currentActiveMenu = 'Keuangan';
+  syncActiveNav('Keuangan');
+  document.getElementById('page-title').innerText = 'Laporan Keuangan';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan...</small></div>';
+  document.getElementById('rek-info').style.display = 'none';
+  const res = await callGASGet('getTableData', { sheetName: 'Keuangan' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderKeuanganCustom(res);
+  }
+}
+window.loadKeuanganView = loadKeuanganView;
 const originalLoadMenuKeuangan = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Keuangan') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Laporan Keuangan';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data keuangan...</small></div>';
-    document.getElementById('rek-info').style.display = 'none';
-    const res = await callGASGet('getTableData', { sheetName: 'Keuangan' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderKeuanganCustom(res);
-    }
+    loadKeuanganView();
   } else {
     if (typeof originalLoadMenuKeuangan === 'function') originalLoadMenuKeuangan(menu);
   }

@@ -135,20 +135,24 @@ function tutupDetailSumbangan() {
 function waVerifikasiSumbangan(id) {
   bukaWa(noWaAdmin, `ID sumbangan ${id} mohon di verifikasi.`);
 }
+async function loadSumbanganView() {
+  currentActiveMenu = 'Sumbangan';
+  syncActiveNav('Sumbangan');
+  document.getElementById('page-title').innerText = 'Sumbangan';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data sumbangan...</small></div>';
+  document.getElementById('rek-info').style.display = 'block';
+  const res = await callGASGet('getTableData', { sheetName: 'Sumbangan' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderSumbanganCustom(res);
+  }
+}
+window.loadSumbanganView = loadSumbanganView;
 const originalLoadMenuSumbangan = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Sumbangan') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Sumbangan';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data sumbangan...</small></div>';
-    document.getElementById('rek-info').style.display = 'block';
-    const res = await callGASGet('getTableData', { sheetName: 'Sumbangan' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderSumbanganCustom(res);
-    }
+    loadSumbanganView();
   } else {
     if (typeof originalLoadMenuSumbangan === 'function') originalLoadMenuSumbangan(menu);
   }

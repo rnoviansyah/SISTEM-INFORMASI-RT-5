@@ -12,11 +12,12 @@ async function loadIuranView() {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger">${res.message || 'Gagal memuat data'}</div>`;
   }
 }
+window.loadIuranView = loadIuranView;
 function getVal(r, headers, colName, defaultVal = '') {
   let idx = headers.indexOf(colName.toLowerCase());
   return idx > -1 && r[idx] !== undefined && r[idx] !== "" ? r[idx] : defaultVal;
 }
-async function renderIuranCustom(data) {
+function renderIuranCustom(data) {
   let headers = (data.headers || []).map(h => h.toLowerCase().trim());
   let rows = data.rows || [];
   let nominalIdx = headers.indexOf('nominal');
@@ -30,36 +31,89 @@ async function renderIuranCustom(data) {
       totalBelumBayar += nominalVal;
     }
   });
-
-  await loadViewTemplate('iuran');
-
-  let rtContainer = document.getElementById('iuran-rt-tambah-container');
-  if (rtContainer) {
-    if (session.role === 'RT') {
-      rtContainer.innerHTML = `
+  let html = `
+    <div class="p-1 text-gray-800 font-sans">
+      <!-- Header Banner Status Iuran -->
+      <div class="bg-gradient-to-r from-blue-900 to-blue-600 text-white p-5 rounded-2xl shadow-md mb-4 text-center">
+        <h2 class="font-bold text-lg mb-1"><i class="bi bi-wallet2 me-2"></i>Status Iuran Warga ${new Date().getFullYear()}</h2>
+        <p class="text-xs text-blue-100">Transparan, Cek Status & Pembayaran Bulanan RT 5</p>
+      </div>
+      <!-- Tombol Tambah Khusus RT -->
+      ${session.role === 'RT' ? `
         <div class="mb-4 flex justify-end">
           <button onclick="bukaModalTambahIuranRT()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
             <i class="bi bi-plus-circle-fill"></i> + Tambah Tagihan / Iuran Warga
           </button>
         </div>
-      `;
-    } else {
-      rtContainer.innerHTML = '';
-    }
-  }
-
-  let elNama = document.getElementById('iuran-nama-warga');
-  if (elNama) elNama.innerText = session.nama || session.nik;
-
-  let elNikRole = document.getElementById('iuran-nik-role');
-  if (elNikRole) elNikRole.innerText = `NIK: ${session.nik} | Role: ${session.role}`;
-
-  let elTotal = document.getElementById('total-belum-bayar');
-  if (elTotal) elTotal.innerText = `Rp ${totalBelumBayar.toLocaleString('id-ID')}`;
-
-  let elListTitle = document.getElementById('iuran-list-title');
-  if (elListTitle) elListTitle.innerText = session.role === 'RT' ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga';
-
+      ` : ''}
+      <!-- Card Ringkasan Tagihan -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
+        <div class="flex justify-between items-center mb-3">
+          <div>
+            <h4 class="font-bold text-gray-800 text-sm" id="iuran-nama-warga">${session.nama || session.nik}</h4>
+            <p class="text-[10px] text-gray-400 font-mono">NIK: ${session.nik} | Role: ${session.role}</p>
+          </div>
+          <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
+        </div>
+        <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
+            <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+      </div>
+      <!-- List Bulan Iuran -->
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-3 space-y-2">
+        <h3 class="font-bold text-xs text-gray-500 uppercase px-2 mb-2">${session.role === 'RT' ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga'}</h3>
+        <div id="list-bulan-iuran" class="space-y-2">
+          <!-- Render via JS -->
+        </div>
+      </div>
+    </div>
+    <!-- MODAL PEMBAYARAN / UPLOAD BUKTI TRANSFER -->
+    <div id="modal-bayar-iuran" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
+        <!-- Tombol Tutup -->
+        <button onclick="tutupModalBayarIuran()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 z-50 transition">&times;</button>
+        <div class="mb-3 border-b pb-2 pe-8">
+          <h3 class="font-bold text-gray-800 text-sm"><i class="bi bi-shield-check text-blue-600 me-1"></i> Pembayaran Iuran</h3>
+          <p id="info-bayar-target" class="text-xs text-blue-600 font-bold mt-1">-</p>
+        </div>
+        <div class="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-3 text-xs font-bold text-center">
+          <button id="tab-qris-btn" onclick="switchTabBayar('qris')" class="py-2 rounded-lg bg-white text-blue-600 shadow-sm transition">Scan QRIS</button>
+          <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
+        </div>
+        <!-- TAMPILAN QRIS BERSIH TANPA TEKS TAMBAHAN DI BAWAHNYA -->
+        <div id="content-qris" class="text-center space-y-2">
+          <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
+          <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
+            <h5 class="font-bold text-gray-900 text-xs mb-0.5" id="qris-merchant-name">SHN GROUP</h5>
+            <p class="text-[9px] text-gray-500 font-mono mb-2">DYNAMIC QRIS (NOMINAL OTOMATIS TERISI)</p>
+            <div id="qris-canvas-container" class="flex justify-center p-2 bg-white rounded-xl shadow-inner border border-gray-100">
+              <canvas id="qris-canvas" class="max-w-[200px] max-h-[200px]"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- TAMPILAN TRANSFER BANK -->
+        <div id="content-tf" class="hidden text-xs space-y-2">
+          <div id="bank-accounts-list" class="space-y-2 max-h-48 overflow-y-auto pe-1">
+            <!-- Dt Rekening dari Settings -->
+          </div>
+        </div>
+        <!-- FORM UPLOAD BUKTI UNTUK SEMUA METODE -->
+        <form id="form-upload-iuran" onsubmit="submitBuktiIuran(event)" class="mt-4 border-t pt-3 space-y-3">
+          <div>
+            <label class="block text-[11px] font-bold text-gray-700 mb-1">Unggah Bukti Transfer / Pembayaran</label>
+            <input type="file" id="file-bukti-iuran" accept="image/*" class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-600 hover:file:bg-blue-100 transition" required>
+          </div>
+          <button type="submit" id="btn-submit-iuran" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+            Kirim Bukti Pembayaran
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
   renderListBulanDatabase(rows, headers);
 }
 function renderListBulanDatabase(rows, headers) {

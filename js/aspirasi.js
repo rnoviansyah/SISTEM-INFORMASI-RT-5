@@ -139,20 +139,24 @@ async function hapusAspirasi(id) {
     loadMenu('Aspirasi');
   }, 'Hapus Aspirasi');
 }
+async function loadAspirasiView() {
+  currentActiveMenu = 'Aspirasi';
+  syncActiveNav('Aspirasi');
+  document.getElementById('page-title').innerText = 'Aspirasi Warga';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat kotak aspirasi...</small></div>';
+  document.getElementById('rek-info').style.display = 'none';
+  const res = await callGASGet('getTableData', { sheetName: 'Aspirasi' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderAspirasiView(res);
+  }
+}
+window.loadAspirasiView = loadAspirasiView;
 const originalLoadMenuAspirasi = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Aspirasi') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Aspirasi Warga';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat kotak aspirasi...</small></div>';
-    document.getElementById('rek-info').style.display = 'none';
-    const res = await callGASGet('getTableData', { sheetName: 'Aspirasi' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderAspirasiView(res);
-    }
+    loadAspirasiView();
   } else {
     if (typeof originalLoadMenuAspirasi === 'function') originalLoadMenuAspirasi(menu);
   }

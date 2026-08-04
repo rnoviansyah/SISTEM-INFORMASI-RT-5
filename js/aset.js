@@ -525,20 +525,24 @@ async function kirimPengembalianRT(e) {
     }
   }
 }
+async function loadAsetView() {
+  currentActiveMenu = 'Aset';
+  syncActiveNav('Aset');
+  document.getElementById('page-title').innerText = 'Aset & Inventaris';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
+  document.getElementById('rek-info').style.display = 'none';
+  const res = await callGASGet('getTableData', { sheetName: 'Aset' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderAsetCustom(res);
+  }
+}
+window.loadAsetView = loadAsetView;
 const originalLoadMenuAset = window.loadMenu;
 window.loadMenu = async function(menu) {
-  if (menu === 'Aset') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Aset & Inventaris';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
-    document.getElementById('rek-info').style.display = 'none';
-    const res = await callGASGet('getTableData', { sheetName: 'Aset' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderAsetCustom(res);
-    }
+  if (menu === 'Aset' || menu === 'Inventaris') {
+    loadAsetView();
   } else {
     if (typeof originalLoadMenuAset === 'function') originalLoadMenuAset(menu);
   }

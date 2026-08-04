@@ -322,20 +322,24 @@ function showDetailSurat(id) {
 function tutupDetailSurat() {
   document.getElementById('modal-detail-surat').classList.add('hidden');
 }
+async function loadSuratView() {
+  currentActiveMenu = 'SuratPengantar';
+  syncActiveNav('SuratPengantar');
+  document.getElementById('page-title').innerText = 'Surat Pengantar';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat surat pengantar...</small></div>';
+  document.getElementById('rek-info').style.display = 'none';
+  const res = await callGASGet('getTableData', { sheetName: 'SuratPengantar' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderSuratPengantarCustom(res);
+  }
+}
+window.loadSuratView = loadSuratView;
 const originalLoadMenuSurat = window.loadMenu;
 window.loadMenu = async function(menu) {
-  if (menu === 'SuratPengantar') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Surat Pengantar';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat surat pengantar...</small></div>';
-    document.getElementById('rek-info').style.display = 'none';
-    const res = await callGASGet('getTableData', { sheetName: 'SuratPengantar' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderSuratPengantarCustom(res);
-    }
+  if (menu === 'SuratPengantar' || menu === 'Surat') {
+    loadSuratView();
   } else {
     if (typeof originalLoadMenuSurat === 'function') originalLoadMenuSurat(menu);
   }

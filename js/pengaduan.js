@@ -157,20 +157,24 @@ function waKirimLaporan(jenis, id) {
     : `ini adalah id surat pengantar saya : ${id} mohon segera di tindak lanjuti.`;
   bukaWa(noWaAdmin, pesan);
 }
+async function loadPengaduanView() {
+  currentActiveMenu = 'Pengaduan';
+  syncActiveNav('Pengaduan');
+  document.getElementById('page-title').innerText = 'Pengaduan Warga';
+  document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat pengaduan...</small></div>';
+  document.getElementById('rek-info').style.display = 'none';
+  const res = await callGASGet('getTableData', { sheetName: 'Pengaduan' });
+  if (res) {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderPengaduanCustom(res);
+  }
+}
+window.loadPengaduanView = loadPengaduanView;
 const originalLoadMenuPengaduan = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Pengaduan') {
-    currentActiveMenu = menu;
-    syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Pengaduan Warga';
-    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat pengaduan...</small></div>';
-    document.getElementById('rek-info').style.display = 'none';
-    const res = await callGASGet('getTableData', { sheetName: 'Pengaduan' });
-    if (res) {
-      currentHeaders = res.headers || [];
-      currentRows = res.rows || [];
-      renderPengaduanCustom(res);
-    }
+    loadPengaduanView();
   } else {
     if (typeof originalLoadMenuPengaduan === 'function') originalLoadMenuPengaduan(menu);
   }
