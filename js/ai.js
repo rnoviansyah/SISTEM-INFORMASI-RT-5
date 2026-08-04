@@ -248,34 +248,38 @@ async function getUserPersonalDataContext(prompt = '') {
   let isRT = isUserAdminRT();
   let info = [];
 
-  // Jika Pengurus RT mencari data Warga (misal: "nik rizka")
+  // Jika Pengurus RT khusus mencari data Warga (misal: "nik rizka", "cari warga rizka")
   if (isRT && prompt) {
     let lowerP = prompt.toLowerCase();
-    let searchKey = lowerP.replace(/berapa|nik|no|kk|siapa|data|alamat|nomor|apa/g, '').trim();
-    if (searchKey.length >= 2) {
-      try {
-        let wargaList = (typeof rawWargaData !== 'undefined' && Array.isArray(rawWargaData) && rawWargaData.length > 0) ? rawWargaData : [];
-        if (wargaList.length === 0 && typeof callGASGet === 'function') {
-          try {
-            const res = await callGASGet('getTableData', { sheetName: 'Warga' });
-            if (res && res.rows) wargaList = res.rows;
-          } catch(e) {}
-        }
+    let isExplicitSearch = lowerP.includes('nik') || lowerP.includes('kk') || lowerP.includes('cari warga') || lowerP.includes('data warga') || lowerP.startsWith('berapa nik') || lowerP.startsWith('siapa');
+    
+    if (isExplicitSearch) {
+      let searchKey = lowerP.replace(/berapa|nik|no|kk|siapa|data|alamat|nomor|apa|cari|warga/g, '').trim();
+      if (searchKey.length >= 2) {
+        try {
+          let wargaList = (typeof rawWargaData !== 'undefined' && Array.isArray(rawWargaData) && rawWargaData.length > 0) ? rawWargaData : [];
+          if (wargaList.length === 0 && typeof callGASGet === 'function') {
+            try {
+              const res = await callGASGet('getTableData', { sheetName: 'Warga' });
+              if (res && res.rows) wargaList = res.rows;
+            } catch(e) {}
+          }
 
-        let matched = wargaList.filter(r => JSON.stringify(r).toLowerCase().includes(searchKey));
-        if (matched.length > 0) {
-          let text = matched.slice(0, 3).map(r => {
-            let nik = r[0] || '-';
-            let nama = r[1] || 'Warga';
-            let noKk = r[2] || '-';
-            let noHp = r[10] || r[9] || '-';
-            return `• **Nama**: ${nama}\n  - NIK: **${nik}**\n  - No KK: ${noKk}\n  - No HP: ${noHp}`;
-          }).join('\n\n');
-          info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\n${text}`);
-        } else {
-          info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\nData warga dengan nama/kata kunci **"${searchKey}"** tidak ditemukan di database RT.`);
-        }
-      } catch(e) {}
+          let matched = wargaList.filter(r => JSON.stringify(r).toLowerCase().includes(searchKey));
+          if (matched.length > 0) {
+            let text = matched.slice(0, 3).map(r => {
+              let nik = r[0] || '-';
+              let nama = r[1] || 'Warga';
+              let noKk = r[2] || '-';
+              let noHp = r[10] || r[9] || '-';
+              return `• **Nama**: ${nama}\n  - NIK: **${nik}**\n  - No KK: ${noKk}\n  - No HP: ${noHp}`;
+            }).join('\n\n');
+            info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\n${text}`);
+          } else {
+            info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\nData warga dengan nama/kata kunci **"${searchKey}"** tidak ditemukan di database RT.`);
+          }
+        } catch(e) {}
+      }
     }
   }
 
