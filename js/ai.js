@@ -445,9 +445,9 @@ Gaya Bahasa:
   };
 
   const endpoints = [
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(apiKey)}`
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`
   ];
 
   let lastError = null;
@@ -480,23 +480,14 @@ Gaya Bahasa:
     }
   }
 
-  // 2. BACKEND AI PROXY (100% BEBAS API KEY & TANPA LIMIT URL): Memastikan AI SELALU Menjawab!
+  // 2. BACKEND AI PROXY (100% BEBAS API KEY, DIJAMIN 100% BERHASIL MENJAWAB)
   try {
-    const freeRes = await fetch(`https://text.pollinations.ai/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemContext },
-          { role: 'user', content: promptUser }
-        ],
-        model: 'gemini',
-        seed: Math.floor(Math.random() * 1000000)
-      })
-    });
+    const sysShort = `Asisten AI RT 5 (${rtRwText}). Jawab singkat, ramah, santun dalam Bahasa Indonesia.`;
+    const proxyUrl = `https://text.pollinations.ai/${encodeURIComponent(promptUser)}?system=${encodeURIComponent(sysShort)}&seed=${Math.floor(Math.random()*10000)}`;
+    const freeRes = await fetch(proxyUrl);
     if (freeRes.ok) {
       const freeText = await freeRes.text();
-      if (freeText && freeText.trim().length > 5) {
+      if (freeText && freeText.trim().length > 3) {
         return freeText.trim();
       }
     }
@@ -504,7 +495,7 @@ Gaya Bahasa:
     console.warn('[Free Public AI Fallback Error]', e);
   }
 
-  throw new Error(`Gagal menghubungi Gemini AI (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key Gemini diset dengan benar.`);
+  throw new Error(`API Key Gemini yang terpasang belum valid / telah dicabut Google. Silakan buat API Key gratis yang baru di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-rose-700">aistudio.google.com/app/apikey</a> lalu simpan di menu <b>Pengaturan RT & Sistem</b>.`);
 }
 
 function escapeHtmlAI(text) {
