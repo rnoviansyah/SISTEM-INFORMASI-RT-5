@@ -55,12 +55,24 @@ function renderIuranCustom(data) {
           </div>
           <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
         </div>
-        <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between">
+        <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
           <div>
             <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
             <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
           </div>
+          ${totalBelumBayar > 0 ? `
+            <button onclick="bukaModalBayarSekaligusAll()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer">
+              <i class="bi bi-qr-code-scan"></i> Bayar Sekaligus (QRIS Dinamis)
+            </button>
+          ` : ''}
         </div>
+      </div>
+      <!-- Floating Bar Pilih Tagihan -->
+      <div id="selected-iuran-bar" class="hidden bg-blue-50 border border-blue-200 p-3 rounded-2xl flex justify-between items-center text-xs mb-3 shadow-sm">
+        <span id="selected-iuran-text" class="font-bold text-blue-800">0 Tagihan Terpilih</span>
+        <button onclick="bukaModalBayarTerpilih()" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5">
+          <i class="bi bi-wallet2"></i> Bayar Terpilih (<span id="selected-iuran-nominal">Rp 0</span>)
+        </button>
       </div>
       <!-- List Bulan Iuran -->
       <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-3 space-y-2">
@@ -181,7 +193,7 @@ function renderListBulanDatabase(rows, headers) {
       }
     }
 
-    let checkboxHtml = (!isLunas && !isMenunggu && session.role !== 'RT')
+    let checkboxHtml = (!isLunas && !isMenunggu)
       ? `<input type="checkbox" class="iuran-checkbox w-4 h-4 text-blue-600 rounded cursor-pointer me-2.5" data-id="${rowId}" data-nominal="${nominalVal}" data-label="${bulanVal} ${tahunVal}" onchange="updateSelectedIuranTotal()">`
       : '';
 
