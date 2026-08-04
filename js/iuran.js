@@ -1,6 +1,7 @@
 let rawIuranData = [];
 let iuranHeaders = [];
 let activeBayarId = null;
+
 async function loadIuranView() {
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data iuran...</small></div>';
   const res = await callGASGet('getIuranData');
@@ -13,25 +14,42 @@ async function loadIuranView() {
   }
 }
 window.loadIuranView = loadIuranView;
+
 function getVal(r, headers, colName, defaultVal = '') {
   let idx = headers.indexOf(colName.toLowerCase());
   return idx > -1 && r[idx] !== undefined && r[idx] !== "" ? r[idx] : defaultVal;
 }
+
 function renderIuranCustom(data) {
   let headers = (data.headers || []).map(h => h.toLowerCase().trim());
   let rows = data.rows || [];
   let nominalIdx = headers.indexOf('nominal');
   let statusIdx = headers.indexOf('status');
-  let totalBelumBayar = 0;
+  
+  // Pengecekan role yang lebih aman & kebal spasi/huruf kecil
+  let currentRole = (typeof session !== 'undefined' && session && session.role) ? String(session.role).trim().toUpperCase() : '';
+  let isRT = currentRole === 'RT' || currentRole === 'ADMIN';
+
+  let totalLunas = 0;
+  let totalMenunggu = 0;
+  let totalBelumLunas = 0;
+  let countMenunggu = 0;
+
   rows.forEach(r => {
     let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
     let statusLower = statusVal.toLowerCase().trim();
     let nominalVal = nominalIdx > -1 ? (Number(r[nominalIdx].toString().replace(/[^0-9]/g, '')) || 0) : 0;
-    let isBelumBayar = statusLower.includes('belum') || (!statusLower.includes('lunas') && !statusLower.includes('menunggu') && !statusLower.includes('verifikasi'));
-    if (isBelumBayar) {
-      totalBelumBayar += nominalVal;
+    
+    if (statusLower.includes('lunas') && !statusLower.includes('belum')) {
+      totalLunas += nominalVal;
+    } else if (statusLower.includes('menunggu') || statusLower.includes('verifikasi')) {
+      totalMenunggu += nominalVal;
+      countMenunggu++;
+    } else {
+      totalBelumLunas += nominalVal;
     }
   });
+
   let html = `
     <div class="p-1 text-gray-800 font-sans">
       <!-- Header Banner Status Iuran -->
@@ -40,7 +58,7 @@ function renderIuranCustom(data) {
         <p class="text-xs text-blue-100">Transparan, Cek Status & Pembayaran Bulanan RT 5</p>
       </div>
       <!-- Tombol Tambah Khusus RT -->
-      ${session.role === 'RT' ? `
+      ${isRT ? `
         <div class="mb-4 flex justify-end">
           <button onclick="bukaModalTambahIuranRT()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
             <i class="bi bi-plus-circle-fill"></i> + Tambah Tagihan / Iuran Warga
@@ -48,33 +66,59 @@ function renderIuranCustom(data) {
         </div>
       ` : ''}
       <!-- Card Ringkasan Tagihan -->
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
-        <div class="flex justify-between items-center mb-3">
-          <div>
-            <h4 class="font-bold text-gray-800 text-sm" id="iuran-nama-warga">${session.nama || session.nik}</h4>
-            <p class="text-[10px] text-gray-400 font-mono">NIK: ${session.nik} | Role: ${session.role}</p>
+      ${isRT ? `
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h4 class="font-bold text-gray-800 text-sm">Administrator RT (Pengelola Iuran)</h4>
+              <p class="text-[10px] text-gray-400 font-mono">NIK: ${session?.nik || '-'} | Role: RT</p>
+            </div>
+            <span class="bg-purple-50 text-purple-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-purple-100"><i class="bi bi-shield-lock me-1"></i> Admin RT</span>
           </div>
-          <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+              <p class="text-[10px] text-emerald-600 uppercase font-bold">Total Iuran Terkumpul</p>
+              <p class="font-bold text-emerald-700 text-sm md:text-base">Rp ${totalLunas.toLocaleString('id-ID')}</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-100 p-3 rounded-xl">
+              <p class="text-[10px] text-amber-600 uppercase font-bold">Menunggu Verifikasi (${countMenunggu})</p>
+              <p class="font-bold text-amber-700 text-sm md:text-base">Rp ${totalMenunggu.toLocaleString('id-ID')}</p>
+            </div>
+            <div class="bg-rose-50 border border-rose-100 p-3 rounded-xl">
+              <p class="text-[10px] text-rose-500 uppercase font-bold">Belum Lunas Warga</p>
+              <p class="font-bold text-rose-700 text-sm md:text-base">Rp ${totalBelumLunas.toLocaleString('id-ID')}</p>
+            </div>
+          </div>
         </div>
-        ${totalBelumBayar > 0 ? `
-          <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+      ` : `
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
+          <div class="flex justify-between items-center mb-3">
             <div>
-              <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
-              <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumBayar.toLocaleString('id-ID')}</p>
+              <h4 class="font-bold text-gray-800 text-sm" id="iuran-nama-warga">${session?.nama || session?.nik || '-'}</h4>
+              <p class="text-[10px] text-gray-400 font-mono">NIK: ${session?.nik || '-'} | Role: ${session?.role || '-'}</p>
             </div>
-            <button onclick="bukaModalBayarSekaligusAll()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer">
-              <i class="bi bi-wallet2"></i> Bayar Sekaligus
-            </button>
+            <span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[11px] font-bold border border-blue-100">Aktif</span>
           </div>
-        ` : `
-          <div class="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p class="text-[10px] text-emerald-600 uppercase font-bold">Status Tagihan</p>
-              <p class="font-bold text-emerald-700 text-sm md:text-base"><i class="bi bi-check-circle-fill me-1"></i> Tidak Ada Tagihan Menunggak</p>
+          ${totalBelumLunas > 0 ? `
+            <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p class="text-[10px] text-rose-500 uppercase font-bold">Total Belum Bayar</p>
+                <p class="font-bold text-rose-700 text-base" id="total-belum-bayar">Rp ${totalBelumLunas.toLocaleString('id-ID')}</p>
+              </div>
+              <button onclick="bukaModalBayarSekaligusAll()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 cursor-pointer">
+                <i class="bi bi-wallet2"></i> Bayar Sekaligus
+              </button>
             </div>
-          </div>
-        `}
-      </div>
+          ` : `
+            <div class="bg-emerald-50 border border-emerald-100 p-3.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p class="text-[10px] text-emerald-600 uppercase font-bold">Status Tagihan</p>
+                <p class="font-bold text-emerald-700 text-sm md:text-base"><i class="bi bi-check-circle-fill me-1"></i> Tidak Ada Tagihan Menunggak</p>
+              </div>
+            </div>
+          `}
+        </div>
+      `}
       <!-- Floating Bar Pilih Tagihan -->
       <div id="selected-iuran-bar" class="hidden bg-blue-50 border border-blue-200 p-3 rounded-2xl flex justify-between items-center text-xs mb-3 shadow-sm">
         <span id="selected-iuran-text" class="font-bold text-blue-800">0 Tagihan Terpilih</span>
@@ -84,7 +128,7 @@ function renderIuranCustom(data) {
       </div>
       <!-- List Bulan Iuran -->
       <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-3 space-y-2">
-        <h3 class="font-bold text-xs text-gray-500 uppercase px-2 mb-2">${session.role === 'RT' ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga'}</h3>
+        <h3 class="font-bold text-xs text-gray-500 uppercase px-2 mb-2">${isRT ? 'Semua Riwayat & Tagihan Warga' : 'Daftar Tagihan Iuran Warga'}</h3>
         <div id="list-bulan-iuran" class="space-y-2">
           <!-- Render via JS -->
         </div>
@@ -103,7 +147,7 @@ function renderIuranCustom(data) {
           <button id="tab-qris-btn" onclick="switchTabBayar('qris')" class="py-2 rounded-lg bg-white text-blue-600 shadow-sm transition">Scan QRIS</button>
           <button id="tab-tf-btn" onclick="switchTabBayar('tf')" class="py-2 rounded-lg text-gray-500 transition">Transfer Bank</button>
         </div>
-        <!-- TAMPILAN QRIS BERSIH TANPA TEKS TAMBAHAN DI BAWAHNYA -->
+        <!-- TAMPILAN QRIS -->
         <div id="content-qris" class="text-center space-y-2">
           <p class="text-[10px] text-gray-500">Scan QRIS ini, nominal akan otomatis terisi sesuai tagihan:</p>
           <div class="bg-white p-3 rounded-2xl border border-gray-200 shadow-sm inline-block">
@@ -120,7 +164,7 @@ function renderIuranCustom(data) {
             <!-- Dt Rekening dari Settings -->
           </div>
         </div>
-        <!-- FORM UPLOAD BUKTI UNTUK SEMUA METODE -->
+        <!-- FORM UPLOAD BUKTI -->
         <form id="form-upload-iuran" onsubmit="submitBuktiIuran(event)" class="mt-4 border-t pt-3 space-y-3">
           <div>
             <label class="block text-[11px] font-bold text-gray-700 mb-1">Unggah Bukti Transfer / Pembayaran</label>
@@ -136,6 +180,7 @@ function renderIuranCustom(data) {
   document.getElementById('main-content').innerHTML = html;
   renderListBulanDatabase(rows, headers);
 }
+
 function renderListBulanDatabase(rows, headers) {
   let container = document.getElementById('list-bulan-iuran');
   if(!container) return;
@@ -144,6 +189,9 @@ function renderListBulanDatabase(rows, headers) {
     container.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs">Belum ada data iuran atau tagihan tercatat.</div>`;
     return;
   }
+  let currentRole = (typeof session !== 'undefined' && session && session.role) ? String(session.role).trim().toUpperCase() : '';
+  let isRT = currentRole === 'RT' || currentRole === 'ADMIN';
+
   let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
   rows.forEach((r) => {
     let rowId = r[idIdx] || '';
@@ -159,6 +207,7 @@ function renderListBulanDatabase(rows, headers) {
     let isLunas = statusLower === 'lunas' || (statusLower.includes('lunas') && !statusLower.includes('belum'));
     let isMenunggu = statusLower.includes('menunggu') || statusLower.includes('verifikasi');
     let badgeHtml = '';
+    
     if (isLunas) {
       badgeHtml = `
         <div class="text-right">
@@ -166,7 +215,7 @@ function renderListBulanDatabase(rows, headers) {
           <span class="block text-[9px] text-gray-400 mt-0.5"><i class="bi bi-clock me-1"></i>${tglBayar}</span>
         </div>`;
     } else if (isMenunggu) {
-      if (session.role === 'RT') {
+      if (isRT) {
         badgeHtml = `
           <div class="text-right flex flex-col items-end gap-1">
             <span class="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Menunggu Verifikasi</span>
@@ -185,7 +234,7 @@ function renderListBulanDatabase(rows, headers) {
           </div>`;
       }
     } else {
-      if (session.role === 'RT') {
+      if (isRT) {
         badgeHtml = `
           <div class="text-right flex flex-col items-end gap-1">
             <span class="bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Belum Lunas</span>
@@ -200,7 +249,7 @@ function renderListBulanDatabase(rows, headers) {
       }
     }
 
-    let checkboxHtml = (!isLunas && !isMenunggu)
+    let checkboxHtml = (!isLunas && !isMenunggu && !isRT)
       ? `<input type="checkbox" class="iuran-checkbox w-4 h-4 text-blue-600 rounded cursor-pointer me-2.5" data-id="${rowId}" data-nominal="${nominalVal}" data-label="${bulanVal} ${tahunVal}" onchange="updateSelectedIuranTotal()">`
       : '';
 
@@ -218,6 +267,7 @@ function renderListBulanDatabase(rows, headers) {
     `;
   });
 }
+
 function calculateCRC16(str) {
   let crc = 0xFFFF;
   for (let c = 0; c < str.length; c++) {
@@ -234,6 +284,7 @@ function calculateCRC16(str) {
   while (hex.length < 4) hex = '0' + hex;
   return hex;
 }
+
 function generateDynamicQRIS(staticQris, nominal) {
   let qris = staticQris.trim();
   if (qris.includes('010211')) {
@@ -254,6 +305,7 @@ function generateDynamicQRIS(staticQris, nominal) {
   let crc = calculateCRC16(qris);
   return qris + crc;
 }
+
 function bukaModalBayarSekaligusAll() {
   let headers = (typeof iuranHeaders !== 'undefined' && iuranHeaders.length > 0) ? iuranHeaders : [];
   let rows = (typeof rawIuranData !== 'undefined') ? rawIuranData : [];
@@ -375,14 +427,17 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   let modal = document.getElementById('modal-bayar-iuran');
   if (modal) modal.classList.remove('hidden');
 }
+
 function tutupModalBayarIuran() {
   let modal = document.getElementById('modal-bayar-iuran');
   if (modal) modal.classList.add('hidden');
 }
+
 async function submitBuktiIuran(e) {
   if (e && e.preventDefault) e.preventDefault();
   return prosesKirimBuktiBayar();
 }
+
 async function prosesKirimBuktiBayar() {
   if (!activeBayarId) {
     alert('ID Tagihan iuran tidak ditemukan!');
@@ -413,7 +468,7 @@ async function prosesKirimBuktiBayar() {
         formData: formData
       });
     });
-    const results = await Promise.all(updatePromises);
+    await Promise.all(updatePromises);
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.innerText = 'Kirim Bukti Pembayaran';
@@ -431,6 +486,7 @@ async function prosesKirimBuktiBayar() {
   }
 }
 window.submitBuktiIuran = submitBuktiIuran;
+
 async function verifikasiPembayaranRT(id) {
   showUIConfirm('Apakah Anda yakin ingin memverifikasi pembayaran iuran ini menjadi LUNAS?', async function() {
     let nowFormatted = new Date().toLocaleDateString('id-ID', {
@@ -439,7 +495,7 @@ async function verifikasiPembayaranRT(id) {
     let formData = {
       status: 'LUNAS',
       tanggal_bayar: nowFormatted,
-      diterima_oleh: 'RT 5 (' + (session.nama || 'Pengurus') + ')'
+      diterima_oleh: 'RT 5 (' + (session?.nama || 'Pengurus') + ')'
     };
     let res = await safeSupabaseUpdate('Iuran', formData, 'id', id);
     if (res && (!res.error || res.status === 'success')) {
@@ -478,6 +534,7 @@ async function verifikasiPembayaranRT(id) {
     }
   }, 'Verifikasi Iuran');
 }
+
 function bukaModalEditIuranRT(id) {
   let idIdx = iuranHeaders.indexOf('id');
   let iuranItem = rawIuranData.find(r => idIdx > -1 && String(r[idIdx]) === String(id));
@@ -550,6 +607,7 @@ function bukaModalEditIuranRT(id) {
   let modal = new bootstrap.Modal(document.getElementById('formModal'));
   modal.show();
 }
+
 async function simpanEditIuranRT(event, id) {
   if (event) event.preventDefault();
   let updatePayload = {
@@ -563,7 +621,7 @@ async function simpanEditIuranRT(event, id) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
     updatePayload.tanggal_bayar = nowFormatted;
-    updatePayload.diterima_oleh = 'RT 5 (' + (session.nama || 'Pengurus') + ')';
+    updatePayload.diterima_oleh = 'RT 5 (' + (session?.nama || 'Pengurus') + ')';
   }
   let res = await safeSupabaseUpdate('Iuran', updatePayload, 'id', id);
   if (res && (!res.error || res.status === 'success')) {
@@ -577,6 +635,7 @@ async function simpanEditIuranRT(event, id) {
     showUIToast('Gagal menyimpan: ' + ((res && res.error) ? res.error.message : 'Terjadi kesalahan'), 'error');
   }
 }
+
 async function hapusIuranRT(id) {
   showUIConfirm('Apakah Anda yakin ingin menghapus data tagihan iuran ini?', async function() {
     let res = await safeSupabaseDelete('Iuran', 'id', id);
@@ -589,6 +648,7 @@ async function hapusIuranRT(id) {
     }
   }, 'Hapus Tagihan Iuran');
 }
+
 async function bukaModalTambahIuranRT() {
   let styleId = 'hide-modal-footer-override';
   if (!document.getElementById(styleId)) {
@@ -670,6 +730,7 @@ async function bukaModalTambahIuranRT() {
   let modal = new bootstrap.Modal(document.getElementById('formModal'));
   modal.show();
 }
+
 function isiOtomatisWarga(selectEl) {
   let opt = selectEl.options[selectEl.selectedIndex];
   let nik = opt.value || '';
@@ -682,6 +743,7 @@ function isiOtomatisWarga(selectEl) {
   document.getElementById('iuran-input-nama').value = nama;
   document.getElementById('iuran-input-kk').value = kk;
 }
+
 async function simpanIuranBaruRT(event) {
   if (event) event.preventDefault();
   let formData = {
@@ -704,7 +766,7 @@ async function simpanIuranBaruRT(event) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
     formData.tanggal_bayar = nowFormatted;
-    formData.diterima_oleh = 'RT 5 (' + (session.nama || 'Pengurus') + ')';
+    formData.diterima_oleh = 'RT 5 (' + (session?.nama || 'Pengurus') + ')';
     let kasItem = {
       id: 'KAS-' + Date.now(),
       tanggal: nowFormatted,
@@ -731,6 +793,7 @@ async function simpanIuranBaruRT(event) {
     showUIToast('Gagal menyimpan: ' + (res.message || 'Terjadi kesalahan'), 'error');
   }
 }
+
 function switchTabBayar(type) {
   let btnQris = document.getElementById('tab-qris-btn');
   let btnTf = document.getElementById('tab-tf-btn');
@@ -748,10 +811,12 @@ function switchTabBayar(type) {
     boxQris.classList.add('hidden');
   }
 }
+
 function kirimKonfirmasiWA() {
-  let pesan = `Halo Pengurus RT 5, saya ${session.nama || session.nik} ingin konfirmasi telah mengirimkan bukti pembayaran iuran bulanan warga.`;
+  let pesan = `Halo Pengurus RT 5, saya ${session?.nama || session?.nik || 'Warga'} ingin konfirmasi telah mengirimkan bukti pembayaran iuran bulanan warga.`;
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(pesan)}`, '_blank');
 }
+
 const originalLoadMenuIuran = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Iuran') {
