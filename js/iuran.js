@@ -180,11 +180,19 @@ function renderListBulanDatabase(rows, headers) {
         badgeHtml = `<button onclick="bukaModalBayarIuran('${rowId}', '${bulanVal}', '${tahunVal}', '${nominalVal}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-[11px] font-bold shadow transition">Bayar</button>`;
       }
     }
+
+    let checkboxHtml = (!isLunas && !isMenunggu && session.role !== 'RT')
+      ? `<input type="checkbox" class="iuran-checkbox w-4 h-4 text-blue-600 rounded cursor-pointer me-2.5" data-id="${rowId}" data-nominal="${nominalVal}" data-label="${bulanVal} ${tahunVal}" onchange="updateSelectedIuranTotal()">`
+      : '';
+
     container.innerHTML += `
       <div class="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border border-gray-100 transition">
-        <div>
-          <p class="font-bold text-gray-800 text-xs">${bulanVal} ${tahunVal} <span class="text-[10px] font-normal text-gray-500">(${namaVal})</span></p>
-          <p class="text-[10px] text-blue-600 font-semibold">Nominal: Rp ${nominalVal.toLocaleString('id-ID')}</p>
+        <div class="flex items-center">
+          ${checkboxHtml}
+          <div>
+            <p class="font-bold text-gray-800 text-xs">${bulanVal} ${tahunVal} <span class="text-[10px] font-normal text-gray-500">(${namaVal})</span></p>
+            <p class="text-[10px] text-blue-600 font-semibold">Nominal: Rp ${nominalVal.toLocaleString('id-ID')}</p>
+          </div>
         </div>
         <div>${badgeHtml}</div>
       </div>
@@ -227,12 +235,91 @@ function generateDynamicQRIS(staticQris, nominal) {
   let crc = calculateCRC16(qris);
   return qris + crc;
 }
+function bukaModalBayarSekaligusAll() {
+  let headers = (typeof iuranHeaders !== 'undefined' && iuranHeaders.length > 0) ? iuranHeaders : [];
+  let rows = (typeof rawIuranData !== 'undefined') ? rawIuranData : [];
+  let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+  let nominalIdx = headers.indexOf('nominal');
+  let statusIdx = headers.indexOf('status');
+  let bulanIdx = headers.indexOf('bulan');
+  let tahunIdx = headers.indexOf('tahun');
+
+  let unpaidItems = [];
+  let totalNominal = 0;
+  let bulanList = [];
+
+  rows.forEach(r => {
+    let statusVal = statusIdx > -1 ? (r[statusIdx] || '') : 'Belum Lunas';
+    let statusLower = statusVal.toLowerCase().trim();
+    if (!statusLower.includes('lunas') || statusLower.includes('belum')) {
+      let rowId = r[idIdx] || '';
+      let nominalVal = nominalIdx > -1 ? (Number((r[nominalIdx] || 0).toString().replace(/[^0-9]/g, '')) || 0) : 0;
+      let bulan = bulanIdx > -1 ? r[bulanIdx] : '';
+      let tahun = tahunIdx > -1 ? r[tahunIdx] : '';
+      if (rowId) {
+        unpaidItems.push(rowId);
+        totalNominal += nominalVal;
+        if (bulan) bulanList.push(`${bulan} ${tahun}`);
+      }
+    }
+  });
+
+  if (unpaidItems.length === 0) {
+    alert('Seluruh tagihan iuran Anda sudah lunas!');
+    return;
+  }
+
+  let labelTarget = `Bayar Sekaligus (${unpaidItems.length} Bulan: ${bulanList.slice(0, 3).join(', ')}${bulanList.length > 3 ? '...' : ''})`;
+  bukaModalBayarIuran(unpaidItems.join(','), labelTarget, '', totalNominal);
+}
+
+function updateSelectedIuranTotal() {
+  let checkboxes = document.querySelectorAll('.iuran-checkbox:checked');
+  let totalNominal = 0;
+  let count = 0;
+  checkboxes.forEach(cb => {
+    count++;
+    totalNominal += Number(cb.getAttribute('data-nominal') || 0);
+  });
+  let bar = document.getElementById('selected-iuran-bar');
+  let text = document.getElementById('selected-iuran-text');
+  let nomEl = document.getElementById('selected-iuran-nominal');
+  if (bar) {
+    if (count > 0) {
+      bar.classList.remove('hidden');
+      if (text) text.innerText = `${count} Tagihan Terpilih`;
+      if (nomEl) nomEl.innerText = `Rp ${totalNominal.toLocaleString('id-ID')}`;
+    } else {
+      bar.classList.add('hidden');
+    }
+  }
+}
+
+function bukaModalBayarTerpilih() {
+  let checkboxes = document.querySelectorAll('.iuran-checkbox:checked');
+  if (checkboxes.length === 0) {
+    alert('Pilih minimal 1 tagihan iuran yang ingin dibayar!');
+    return;
+  }
+  let selectedIds = [];
+  let totalNominal = 0;
+  let labels = [];
+  checkboxes.forEach(cb => {
+    selectedIds.push(cb.getAttribute('data-id'));
+    totalNominal += Number(cb.getAttribute('data-nominal') || 0);
+    labels.push(cb.getAttribute('data-label'));
+  });
+  let labelTarget = `Bayar Terpilih (${selectedIds.length} Tagihan: ${labels.join(', ')})`;
+  bukaModalBayarIuran(selectedIds.join(','), labelTarget, '', totalNominal);
+}
+
 function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   activeBayarId = id;
   switchTabBayar('qris');
   let infoEl = document.getElementById('info-bayar-target');
   if (infoEl) {
-    infoEl.innerText = `Iuran ${bulan} ${tahun} - Rp ${Number(nominal).toLocaleString('id-ID')}`;
+    let labelText = tahun ? `Iuran ${bulan} ${tahun} - Rp ${Number(nominal).toLocaleString('id-ID')}` : `${bulan} - Rp ${Number(nominal).toLocaleString('id-ID')}`;
+    infoEl.innerText = labelText;
   }
   let fileInp = document.getElementById('file-bukti-iuran');
   if (fileInp) fileInp.value = '';
@@ -298,22 +385,23 @@ async function prosesKirimBuktiBayar() {
       status: 'Menunggu Verifikasi',
       bukti_transfer: compressedUrl
     };
-    const res = await callGASPost('updateDataDiSheet', {
-      sheetName: 'Iuran',
-      id: activeBayarId,
-      formData: formData
+    let ids = String(activeBayarId).split(',');
+    let updatePromises = ids.map(idStr => {
+      return callGASPost('updateDataDiSheet', {
+        sheetName: 'Iuran',
+        id: idStr.trim(),
+        formData: formData
+      });
     });
+    const results = await Promise.all(updatePromises);
     if (btnSubmit) {
       btnSubmit.disabled = false;
       btnSubmit.innerText = 'Kirim Bukti Pembayaran';
     }
-    if (res && res.status === 'success') {
-      alert('Bukti transfer berhasil dikirim! Status pembayaran kini Menunggu Verifikasi RT.');
-      tutupModalBayarIuran();
-      loadIuranView();
-    } else {
-      alert('Gagal mengirim bukti: ' + (res ? res.message : 'Terjadi kesalahan'));
-    }
+    alert(`Bukti transfer berhasil dikirim untuk ${ids.length} tagihan! Status pembayaran kini Menunggu Verifikasi RT.`);
+    tutupModalBayarIuran();
+    if (typeof menuDataCache !== 'undefined') delete menuDataCache['Iuran'];
+    loadIuranView();
   } catch (err) {
     alert('Gagal membaca file foto: ' + err.message);
     if (btnSubmit) {
