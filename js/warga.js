@@ -295,7 +295,7 @@ function bukaModalRumah(key) {
           <div>
             <h4 class="font-bold text-gray-800 text-xs">${namaVal}</h4>
             ${isSameKk ? `<p class="text-[10px] text-gray-500 font-mono">NIK: ${nikDisplay}</p>` : ''}
-            ${kerjaVal ? `<p class="text-[10px] text-gray-400">${kerjaVal}</p>` : ''}
+            ${isSameKk && kerjaVal ? `<p class="text-[10px] text-gray-400">${kerjaVal}</p>` : ''}
           </div>
         </div>
         <div class="flex items-center gap-1.5">
@@ -349,7 +349,7 @@ function showDetailWarga(id) {
       }
     </div>`;
   let detailHtml = (isSameKk || session.role === 'RT') ? imgHtml : '';
-  let safeFieldsForPublic = ['nama', 'name', 'nama_lengkap', 'alamat', 'address', 'jenis_kelamin', 'gender', 'jk', 'status_tinggal', 'status_huni', 'pekerjaan', 'kerja', 'job'];
+  let safeFieldsForPublic = ['nama', 'name', 'nama_lengkap', 'alamat', 'address', 'jenis_kelamin', 'gender', 'jk', 'status_tinggal', 'status_huni'];
   currentHeaders.forEach((h, idx) => {
     let hLower = (h || '').toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'no' || hLower === 'id') return;
