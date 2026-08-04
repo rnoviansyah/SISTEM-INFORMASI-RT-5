@@ -98,6 +98,128 @@ function renderKeuanganCustom(data) {
     };
   }
 }
+function parseDateTimeToTimestamp(dateStr, rowId = '') {
+  let idTs = 0;
+  if (rowId) {
+    let num = String(rowId).replace(/[^0-9]/g, '');
+    if (num.length >= 10) {
+      let candidate = Number(num.slice(0, 13));
+      if (!isNaN(candidate) && candidate > 1000000000000) {
+        idTs = candidate;
+      }
+    }
+  }
+
+  if (!dateStr || dateStr === '-') {
+    return idTs || 0;
+  }
+
+  let str = String(dateStr).trim();
+  let timeMatch = str.match(/(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  let hh = 0, mm = 0, ss = 0;
+  let hasTime = false;
+  if (timeMatch) {
+    hasTime = true;
+    hh = Number(timeMatch[1]);
+    mm = Number(timeMatch[2]);
+    ss = timeMatch[3] ? Number(timeMatch[3]) : 0;
+  }
+
+  let d = 0, m = -1, y = 0;
+  if (str.includes('/')) {
+    let parts = str.split(' ')[0].split('/');
+    if (parts.length === 3) {
+      d = Number(parts[0]);
+      m = Number(parts[1]) - 1;
+      y = Number(parts[2]);
+    }
+  } else if (str.includes('-')) {
+    let parts = str.split(' ')[0].split('-');
+    if (parts.length === 3) {
+      y = Number(parts[0]);
+      m = Number(parts[1]) - 1;
+      d = Number(parts[2]);
+    }
+  }
+
+  if (y && m >= 0 && d) {
+    if (!hasTime && idTs > 0) return idTs;
+    return new Date(y, m, d, hh, mm, ss).getTime();
+  }
+
+  if (idTs > 0) return idTs;
+  let parsed = Date.parse(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function formatFullDateTime(dateInput, idStr = '') {
+  let now = new Date();
+  let timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+
+  if (!dateInput || dateInput === '-') {
+    if (idStr) {
+      let num = String(idStr).replace(/[^0-9]/g, '');
+      if (num.length >= 10) {
+        let ts = Number(num.slice(0, 13));
+        if (!isNaN(ts) && ts > 1000000000000) {
+          let dt = new Date(ts);
+          let tStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+          return dt.toLocaleDateString('id-ID') + ' ' + tStr;
+        }
+      }
+    }
+    return now.toLocaleDateString('id-ID') + ' ' + timeStr;
+  }
+
+  let str = String(dateInput).trim();
+  if (str.includes(':')) {
+    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+      let parts = str.split(' ');
+      let ymd = parts[0].split('-');
+      let formattedDate = `${ymd[2]}/${ymd[1]}/${ymd[0]}`;
+      let timePart = parts.slice(1).join(' ');
+      if (!timePart.includes('WIB') && !timePart.includes('WIT')) timePart += ' WIB';
+      return `${formattedDate} ${timePart}`;
+    }
+    if (!str.includes('WIB') && !str.includes('WIT')) str += ' WIB';
+    return str;
+  }
+
+  if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    let ymd = str.split('-');
+    if (idStr) {
+      let num = String(idStr).replace(/[^0-9]/g, '');
+      if (num.length >= 10) {
+        let ts = Number(num.slice(0, 13));
+        if (!isNaN(ts) && ts > 1000000000000) {
+          let dt = new Date(ts);
+          let idTimeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+          return `${ymd[2]}/${ymd[1]}/${ymd[0]} ${idTimeStr}`;
+        }
+      }
+    }
+    return `${ymd[2]}/${ymd[1]}/${ymd[0]} ${timeStr}`;
+  }
+
+  if (str.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+    if (idStr) {
+      let num = String(idStr).replace(/[^0-9]/g, '');
+      if (num.length >= 10) {
+        let ts = Number(num.slice(0, 13));
+        if (!isNaN(ts) && ts > 1000000000000) {
+          let dt = new Date(ts);
+          let idTimeStr = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
+          return `${str} ${idTimeStr}`;
+        }
+      }
+    }
+    return `${str} ${timeStr}`;
+  }
+
+  return str.includes('WIB') ? str : `${str} ${timeStr}`;
+}
+window.formatFullDateTime = formatFullDateTime;
+
 function filterDataKeuangan() {
   let p = document.getElementById('filter-periode') ? document.getElementById('filter-periode').value : 'all';
   let o = document.getElementById('sort-order') ? document.getElementById('sort-order').value : 'newest';
@@ -118,27 +240,29 @@ function filterDataKeuangan() {
   let ketIdx = headers.indexOf('keterangan');
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
   let filtered = [...rawKeuanganData].filter(row => {
-    let dateStr = row[tglIdx] || '';
-    let dateParts = dateStr.split(' ')[0].split('/');
-    let d = dateParts.length === 3 ? new Date(dateParts[2], dateParts[1] - 1, dateParts[0]) : new Date();
+    let ts = parseDateTimeToTimestamp(row[tglIdx], row[idIdx]);
+    let d = new Date(ts);
     let dateMatch = true;
     if (p === 'hari') dateMatch = d.toDateString() === now.toDateString();
     else if (p === 'bulan') dateMatch = d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     else if (p === 'tahun') dateMatch = d.getFullYear() === now.getFullYear();
     else if (p === 'custom') {
-      let rowTime = d.getTime();
       let sTime = start ? new Date(start).setHours(0,0,0,0) : -Infinity;
       let eTime = end ? new Date(end).setHours(23,59,59,999) : Infinity;
-      dateMatch = rowTime >= sTime && rowTime <= eTime;
+      dateMatch = ts >= sTime && ts <= eTime;
     }
     let rowId = (row[idIdx] || '').toLowerCase();
     let ketText = (row[ketIdx] || '').toLowerCase();
     let searchMatch = rowId.includes(searchVal) || ketText.includes(searchVal);
     return dateMatch && searchMatch;
   });
-  if (o === 'oldest') {
-    filtered.reverse();
-  }
+
+  filtered.sort((a, b) => {
+    let tsA = parseDateTimeToTimestamp(a[tglIdx], a[idIdx]);
+    let tsB = parseDateTimeToTimestamp(b[tglIdx], b[idIdx]);
+    return o === 'oldest' ? (tsA - tsB) : (tsB - tsA);
+  });
+
   let tbody = document.getElementById('keuangan-table-body');
   if (!tbody) return;
   let t = { m: 0, k: 0 };
@@ -158,11 +282,12 @@ function filterDataKeuangan() {
       let btnAksi = session.role === 'RT' 
         ? `<button onclick="event.stopPropagation(); bukaModalEdit('${r[idIdx]}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200 hover:bg-blue-100">Edit</button>`
         : `<button onclick="event.stopPropagation(); waLaporMasalahKeuangan('${r[idIdx]}')" class="bg-rose-50 text-rose-600 px-2 py-1 rounded-md text-[11px] font-bold border border-rose-200 hover:bg-rose-100">Laporkan</button>`;
+      let formattedDate = formatFullDateTime(r[tglIdx], r[idIdx]);
       tbody.innerHTML += `
         <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailKeuangan('${r[idIdx]}')">
           <td class="p-3 text-center text-gray-400">${i + 1}</td>
           <td class="p-3 text-[10px] font-mono text-gray-600">${r[idIdx]}</td>
-          <td class="p-3 font-medium whitespace-nowrap">${r[tglIdx] || '-'}</td>
+          <td class="p-3 font-medium whitespace-nowrap">${formattedDate}</td>
           <td class="p-3 text-gray-800 font-medium">${r[ketIdx] || '-'}</td>
           <td class="p-3 text-right text-emerald-600 font-bold whitespace-nowrap">Rp ${pem.toLocaleString('id-ID')}</td>
           <td class="p-3 text-right text-rose-600 font-bold whitespace-nowrap">Rp ${peng.toLocaleString('id-ID')}</td>
@@ -332,22 +457,25 @@ function cetakLaporanKeuanganPDF() {
   let now = new Date();
   let start = document.getElementById('date-start') ? document.getElementById('date-start').value : '';
   let end = document.getElementById('date-end') ? document.getElementById('date-end').value : '';
-  let filtered = [...rawKeuanganData].filter(row => {
-    let dateStr = row[tglIdx] || '';
-    let dateParts = dateStr.split(' ')[0].split('/');
-    let d = dateParts.length === 3 ? new Date(dateParts[2], dateParts[1] - 1, dateParts[0]) : new Date();
+  let filtered = [...currentRows].filter(row => {
+    let ts = parseDateTimeToTimestamp(row[tglIdx], row[idIdx]);
+    let d = new Date(ts);
     if (p === 'hari') return d.toDateString() === now.toDateString();
     if (p === 'bulan') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     if (p === 'tahun') return d.getFullYear() === now.getFullYear();
     if (p === 'custom') {
-      let rowTime = d.getTime();
       let sTime = start ? new Date(start).setHours(0,0,0,0) : -Infinity;
       let eTime = end ? new Date(end).setHours(23,59,59,999) : Infinity;
-      return rowTime >= sTime && rowTime <= eTime;
+      return ts >= sTime && ts <= eTime;
     }
     return true;
   });
-  if (o === 'oldest') filtered.reverse();
+
+  filtered.sort((a, b) => {
+    let tsA = parseDateTimeToTimestamp(a[tglIdx], a[idIdx]);
+    let tsB = parseDateTimeToTimestamp(b[tglIdx], b[idIdx]);
+    return o === 'oldest' ? (tsA - tsB) : (tsB - tsA);
+  });
 
   let totalMasuk = 0, totalKeluar = 0;
   let rows = filtered.map((r, i) => {
@@ -355,11 +483,11 @@ function cetakLaporanKeuanganPDF() {
     let peng = Number((r[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
     totalMasuk += pem;
     totalKeluar += peng;
-    let saldo = pem - peng;
+    let formattedDate = formatFullDateTime(r[tglIdx], r[idIdx]);
     return `<tr style="border-bottom:1px solid #e5e7eb;">
       <td style="padding:7px 8px; text-align:center; color:#6b7280; font-size:10pt;">${i+1}</td>
       <td style="padding:7px 8px; font-size:9pt; color:#6b7280; font-family:monospace;">${r[idIdx] || '-'}</td>
-      <td style="padding:7px 8px; font-size:10pt; white-space:nowrap;">${r[tglIdx] || '-'}</td>
+      <td style="padding:7px 8px; font-size:10pt; white-space:nowrap;">${formattedDate}</td>
       <td style="padding:7px 8px; font-size:10pt;">${r[ketIdx] || '-'}</td>
       <td style="padding:7px 8px; text-align:right; font-size:10pt; color:#059669; font-weight:600;">${pem > 0 ? 'Rp ' + pem.toLocaleString('id-ID') : '-'}</td>
       <td style="padding:7px 8px; text-align:right; font-size:10pt; color:#dc2626; font-weight:600;">${peng > 0 ? 'Rp ' + peng.toLocaleString('id-ID') : '-'}</td>

@@ -164,7 +164,8 @@ async function verifikasiSumbanganRT(id, status = 'Diterima') {
       let nominalVal = nominalIdx > -1 ? row[nominalIdx] : 0;
       let ketVal = ketIdx > -1 ? row[ketIdx] : '';
       let fotoVal = fotoIdx > -1 ? row[fotoIdx] : '-';
-      let tglVal = tglIdx > -1 ? row[tglIdx] : new Date().toLocaleDateString('id-ID');
+      let tglRaw = (tglIdx > -1 && row[tglIdx]) ? row[tglIdx] : '';
+      let tglVal = (typeof formatFullDateTime === 'function') ? formatFullDateTime(tglRaw, id) : (tglRaw || new Date().toLocaleDateString('id-ID'));
 
       await callGASPost('simpanDataKeSheet', {
         sheetName: 'Keuangan',
