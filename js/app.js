@@ -1828,7 +1828,7 @@ let appSettings = {
   payment_qris_name: 'RT 5 / RW 01',
   payment_qris: '',
   info_warga: '',
-  gemini_api_key: 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw'
+  gemini_api_key: 'AQ.Ab8RN6KcMDqKhTyZxUnQ2v10IaqcNqTkGvBpf8yk0qkSIVLzAg'
 };
 function updateDynamicManifest() {
   try {

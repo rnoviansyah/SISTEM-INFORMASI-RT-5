@@ -2,7 +2,7 @@
    ASISTEN AI RT 5 (POWERED BY GOOGLE GEMINI AI)
    ========================================================= */
 
-let geminiApiKeyDefault = 'AQ.Ab8RN6KNlJ_QRKRjrN5ciJTixd-I9_9oBW4O9O_cV3SEsWbegw';
+let geminiApiKeyDefault = '';
 
 function getGeminiApiKey() {
   if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
@@ -213,7 +213,7 @@ async function kirimPesanAI(pesanTeksCustom = null) {
 async function panggilGeminiApi(promptUser) {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    throw new Error('Gemini API Key belum dikonfigurasi di aplikasi.');
+    throw new Error('API Key Gemini belum diset. Silakan buka <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-rose-700">aistudio.google.com/app/apikey</a> (Gratis), buat API Key baru, lalu paste & simpan di menu <b>Pengaturan RT & Sistem</b>.');
   }
 
   const rtRwText = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
@@ -263,11 +263,10 @@ Gaya Bahasa:
     }
   };
 
-  // Coba Endpoint 1: gemini-1.5-flash, jika gagal coba gemini-2.0-flash
   const endpoints = [
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`
   ];
 
   let lastError = null;
@@ -276,7 +275,10 @@ Gaya Bahasa:
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
         body: JSON.stringify(payload)
       });
 
