@@ -14,7 +14,7 @@ const JENIS_SURAT_LIST = [
 
 function getKodeSurat(jenisSurat) {
   if (!jenisSurat) return 'SP';
-  let str = jenisSurat.toLowerCase().trim();
+  let str = jenisSurat.split('|')[0].toLowerCase().trim();
   if (str.includes('keramaian') || str.includes('izin')) return 'IZIN';
   if (str.includes('skck') || str.includes('kepolisian')) return 'SKCK';
   if (str.includes('sktm') || str.includes('tidak mampu')) return 'SKTM';
@@ -29,11 +29,15 @@ function getKodeSurat(jenisSurat) {
 function renderSuratBody(jenisSurat, data) {
   // data: { namaWarga, nikWarga, alamatWarga, keterangan, tanggalSurat }
   let { namaWarga, nikWarga, alamatWarga, keterangan, tanggalSurat } = data;
-  let kode = getKodeSurat(jenisSurat);
+  let cleanJenis = (jenisSurat || '').split('|')[0].trim();
+  let kode = getKodeSurat(cleanJenis);
 
-  // Parse keterangan as JSON for extra fields (with smart fallback)
+  // Parse extra fields from jenisSurat payload or keterangan
   let extra = {};
-  if (keterangan && keterangan !== '{' && keterangan !== 'null' && keterangan !== '-') {
+  if (jenisSurat && jenisSurat.includes('|')) {
+    try { extra = JSON.parse(jenisSurat.split('|').slice(1).join('|')); } catch(e) {}
+  }
+  if (Object.keys(extra).length === 0 && keterangan && keterangan !== '{' && keterangan !== 'null' && keterangan !== '-') {
     if (typeof keterangan === 'object') {
       extra = keterangan;
     } else if (typeof keterangan === 'string') {

@@ -272,12 +272,22 @@ function showDetailSurat(id) {
   currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
-    let valStr = row[idx] || '-';
+    let valStr = String(row[idx] || '-');
     let formattedVal = valStr;
-    if (valStr.trim().startsWith('{') && valStr.trim().endsWith('}')) {
+    if (valStr.includes('|')) {
+      let parts = valStr.split('|');
+      let mainText = parts[0];
+      let jsonPart = parts.slice(1).join('|');
+      try {
+        let parsed = JSON.parse(jsonPart);
+        formattedVal = `<b>${mainText}</b>` + Object.entries(parsed).map(([k, v]) => `<div class="mt-0.5 text-[11px]"><span class="text-gray-500 font-bold">${k.replace(/_/g, ' ').toUpperCase()}:</span> ${v}</div>`).join('');
+      } catch(e) {
+        formattedVal = mainText;
+      }
+    } else if (valStr.trim().startsWith('{') && valStr.trim().endsWith('}')) {
       try {
         let parsed = JSON.parse(valStr);
-        formattedVal = Object.entries(parsed).map(([k, v]) => `<div class="mt-0.5"><span class="text-gray-500 font-bold">${k.replace(/_/g, ' ').toUpperCase()}:</span> ${v}</div>`).join('');
+        formattedVal = Object.entries(parsed).map(([k, v]) => `<div class="mt-0.5 text-[11px]"><span class="text-gray-500 font-bold">${k.replace(/_/g, ' ').toUpperCase()}:</span> ${v}</div>`).join('');
       } catch(e) {}
     }
     detailHtml += `

@@ -676,7 +676,7 @@ const FALLBACK_HEADERS = {
   'Warga': ['id', 'nama_lengkap', 'nama_panggilan', 'nik', 'no_kk', 'tempat_lahir', 'tanggal_lahir', 'jenis_kelamin', 'alamat', 'status_nikah', 'status_tinggal', 'pekerjaan', 'no_hp', 'foto_url'],
   'Iuran': ['id', 'nik', 'nama', 'no_kk', 'bulan', 'tahun', 'nominal', 'status', 'tanggal_bayar', 'diterima_oleh', 'bukti_transfer'],
   'Pengaduan': ['id', 'nama', 'nik', 'no_hp', 'jenis_aduan', 'keterangan', 'tanggal', 'foto_url', 'status', 'foto_penyelesaian'],
-  'SuratPengantar': ['id', 'nama', 'nik', 'alamat', 'rt', 'jenis_surat', 'status', 'keterangan_admin'],
+  'SuratPengantar': ['id', 'nama', 'nik', 'alamat', 'rt', 'jenis_surat', 'keterangan', 'status', 'keterangan_admin'],
   'Keuangan': ['id', 'tanggal', 'pemasukan', 'pengeluaran', 'keterangan', 'saldo', 'foto_url'],
   'Sumbangan': ['id', 'nama', 'tanggal', 'jenis_sumbangan', 'keterangan', 'nominal', 'bukti_transfer', 'status', 'nik'],
   'Aset': ['id', 'nama_barang', 'kondisi', 'jumlah', 'status_barang'],
@@ -1498,6 +1498,7 @@ async function generateFormInputs(rowData) {
         <option value="LAINNYA" ${val.toUpperCase()==='LAINNYA'?'selected':''}>LAINNYA</option>
       </select>`;
     } else if (currentActiveMenu === 'SuratPengantar' && (nameLower.includes('jenis') || nameLower.includes('perihal') || nameLower.includes('keperluan'))) {
+      let rawJenisVal = String(val || '').split('|')[0].trim();
       let optList = (typeof JENIS_SURAT_LIST !== 'undefined') ? JENIS_SURAT_LIST : [
         { value: 'Surat Pengantar Umum', label: 'Surat Pengantar Umum' },
         { value: 'Pengantar SKCK', label: 'Pengantar SKCK' },
@@ -1508,7 +1509,7 @@ async function generateFormInputs(rowData) {
         { value: 'Surat Keterangan Ahli Waris', label: 'Surat Keterangan Ahli Waris' },
         { value: 'Surat Izin Keramaian', label: 'Surat Izin Keramaian/Acara' }
       ];
-      let opts = optList.map(o => `<option value="${o.value}" ${val.toLowerCase().trim()===o.value.toLowerCase().trim()?'selected':''}>${o.label}</option>`).join('');
+      let opts = optList.map(o => `<option value="${o.value}" ${rawJenisVal.toLowerCase()===o.value.toLowerCase().trim()?'selected':''}>${o.label}</option>`).join('');
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}" onchange="if(typeof renderExtraSuratFields==='function') renderExtraSuratFields(this.value);">
         <option value="">-- Pilih Jenis Surat Pengantar --</option>
         ${opts}
@@ -1563,16 +1564,27 @@ async function generateFormInputs(rowData) {
     let selVal = jenisSelect ? jenisSelect.value : '';
     let existingObj = {};
     if (rowData) {
-      let ketVal = '';
+      let rawJenisStr = '';
       if (Array.isArray(rowData)) {
         let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
-        let kIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('catatan'));
-        if (kIdx > -1) ketVal = rowData[kIdx];
+        let jIdx = headers.findIndex(h => h.includes('jenis') || h.includes('perihal') || h.includes('keperluan'));
+        if (jIdx > -1) rawJenisStr = rowData[jIdx];
       } else if (typeof rowData === 'object') {
-        ketVal = rowData.keterangan || rowData.Keterangan || rowData.KETERANGAN || '';
+        rawJenisStr = rowData.jenis_surat || rowData.jenis || rowData.JENIS_SURAT || '';
       }
-      if (ketVal) {
-        try { existingObj = JSON.parse(ketVal); } catch(e) { existingObj = { catatan: ketVal }; }
+      if (rawJenisStr && rawJenisStr.includes('|')) {
+        try { existingObj = JSON.parse(rawJenisStr.split('|').slice(1).join('|')); } catch(e) {}
+      }
+      if (Object.keys(existingObj).length === 0) {
+        let ketVal = (typeof cariNilaiKolom === 'function') ? cariNilaiKolom(rowData, ['keterangan', 'catatan', 'ket', 'keperluan']) : '';
+        if (ketVal && ketVal !== '{' && ketVal !== 'null') {
+          let trimmed = String(ketVal).trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try { existingObj = JSON.parse(trimmed); } catch(e) {}
+          } else if (trimmed && trimmed !== '-') {
+            existingObj = { catatan: trimmed, nama_acara: trimmed, nama_usaha: trimmed, keperluan: trimmed, alamat_baru: trimmed };
+          }
+        }
       }
     }
     if (selVal) {
@@ -1623,8 +1635,12 @@ function submitFormBaru(e) {
       let k = inp.getAttribute('data-extra-key');
       if (k && inp.value) extraObj[k] = inp.value;
     });
+    let jenisKey = Object.keys(payload).find(k => k.toLowerCase().includes('jenis') || k.toLowerCase().includes('perihal') || k.toLowerCase().includes('keperluan'));
+    if (jenisKey && payload[jenisKey]) {
+      payload[jenisKey] = payload[jenisKey].split('|')[0].trim();
+    }
     if (Object.keys(extraObj).length > 0) {
-      let ketKey = Object.keys(payload).find(k => k.toLowerCase().includes('keterangan') || k.toLowerCase().includes('catatan'));
+      let ketKey = Object.keys(payload).find(k => k.toLowerCase() === 'keterangan' || (k.toLowerCase().includes('keterangan') && !k.toLowerCase().includes('admin')));
       if (!ketKey) ketKey = 'keterangan';
       payload[ketKey] = JSON.stringify(extraObj);
     }
