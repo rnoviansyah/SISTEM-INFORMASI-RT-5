@@ -209,6 +209,14 @@ function filterDataWarga() {
   let tbody = document.getElementById('warga-table-body');
   if (tbody) {
     tbody.innerHTML = '';
+    let isRT = String(session.role || '').toUpperCase() === 'RT';
+    let userNik = (session && session.nik) ? String(session.nik).trim() : '';
+    let kkIdxTbl = headers.findIndex(h => h.includes('kk') || h.includes('no_kk'));
+    let userKkTbl = '';
+    if (!isRT && userNik) {
+      let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === userNik);
+      if (myW) userKkTbl = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+    }
     if (filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-400">Tidak ada data warga yang cocok.</td></tr>`;
     } else {
@@ -219,13 +227,17 @@ function filterDataWarga() {
         let hpVal = hpIdx > -1 && r[hpIdx] !== undefined ? r[hpIdx] : '';
         let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
         let rowId = r[idIdx] || nikVal;
+        let rowKkVal = kkIdxTbl > -1 ? String(r[kkIdxTbl] || '').trim() : '';
+        let rowNikStr = String(nikVal).trim();
+        let isSameKkTbl = isRT || (rowNikStr && rowNikStr === userNik) || (userKkTbl && rowKkVal && userKkTbl === rowKkVal);
+        let nikDisplay = isSameKkTbl ? nikVal : '***';
         let btnAksi = session.role === 'RT' 
           ? `<button onclick="event.stopPropagation(); showDetailWarga('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Detail</button>`
-          : `<button onclick="event.stopPropagation(); waHubungiWarga('${hpVal}')" class="bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md text-[11px] font-bold border border-emerald-200">WA</button>`;
+          : `<button onclick="event.stopPropagation(); showDetailWarga('${rowId}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded-md text-[11px] font-bold border border-blue-200">Rincian</button>`;
         tbody.innerHTML += `
           <tr class="border-b hover:bg-blue-50/50 cursor-pointer transition" onclick="showDetailWarga('${rowId}')">
             <td class="p-3 text-center text-gray-400">${i + 1}</td>
-            <td class="p-3 font-mono text-[10px] text-gray-600">${nikVal}</td>
+            <td class="p-3 font-mono text-[10px] text-gray-600">${nikDisplay}</td>
             <td class="p-3 font-medium text-gray-800">${namaVal}</td>
             <td class="p-3 text-gray-600 truncate max-w-[150px]">${alamatVal}</td>
             <td class="p-3 text-center">${btnAksi}</td>
@@ -249,6 +261,14 @@ function bukaModalRumah(key) {
   let pekerjaanIdx = headers.findIndex(h => h.includes('pekerjaan') || h.includes('job'));
   let hpIdx = headers.findIndex(h => h.includes('hp') || h.includes('wa') || h.includes('telp'));
   let fotoIdx = headers.findIndex(h => h.includes('foto') || h.includes('bukti'));
+  let kkIdx = headers.findIndex(h => h.includes('kk') || h.includes('no_kk'));
+  let userKk = '';
+  let userNik = (session && session.nik) ? String(session.nik).trim() : '';
+  let isRT = String(session.role || '').toUpperCase() === 'RT';
+  if (!isRT && userNik) {
+    let myW = (rawWargaData || []).find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === userNik);
+    if (myW) userKk = String(cariNilaiKolom(myW, ['kk', 'no_kk']) || '').trim();
+  }
   let html = '';
   group.rows.forEach((r, idx) => {
     let rowId = r[idIdx] || r[nikIdx] || r[0];
@@ -260,16 +280,21 @@ function bukaModalRumah(key) {
     let fotoUrl = (fotoIdx > -1 && r[fotoIdx]) ? String(r[fotoIdx]) : '';
     let fotoDirectUrl = (typeof convertToImageLink === 'function') ? convertToImageLink(fotoUrl) : fotoUrl;
     let hasFoto = (fotoUrl && String(fotoUrl).trim() !== '' && String(fotoUrl).toUpperCase() !== 'EMPTY' && String(fotoUrl).toUpperCase() !== 'NULL' && fotoUrl !== '-');
+    let rowKk = kkIdx > -1 ? String(r[kkIdx] || '').trim() : '';
+    let rowNik = String(nikVal).trim();
+    let isSameKk = isRT || (rowNik && rowNik === userNik) || (userKk && rowKk && userKk === rowKk);
+    let nikDisplay = isSameKk ? nikVal : '***';
+    let showFoto = isSameKk;
     html += `
       <div class="bg-gray-50/80 p-3 rounded-2xl border border-gray-200/80 flex items-center justify-between gap-3 hover:bg-white hover:shadow-sm transition">
         <div class="flex items-center gap-3">
-          ${hasFoto 
+          ${showFoto && hasFoto 
             ? `<img src="${fotoDirectUrl}" class="w-10 h-10 rounded-full object-cover border shadow-sm cursor-pointer" onclick="bukaPopUpFoto('${fotoUrl}')">`
             : `<div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm shadow-inner"><i class="bi bi-person-fill"></i></div>`
           }
           <div>
             <h4 class="font-bold text-gray-800 text-xs">${namaVal}</h4>
-            <p class="text-[10px] text-gray-500 font-mono">NIK: ${nikVal}</p>
+            ${isSameKk ? `<p class="text-[10px] text-gray-500 font-mono">NIK: ${nikDisplay}</p>` : ''}
             ${kerjaVal ? `<p class="text-[10px] text-gray-400">${kerjaVal}</p>` : ''}
           </div>
         </div>
