@@ -203,7 +203,7 @@ function cetakPDFSuratPengantar(id) {
       <div class="kop-surat">
         <img src="${logoUrl}" class="kop-logo" alt="Logo RT">
         <div class="kop-text">
-          <h2>PENGURUS RUKUN TETANGGA 05 / RW 06</h2>
+          <h2>PENGURUS RUKUN TETANGGA 05 / RW 01</h2>
           <h3>${titleApp}</h3>
           <p>Sistem Layanan & Informasi Warga Digital - Modern, Transparan & Efisien</p>
         </div>

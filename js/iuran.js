@@ -248,7 +248,7 @@ function bukaModalBayarIuran(id, bulan, tahun, nominal) {
   }
   let merchantEl = document.getElementById('qris-merchant-name');
   if (merchantEl) {
-    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'RT 5 / RW 06';
+    merchantEl.innerText = (typeof appSettings !== 'undefined' && appSettings.payment_qris_name) ? appSettings.payment_qris_name : 'RT 5 / RW 01';
   }
   let tfBox = document.getElementById('content-tf');
   if (tfBox) {

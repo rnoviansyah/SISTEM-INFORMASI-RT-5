@@ -374,7 +374,7 @@ function cetakLaporanKeuanganPDF() {
   <div class="header-wrap">
     <img src="${logoUrl}" class="header-logo" onerror="this.style.display='none'">
     <div class="header-text">
-      <h1>PENGURUS RUKUN TETANGGA 05 / RW 06</h1>
+      <h1>PENGURUS RUKUN TETANGGA 05 / RW 01</h1>
       <h2>${titleApp}</h2>
       <p>Sistem Layanan & Informasi Warga Digital - Modern, Transparan & Efisien</p>
     </div>

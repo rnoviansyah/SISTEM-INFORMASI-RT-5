@@ -1775,7 +1775,7 @@ let appSettings = {
     { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
   ]),
   payment_qris_string: '00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC',
-  payment_qris_name: 'RT 5 / RW 06',
+  payment_qris_name: 'RT 5 / RW 01',
   payment_qris: '',
   info_warga: ''
 };
@@ -2518,7 +2518,7 @@ async function renderPengaturanRTView() {
               </div>
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">NAMA MERCHANT / SHIFT KODE QRIS</label>
-                <input type="text" id="set-payment-qris-name" class="form-control form-control-sm" value="${appSettings.payment_qris_name || ''}" placeholder="Contoh: RT 5 / RW 06">
+                <input type="text" id="set-payment-qris-name" class="form-control form-control-sm" value="${appSettings.payment_qris_name || ''}" placeholder="Contoh: RT 5 / RW 01">
               </div>
               <div class="mb-4">
                 <label class="form-label font-semibold text-xs text-gray-700">URL FOTO QRIS STATIS (OPSIONAL / Gambar Cadangan)</label>
