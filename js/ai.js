@@ -14,19 +14,40 @@ function getGeminiApiKey() {
 // Inisialisasi Widget Floating Chat AI saat halaman siap
 document.addEventListener('DOMContentLoaded', () => {
   initAiWidget();
+  updateAiWidgetVisibility();
 });
 
-// Bila DOM sudah terlanjur loaded
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(initAiWidget, 500);
+  setTimeout(() => {
+    initAiWidget();
+    updateAiWidgetVisibility();
+  }, 500);
+}
+
+function updateAiWidgetVisibility() {
+  const btn = document.getElementById('ai-chat-button');
+  const widget = document.getElementById('ai-chat-widget');
+  let isLoggedIn = typeof session !== 'undefined' && session && session.token;
+  if (!isLoggedIn) {
+    if (btn) btn.classList.add('hidden');
+    if (widget) widget.classList.add('hidden');
+  } else {
+    if (btn && (!widget || widget.classList.contains('hidden'))) {
+      btn.classList.remove('hidden');
+    }
+  }
 }
 
 function initAiWidget() {
-  if (document.getElementById('ai-chat-widget')) return;
+  if (document.getElementById('ai-chat-widget')) {
+    updateAiWidgetVisibility();
+    return;
+  }
 
+  let isLoggedIn = typeof session !== 'undefined' && session && session.token;
   const widgetHtml = `
     <!-- FLOATING BUTTON AI -->
-    <div id="ai-chat-button" onclick="toggleAiChat()" class="fixed bottom-20 right-4 z-40 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-3.5 rounded-full shadow-lg cursor-pointer flex items-center gap-2 transition-all transform hover:scale-105" title="Tanya Asisten AI RT 5">
+    <div id="ai-chat-button" onclick="toggleAiChat()" class="${isLoggedIn ? '' : 'hidden'} fixed bottom-20 right-4 z-40 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white p-3.5 rounded-full shadow-lg cursor-pointer flex items-center gap-2 transition-all transform hover:scale-105" title="Tanya Asisten AI RT 5">
       <i class="bi bi-robot text-xl"></i>
       <span class="text-xs font-bold pe-1 hidden md:inline">Tanya AI RT</span>
       <span class="absolute -top-1 -right-1 flex h-3 w-3">
@@ -168,15 +189,18 @@ async function kirimPesanAI(pesanTeksCustom = null) {
   const typingEl = document.getElementById('ai-typing-indicator');
   if (typingEl) typingEl.classList.remove('hidden');
 
-  // 3. Panggil API Gemini AI
+  // 3. Ambil Konteks Data Realtime Warga
+  let personalContext = await getUserPersonalDataContext();
+
+  // 4. Panggil API Gemini AI
   try {
-    const aiResponse = await panggilGeminiApi(pesan);
+    const aiResponse = await panggilGeminiApi(pesan, personalContext);
     
     if (typingEl) typingEl.classList.add('hidden');
 
     const formattedAnswer = formatMarkdownAI(aiResponse);
 
-    // 4. Tambahkan Bubble Chat AI
+    // 5. Tambahkan Bubble Chat AI
     const aiBubble = `
       <div class="flex gap-2.5 items-start">
         <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
@@ -194,7 +218,7 @@ async function kirimPesanAI(pesanTeksCustom = null) {
     if (typingEl) typingEl.classList.add('hidden');
     console.warn('[Gemini AI Fallback Triggered]', err);
 
-    const fallbackAnswer = getSmartFallbackAnswer(pesan);
+    const fallbackAnswer = getSmartFallbackAnswer(pesan, personalContext);
     const formattedAnswer = formatMarkdownAI(fallbackAnswer);
 
     const aiBubble = `
@@ -212,33 +236,94 @@ async function kirimPesanAI(pesanTeksCustom = null) {
   }
 }
 
-function getSmartFallbackAnswer(prompt) {
+async function getUserPersonalDataContext() {
+  let userNik = (session?.nik || '').trim();
+  let userNama = (session?.nama || userNik).trim();
+  let info = [];
+
+  // Aduan
+  try {
+    let aduanData = (typeof rawAduanData !== 'undefined' && Array.isArray(rawAduanData)) ? rawAduanData : [];
+    let myAduan = aduanData.filter(r => {
+      let s = JSON.stringify(r).toLowerCase();
+      return (userNik && s.includes(userNik.toLowerCase())) || (userNama && s.includes(userNama.toLowerCase()));
+    });
+    if (myAduan.length > 0) {
+      let aduanStr = myAduan.map((r, i) => {
+        let judul = r[1] || r[2] || 'Pengaduan';
+        let status = r[r.length - 1] || r[r.length - 2] || 'Diproses';
+        return `• "${judul}" -> Status: **${status}**`;
+      }).join('\n');
+      info.push(`📌 **Status Pengaduan/Keluhan ${userNama}:**\n${aduanStr}`);
+    } else {
+      info.push(`📌 **Status Pengaduan ${userNama}:** Belum ada catatan pengaduan yang diajukan.`);
+    }
+  } catch(e) {}
+
+  // Surat
+  try {
+    let suratData = (typeof rawSuratData !== 'undefined' && Array.isArray(rawSuratData)) ? rawSuratData : [];
+    let mySurat = suratData.filter(r => {
+      let s = JSON.stringify(r).toLowerCase();
+      return (userNik && s.includes(userNik.toLowerCase())) || (userNama && s.includes(userNama.toLowerCase()));
+    });
+    if (mySurat.length > 0) {
+      let suratStr = mySurat.map((r, i) => {
+        let jenis = r[1] || r[2] || 'Surat Pengantar';
+        let status = r[r.length - 1] || r[r.length - 2] || 'Menunggu';
+        return `• ${jenis} -> Status: **${status}**`;
+      }).join('\n');
+      info.push(`📄 **Status Pengajuan Surat ${userNama}:**\n${suratStr}`);
+    }
+  } catch(e) {}
+
+  return info.join('\n\n');
+}
+
+function getSmartFallbackAnswer(prompt, personalContext = '') {
   let lower = (prompt || '').toLowerCase();
   let rtRw = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
   let ketua = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
   let sekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
+  let isRT = session && session.role === 'RT';
+
+  // PRIVACY SECURITY FILTER FOR WARGA ROLE
+  if (!isRT) {
+    if (lower.includes('nik warga') || lower.includes('nik tetangga') || lower.includes('kk warga') || lower.includes('password') || lower.includes('rahasia') || lower.includes('semua warga') || lower.includes('data warga lain')) {
+      return `🔒 **Akses Ditolak (Privasi Data Kependudukan)**\n\nMohon maaf 🙏, demi menjaga privasi dan kerahasiaan data kependudukan warga, informasi sensitif (seperti NIK, No KK, atau data pribadi warga lain) hanya dapat diakses oleh **Pengurus RT**.`;
+    }
+  }
+
+  // Jika menanyakan status personal (aduan/surat saya)
+  if (lower.includes('aduan') || lower.includes('keluhan') || lower.includes('lapor')) {
+    if (lower.includes('saya') || lower.includes('sudah') || lower.includes('selesai') || lower.includes('belum') || lower.includes('status')) {
+      if (personalContext && personalContext.includes('Status Pengaduan')) {
+        return `${personalContext}\n\nPengurus RT akan memperbarui status aduan Anda secara realtime di aplikasi.`;
+      }
+    }
+    return `📢 **Tata Cara Menyampaikan Pengaduan / Keluhan Warga**\n\n` +
+           `1. Masuk ke menu **Aduan** di navigasi utama aplikasi.\n` +
+           `2. Klik tombol **+ Buat Pengaduan Baru**.\n` +
+           `3. Isi judul laporan, rincian lokasi/kendala, dan foto jika ada.\n` +
+           `4. Klik **Kirim Laporan**. Pengurus RT akan memproses dan memperbarui status laporan Anda secara transparan.`;
+  }
+
+  if (lower.includes('surat') || lower.includes('pengantar') || lower.includes('sktm') || lower.includes('skck') || lower.includes('domisili') || lower.includes('nikah') || lower.includes('pindah') || lower.includes('waris')) {
+    if ((lower.includes('saya') || lower.includes('status') || lower.includes('sudah') || lower.includes('belum')) && personalContext && personalContext.includes('Status Pengajuan Surat')) {
+      return `${personalContext}\n\nJika status sudah **Diterima**, Anda dapat langsung mengunduh/mencetak PDF Surat Pengantar resmi!`;
+    }
+    return `📄 **Panduan Layanan Pengajuan Surat Pengantar RT**\n\n` +
+           `1. Buka menu **Surat** di aplikasi ini.\n` +
+           `2. Pilih jenis surat yang dibutuhkan (**Surat Pengantar SKCK, SKTM, Domisili Usaha, Pindah, Nikah, Ahli Waris, atau Izin Keramaian**).\n` +
+           `3. Isi keterangan pendukung lalu klik **Ajukan Surat**.\n` +
+           `4. Setelah disetujui pengurus RT, Anda bisa langsung **Cetak / Simpan PDF Surat Resmi** lengkap dengan Tanda Tangan Digital pengurus.`;
+  }
 
   if (lower.includes('iuran') || lower.includes('bayar') || lower.includes('nominal') || lower.includes('tagihan')) {
     return `💳 **Informasi Pembayaran Iuran Warga ${rtRw}**\n\n` +
            `1. **Cek Tagihan**: Buka menu **Iuran** di aplikasi ini untuk melihat rincian bulan yang belum lunas.\n` +
            `2. **Cara Bayar**: Pilih bulan yang ingin dibayar (bisa **Bayar Sekaligus**), lalu scan **QRIS Dinamis** yang muncul atau transfer ke rekening yang tertera.\n` +
            `3. **Upload Bukti**: Unggah foto bukti transfer. Status pembayaran akan otomatis berubah jadi *Menunggu Verifikasi* dan dikonfirmasi oleh pengurus RT.`;
-  }
-
-  if (lower.includes('aduan') || lower.includes('keluhan') || lower.includes('lapor') || lower.includes('rusak') || lower.includes('sampah') || lower.includes('masalah')) {
-    return `📢 **Tata Cara Menyampaikan Pengaduan / Keluhan Warga**\n\n` +
-           `1. Masuk ke menu **Aduan** di navigasi utama aplikasi.\n` +
-           `2. Klik tombol **+ Buat Pengaduan Baru**.\n` +
-           `3. Isi judul laporan, rincian lokasi/kendala (misal: lampu jalan mati, fasilitas rusak), dan lampirkan foto jika ada.\n` +
-           `4. Klik **Kirim Laporan**. Pengurus RT akan menerima notifikasi otomatis dan memperbarui status penanganan laporan Anda secara transparan.`;
-  }
-
-  if (lower.includes('surat') || lower.includes('pengantar') || lower.includes('sktm') || lower.includes('skck') || lower.includes('domisili') || lower.includes('nikah') || lower.includes('pindah') || lower.includes('waris')) {
-    return `📄 **Panduan Layanan Pengajuan Surat Pengantar RT**\n\n` +
-           `1. Buka menu **Surat** di aplikasi ini.\n` +
-           `2. Pilih jenis surat yang dibutuhkan (**Surat Pengantar SKCK, SKTM, Domisili Usaha, Pindah, Nikah, Ahli Waris, atau Izin Keramaian**).\n` +
-           `3. Isi keterangan pendukung lalu klik **Ajukan Surat**.\n` +
-           `4. Setelah disetujui pengurus RT, Anda bisa langsung **Cetak / Simpan PDF Surat Resmi** lengkap dengan Tanda Tangan Digital pengurus.`;
   }
 
   if (lower.includes('kas') || lower.includes('keuangan') || lower.includes('saldo') || lower.includes('laporan')) {
@@ -263,7 +348,7 @@ function getSmartFallbackAnswer(prompt) {
          `Silakan ketik pertanyaan Anda seputar layanan lingkungan RT!`;
 }
 
-async function panggilGeminiApi(promptUser) {
+async function panggilGeminiApi(promptUser, personalContext = '') {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new Error('API Key Gemini belum diset. Silakan buka <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline font-bold text-rose-700">aistudio.google.com/app/apikey</a> (Gratis), buat API Key baru, lalu paste & simpan di menu <b>Pengaturan RT & Sistem</b>.');
@@ -287,6 +372,9 @@ INFORMASI LINGKUNGAN:
   2. Pengaduan & Ketertiban: Penanganan keluhan warga, keamanan, kebersihan, kerja bakti.
   3. Pengajuan Surat: Surat Pengantar RT, Domisili, SKCK, SKTM, Pindah, Nikah, Ahli Waris, Izin Keramaian.
   4. Layanan Kependudukan & Informasi Warga: Data warga, jadwal kegiatan RT, kontak pengurus.
+
+DATA REAL-TIME WARGA SAAT INI (${session?.nama || 'Warga'}):
+${personalContext || 'Belum ada catatan data pengaduan/surat aktif.'}
 
 ATURAN KETAT (STRICT GUARDRAIL):
 1. **FOKUS KHUSUS RT & KEMASYARAKATAN**: Kamu HANYA boleh menjawab pertanyaan yang berkaitan dengan layanan RT, aplikasi, iuran, pengaduan, pengajuan surat, ketertiban lingkungan, atau administrasi kependudukan (KTP/KK/Kelurahan).

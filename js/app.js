@@ -1270,6 +1270,7 @@ function applySessionUI() {
   initRealtimeNotif();
   fetchNotifikasi();
   verifySessionToken();
+  if (typeof updateAiWidgetVisibility === 'function') updateAiWidgetVisibility();
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(async function() {
     if (session.token && document.visibilityState === "visible") {
