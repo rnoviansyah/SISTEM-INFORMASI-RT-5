@@ -98,7 +98,6 @@ function renderKeuanganCustom(data) {
     };
   }
 }
-}
 function filterDataKeuangan() {
   let p = document.getElementById('filter-periode') ? document.getElementById('filter-periode').value : 'all';
   let o = document.getElementById('sort-order') ? document.getElementById('sort-order').value : 'newest';
