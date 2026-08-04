@@ -35,8 +35,8 @@ function renderKeuanganCustom(data) {
           <option value="newest">Terbaru</option>
           <option value="oldest">Terlama</option>
         </select>
-        <button onclick="window.print()" class="bg-gray-800 text-white rounded-lg text-xs py-2 font-bold shadow hover:bg-gray-900 transition">
-          <i class="bi bi-printer me-1"></i> Cetak Laporan
+        <button onclick="cetakLaporanKeuanganPDF()" class="bg-gray-800 text-white rounded-lg text-xs py-2 font-bold shadow hover:bg-gray-900 transition">
+          <i class="bi bi-file-earmark-pdf-fill me-1"></i> Cetak PDF
         </button>
       </div>
       <div id="custom-date-box" class="hidden grid grid-cols-2 gap-2 mb-4">
@@ -263,3 +263,165 @@ window.loadMenu = async function(menu) {
     if (typeof originalLoadMenuKeuangan === 'function') originalLoadMenuKeuangan(menu);
   }
 };
+function cetakLaporanKeuanganPDF() {
+  let headers = currentHeaders.map(h => h.toLowerCase().trim());
+  let tglIdx = headers.findIndex(h => h.includes('tanggal') || h.includes('tgl'));
+  let pemIdx = headers.indexOf('pemasukan');
+  let pengIdx = headers.indexOf('pengeluaran');
+  let ketIdx = headers.indexOf('keterangan');
+  let idIdx = headers.indexOf('id') > -1 ? headers.indexOf('id') : 0;
+
+  // Ambil data yang sedang difilter (pakai rawKeuanganData untuk semua)
+  let p = document.getElementById('filter-periode') ? document.getElementById('filter-periode').value : 'all';
+  let o = document.getElementById('sort-order') ? document.getElementById('sort-order').value : 'newest';
+  let now = new Date();
+  let start = document.getElementById('date-start') ? document.getElementById('date-start').value : '';
+  let end = document.getElementById('date-end') ? document.getElementById('date-end').value : '';
+  let filtered = [...rawKeuanganData].filter(row => {
+    let dateStr = row[tglIdx] || '';
+    let dateParts = dateStr.split(' ')[0].split('/');
+    let d = dateParts.length === 3 ? new Date(dateParts[2], dateParts[1] - 1, dateParts[0]) : new Date();
+    if (p === 'hari') return d.toDateString() === now.toDateString();
+    if (p === 'bulan') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (p === 'tahun') return d.getFullYear() === now.getFullYear();
+    if (p === 'custom') {
+      let rowTime = d.getTime();
+      let sTime = start ? new Date(start).setHours(0,0,0,0) : -Infinity;
+      let eTime = end ? new Date(end).setHours(23,59,59,999) : Infinity;
+      return rowTime >= sTime && rowTime <= eTime;
+    }
+    return true;
+  });
+  if (o === 'oldest') filtered.reverse();
+
+  let totalMasuk = 0, totalKeluar = 0;
+  let rows = filtered.map((r, i) => {
+    let pem = Number((r[pemIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    let peng = Number((r[pengIdx] || '0').toString().replace(/[^0-9]/g, '')) || 0;
+    totalMasuk += pem;
+    totalKeluar += peng;
+    let saldo = pem - peng;
+    return `<tr style="border-bottom:1px solid #e5e7eb;">
+      <td style="padding:7px 8px; text-align:center; color:#6b7280; font-size:10pt;">${i+1}</td>
+      <td style="padding:7px 8px; font-size:9pt; color:#6b7280; font-family:monospace;">${r[idIdx] || '-'}</td>
+      <td style="padding:7px 8px; font-size:10pt; white-space:nowrap;">${r[tglIdx] || '-'}</td>
+      <td style="padding:7px 8px; font-size:10pt;">${r[ketIdx] || '-'}</td>
+      <td style="padding:7px 8px; text-align:right; font-size:10pt; color:#059669; font-weight:600;">${pem > 0 ? 'Rp ' + pem.toLocaleString('id-ID') : '-'}</td>
+      <td style="padding:7px 8px; text-align:right; font-size:10pt; color:#dc2626; font-weight:600;">${peng > 0 ? 'Rp ' + peng.toLocaleString('id-ID') : '-'}</td>
+    </tr>`;
+  }).join('');
+
+  let totalSaldo = totalMasuk - totalKeluar;
+  let titleApp = (typeof appSettings !== 'undefined' && appSettings.app_title) ? appSettings.app_title : 'SISTEM INFORMASI RT 5';
+  let logoUrl = (typeof appSettings !== 'undefined' && appSettings.app_logo) ? appSettings.app_logo : './img/logo.webp';
+  let todayStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  let periodeLabel = { all: 'Semua Periode', hari: 'Hari Ini (' + todayStr + ')', bulan: 'Bulan ' + now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }), tahun: 'Tahun ' + now.getFullYear(), custom: (start || '...') + ' s/d ' + (end || '...') }[p] || 'Semua Periode';
+
+  let pw = window.open('', '_blank', 'width=900,height=1000');
+  pw.document.write(`<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Laporan Keuangan - ${titleApp}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #1f2937; background: #fff; padding: 30px 40px; }
+    .header-wrap { display: flex; align-items: center; gap: 18px; border-bottom: 3px double #1e3a5f; padding-bottom: 14px; margin-bottom: 18px; }
+    .header-logo { width: 65px; height: 65px; object-fit: contain; }
+    .header-text { flex: 1; text-align: center; }
+    .header-text h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #1e3a5f; }
+    .header-text h2 { font-size: 11pt; font-weight: bold; text-transform: uppercase; }
+    .header-text p { font-size: 9pt; color: #6b7280; }
+    .doc-title { text-align: center; margin: 16px 0 6px; }
+    .doc-title h3 { font-size: 13pt; font-weight: bold; text-transform: uppercase; text-decoration: underline; }
+    .doc-title p { font-size: 10pt; color: #6b7280; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .summary-card { border-radius: 8px; padding: 10px 14px; text-align: center; }
+    .summary-card.masuk { background: #ecfdf5; border: 1px solid #6ee7b7; }
+    .summary-card.keluar { background: #fff1f2; border: 1px solid #fca5a5; }
+    .summary-card.saldo { background: #eff6ff; border: 1px solid #93c5fd; }
+    .summary-card p.label { font-size: 8.5pt; color: #6b7280; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .summary-card p.value { font-size: 13pt; font-weight: bold; }
+    .summary-card.masuk p.value { color: #059669; }
+    .summary-card.keluar p.value { color: #dc2626; }
+    .summary-card.saldo p.value { color: #2563eb; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    thead tr { background: #1e3a5f; color: #fff; }
+    thead th { padding: 9px 8px; font-size: 9.5pt; font-weight: bold; text-align: left; }
+    thead th.right { text-align: right; }
+    thead th.center { text-align: center; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    tfoot tr { background: #f1f5f9; font-weight: bold; border-top: 2px solid #1e3a5f; }
+    tfoot td { padding: 9px 8px; font-size: 10pt; }
+    .footer-note { margin-top: 24px; font-size: 9pt; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 10px; text-align: center; }
+    .ttd-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 36px; }
+    .ttd-box { text-align: center; }
+    .ttd-box p { font-size: 10pt; margin-bottom: 4px; }
+    .ttd-line { border-bottom: 1px solid #374151; margin: 55px 30px 6px; }
+    .ttd-name { font-weight: bold; font-size: 10pt; }
+    @media print {
+      body { padding: 20px 30px; }
+      button { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-wrap">
+    <img src="${logoUrl}" class="header-logo" onerror="this.style.display='none'">
+    <div class="header-text">
+      <h1>PENGURUS RUKUN TETANGGA 05 / RW 06</h1>
+      <h2>${titleApp}</h2>
+      <p>Sistem Layanan & Informasi Warga Digital - Modern, Transparan & Efisien</p>
+    </div>
+  </div>
+  <div class="doc-title">
+    <h3>Laporan Keuangan RT 05</h3>
+    <p>Periode: ${periodeLabel} &nbsp;|&nbsp; Dicetak: ${todayStr}</p>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-card masuk"><p class="label">Total Pemasukan</p><p class="value">Rp ${totalMasuk.toLocaleString('id-ID')}</p></div>
+    <div class="summary-card keluar"><p class="label">Total Pengeluaran</p><p class="value">Rp ${totalKeluar.toLocaleString('id-ID')}</p></div>
+    <div class="summary-card saldo"><p class="label">Saldo Akhir</p><p class="value" style="color:${totalSaldo>=0?'#2563eb':'#dc2626'}">Rp ${totalSaldo.toLocaleString('id-ID')}</p></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width:40px;">No</th>
+        <th style="width:90px;">ID</th>
+        <th style="width:95px;">Tanggal</th>
+        <th>Keterangan</th>
+        <th class="right" style="width:110px;">Pemasukan</th>
+        <th class="right" style="width:110px;">Pengeluaran</th>
+      </tr>
+    </thead>
+    <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#9ca3af;">Tidak ada data transaksi.</td></tr>'}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right; padding-right:16px;">TOTAL</td>
+        <td style="text-align:right; color:#059669;">Rp ${totalMasuk.toLocaleString('id-ID')}</td>
+        <td style="text-align:right; color:#dc2626;">Rp ${totalKeluar.toLocaleString('id-ID')}</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="text-align:right; padding-right:16px;">SALDO AKHIR</td>
+        <td colspan="2" style="text-align:right; color:${totalSaldo>=0?'#2563eb':'#dc2626'}; font-size:12pt;">Rp ${totalSaldo.toLocaleString('id-ID')}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="ttd-section">
+    <div class="ttd-box">
+      <p>Dibuat oleh,<br><b>Sekretaris RT 05</b></p>
+      <div class="ttd-line"></div>
+      <p class="ttd-name">( ................................ )</p>
+    </div>
+    <div class="ttd-box">
+      <p>Diketahui oleh,<br><b>Ketua RT 05</b></p>
+      <div class="ttd-line"></div>
+      <p class="ttd-name">( ................................ )</p>
+    </div>
+  </div>
+  <div class="footer-note">Laporan ini dicetak secara otomatis oleh ${titleApp} pada ${todayStr}. Dokumen ini sah tanpa tanda tangan basah apabila dicetak dari sistem.</div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>
+</body>
+</html>`);
+  pw.document.close();
+}
