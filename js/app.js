@@ -2156,6 +2156,9 @@ async function simpanIdentitasDanTema(e) {
     { kunci: 'ttd_ketua_rt', nilai: ttdKetuaRt },
     { kunci: 'gemini_api_key', nilai: geminiApiKey }
   ];
+  appSettings.gemini_api_key = geminiApiKey;
+  try { localStorage.setItem('rt_gemini_api_key', geminiApiKey); } catch(e) {}
+
   const res = await callGASPost('simpanPengaturanApp', { settingsArray });
   if (res && res.status === 'success') {
     alert('Identitas, Tema & Pengaturan PWA berhasil diperbarui!');

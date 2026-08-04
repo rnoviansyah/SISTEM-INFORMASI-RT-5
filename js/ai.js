@@ -5,6 +5,10 @@
 let geminiApiKeyDefault = '';
 
 function getGeminiApiKey() {
+  try {
+    let localK = localStorage.getItem('rt_gemini_api_key');
+    if (localK && localK.trim() !== '') return localK.trim();
+  } catch(e) {}
   if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
     return appSettings.gemini_api_key.trim();
   }
