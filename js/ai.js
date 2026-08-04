@@ -464,6 +464,7 @@ Gaya Bahasa:
 `;
 
   const openRouterModels = [
+    'openrouter/auto',
     'meta-llama/llama-3.3-70b-instruct:free',
     'google/gemma-2-9b-it:free',
     'deepseek/deepseek-r1:free',
@@ -478,9 +479,7 @@ Gaya Bahasa:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': window.location.href,
-          'X-Title': titleApp
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: model,
