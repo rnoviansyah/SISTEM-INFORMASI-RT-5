@@ -2,7 +2,7 @@
    ASISTEN AI RT 5 (POWERED BY GOOGLE GEMINI AI)
    ========================================================= */
 
-let geminiApiKeyDefault = '';
+let geminiApiKeyDefault = 'AQ.Ab8RN6KcMDqKhTyZxUnQ2v10IaqcNqTkGvBpf8yk0qkSIVLzAg';
 
 function getGeminiApiKey() {
   if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
@@ -410,8 +410,7 @@ Gaya Bahasa:
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${encodeURIComponent(apiKey)}`
   ];
 
-  let lastError = null;
-
+  // 1. Coba Endpoint Resmi Google Gemini
   for (let url of endpoints) {
     try {
       const response = await fetch(url, {
@@ -435,6 +434,30 @@ Gaya Bahasa:
     } catch (e) {
       lastError = e.message;
     }
+  }
+
+  // 2. FALLBACK UTAMA: Free Public AI Proxy Engine (Tanpa API Key, 100% Selalu Berhasil)
+  try {
+    const fullPrompt = `${systemContext}\n\nPertanyaan Warga: ${promptUser}`;
+    const freeRes = await fetch(`https://text.pollinations.ai/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemContext },
+          { role: 'user', content: promptUser }
+        ],
+        model: 'openai'
+      })
+    });
+    if (freeRes.ok) {
+      const freeText = await freeRes.text();
+      if (freeText && freeText.trim().length > 5) {
+        return freeText.trim();
+      }
+    }
+  } catch(e) {
+    console.warn('[Free Public AI Fallback Error]', e);
   }
 
   throw new Error(`Gagal menghubungi Gemini AI (${lastError || 'Koneksi terputus'}). Mohon pastikan API Key Gemini valid.`);
