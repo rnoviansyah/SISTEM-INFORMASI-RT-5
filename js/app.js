@@ -1537,6 +1537,16 @@ async function generateFormInputs(rowData) {
       if (nameLower.includes('alamat')) val = session.alamat;
       if (['no_hp','hp','telp','wa'].includes(nameLower)) val = session.noHp;
     }
+    if (!rowData && nameLower === 'rt') {
+      let rtVal = '05';
+      if (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) {
+        let match = appSettings.rt_rw_text.match(/RT\s*(\d+)/i);
+        if (match && match[1]) {
+          rtVal = match[1];
+        }
+      }
+      val = rtVal;
+    }
     if (val && nameLower.includes('tanggal') && val.includes('/')) {
       let parts = val.split('/');
       if (parts.length === 3) val = parts[2] + '-' + parts[1] + '-' + parts[0];
