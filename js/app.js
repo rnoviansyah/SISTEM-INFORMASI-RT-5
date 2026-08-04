@@ -230,7 +230,6 @@ async function safeSupabaseUpdate(tableName, payload, eqColumn, eqValue) {
   delete menuDataCache[tableName];
   let { data, error } = await db.from(tableName).update(payload).eq(eqColumn, eqValue).select();
   if (!error && data && data.length > 0) return { error: null };
-  let lowerName = tableName.toLowerCase();
   if (lowerName !== tableName) {
     let resLower = await db.from(lowerName).update(payload).eq(eqColumn, eqValue).select();
     if (!resLower.error && resLower.data && resLower.data.length > 0) return { error: null };
