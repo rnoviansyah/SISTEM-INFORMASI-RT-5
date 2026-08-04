@@ -1898,6 +1898,12 @@ async function loadAppSettings() {
         if (k) appSettings[k] = v;
       });
     }
+    try {
+      let localK = localStorage.getItem('rt_gemini_api_key');
+      if (localK && localK.trim() !== '') {
+        appSettings.gemini_api_key = localK.trim();
+      }
+    } catch(e) {}
     if (appSettings.app_title) {
       ['login-app-title', 'mob-app-title', 'sidebar-app-title'].forEach(id => {
         let el = document.getElementById(id);
