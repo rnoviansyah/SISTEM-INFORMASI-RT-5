@@ -379,12 +379,36 @@ async function callGASPost(actionName, extraPayload = {}) {
           if (matched) {
             let roleVal = cariNilaiKolom(matched, ['role']) || 'RT';
             let nikVal  = cariNilaiKolom(matched, ['nik']) || uClean;
-            let namaVal = cariNilaiKolom(matched, ['nama', 'nama_lengkap', 'name']) || uClean;
+            let namaVal = cariNilaiKolom(matched, ['nama', 'nama_lengkap', 'name']);
+            let alamatVal = cariNilaiKolom(matched, ['alamat']);
+            let hpVal = cariNilaiKolom(matched, ['no_hp', 'hp', 'wa']);
+
+            try {
+              const { data: safeWarga } = await safeSupabaseSelect('Warga');
+              if (safeWarga && safeWarga.length > 0) {
+                let myW = safeWarga.find(w => {
+                  let wNik = String(cariNilaiKolom(w, ['nik', 'ktp'])).trim();
+                  let wUser = String(cariNilaiKolom(w, ['username', 'user'])).trim().toLowerCase();
+                  return (wNik && wNik === String(nikVal).trim()) || (wUser && wUser === uClean);
+                });
+                if (myW) {
+                  let wFullName = cariNilaiKolom(myW, ['nama_lengkap', 'nama']);
+                  let wAlamat = cariNilaiKolom(myW, ['alamat', 'alamat_rumah']);
+                  let wHp = cariNilaiKolom(myW, ['no_hp', 'hp', 'wa', 'telp']);
+                  if (wFullName) namaVal = wFullName;
+                  if (wAlamat) alamatVal = wAlamat;
+                  if (wHp) hpVal = wHp;
+                }
+              }
+            } catch(e) {}
+
             return {
               status: 'success',
               role: roleVal,
               nik: nikVal,
-              nama: namaVal,
+              nama: namaVal || uClean,
+              alamat: alamatVal || '',
+              noHp: hpVal || '',
               username: uClean,
               message: 'Login Berhasil!'
             };
@@ -1404,14 +1428,24 @@ async function bukaModalEdit(id) {
 async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
   formBody.innerHTML = '';
-  if (session.role === 'Warga' && !rowData && (!session.alamat || !session.nama) && session.nik) {
+  if (session.role === 'Warga' && !rowData && session.nik) {
     try {
       const { data: safeWarga } = await safeSupabaseSelect('Warga');
-      if (safeWarga) {
-        let myW = safeWarga.find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === String(session.nik).trim());
+      if (safeWarga && safeWarga.length > 0) {
+        let myW = safeWarga.find(w => {
+          let wNik = String(cariNilaiKolom(w, ['nik', 'ktp'])).trim();
+          let wUser = String(cariNilaiKolom(w, ['username', 'user'])).trim().toLowerCase();
+          let sNik = String(session.nik || '').trim();
+          let sUser = String(session.username || session.nik || '').trim().toLowerCase();
+          return (wNik && wNik === sNik) || (wUser && (wUser === sUser || wUser === sNik));
+        });
         if (myW) {
-          session.alamat = session.alamat || cariNilaiKolom(myW, ['alamat', 'alamat_rumah']) || '';
-          session.nama   = session.nama   || cariNilaiKolom(myW, ['nama_lengkap', 'nama']) || '';
+          let realNama = cariNilaiKolom(myW, ['nama_lengkap', 'nama', 'nama_warga']);
+          let realAlamat = cariNilaiKolom(myW, ['alamat', 'alamat_rumah', 'no_rumah']);
+          let realHp = cariNilaiKolom(myW, ['no_hp', 'hp', 'wa', 'telp']);
+          if (realNama) session.nama = realNama;
+          if (realAlamat) session.alamat = realAlamat;
+          if (realHp) session.noHp = realHp;
           localStorage.setItem('rt_user_session', JSON.stringify(session));
         }
       }
@@ -1493,8 +1527,10 @@ async function generateFormInputs(rowData) {
           <small class="text-muted text-[10px] d-block mt-1">*Pilih file foto dari HP/Kamera Anda.</small>
         </div>`;
     } else {
-      let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama') || nameLower.includes('alamat'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
-      inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>`;
+      let isNameField = (nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama'));
+      let isReadonly = (session.role === 'Warga' && !rowData && (nameLower === 'nik' || nameLower.includes('alamat') || (isNameField && currentActiveMenu !== 'Sumbangan'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
+      let helpText = (currentActiveMenu === 'Sumbangan' && isNameField) ? `<small class="text-muted text-[10px] d-block mt-1 font-medium">*Bisa diubah jika ingin menggunakan nama <b>"Hamba Allah"</b>.</small>` : '';
+      inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>${helpText}`;
     }
     formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
   }
