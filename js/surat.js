@@ -1,49 +1,24 @@
 let rawSuratData = [];
 let selectedSuratRow = null;
-function renderSuratPengantarCustom(data) {
+async function renderSuratPengantarCustom(data) {
   rawSuratData = data.rows || [];
   let headers = data.headers.map(h => h.toLowerCase().trim());
-  let html = `
-    <div class="p-1 text-gray-800 font-sans">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-file-earmark-text-fill me-2 text-primary"></i>Daftar Surat Pengantar</h2>
-        ${session.role === 'Warga' ? `
-          <button onclick="bukaModalForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
-            + Buat Surat Baru
-          </button>
-        ` : ''}
-      </div>
-      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
-              <tr>
-                <th class="p-3 text-center">No</th>
-                <th class="p-3">ID</th>
-                <th class="p-3">Tanggal</th>
-                <th class="p-3">Nama Warga</th>
-                <th class="p-3">Status</th>
-                <th class="p-3 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="surat-table-body"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    <div id="modal-detail-surat" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative">
-        <button onclick="tutupDetailSurat()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
-        <div class="mb-3 border-b pb-2 pe-6">
-          <h3 class="font-bold text-gray-800 text-sm">Rincian Surat Pengantar</h3>
-        </div>
-        <div id="modal-detail-surat-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-        <div id="surat-action-buttons" class="space-y-2"></div>
-        <button onclick="tutupDetailSurat()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('main-content').innerHTML = html;
+  
+  await loadViewTemplate('surat');
+
+  let actionBox = document.getElementById('surat-header-action');
+  if (actionBox) {
+    if (session.role === 'Warga') {
+      actionBox.innerHTML = `
+        <button onclick="bukaModalForm()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+          + Buat Surat Baru
+        </button>
+      `;
+    } else {
+      actionBox.innerHTML = '';
+    }
+  }
+
   filterDataSurat();
   let searchInp = document.getElementById('searchInput');
   if (searchInp) {

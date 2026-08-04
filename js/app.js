@@ -75,6 +75,34 @@ function showUIConfirm(text, onConfirm, title = "Konfirmasi Tindakan") {
   });
   bsModal.show();
 }
+
+const viewTemplateCache = {};
+async function loadViewTemplate(viewName, fallbackHtml = '') {
+  const container = document.getElementById('main-content');
+  if (!container) return false;
+  if (viewTemplateCache[viewName]) {
+    container.innerHTML = viewTemplateCache[viewName];
+    return true;
+  }
+  try {
+    const res = await fetch(`./views/${viewName}.html?v=` + Date.now());
+    if (res.ok) {
+      const html = await res.text();
+      viewTemplateCache[viewName] = html;
+      container.innerHTML = html;
+      return true;
+    }
+  } catch (err) {
+    console.warn(`[ViewLoader] views/${viewName}.html fetch skipped:`, err);
+  }
+  if (fallbackHtml) {
+    viewTemplateCache[viewName] = fallbackHtml;
+    container.innerHTML = fallbackHtml;
+    return true;
+  }
+  return false;
+}
+window.loadViewTemplate = loadViewTemplate;
 window.showUIConfirm = showUIConfirm;
 window.showUIToast = showUIToast;
 let _rawSession = { token: '', role: '', nik: '', nama: '', alamat: '', noHp: '' };
@@ -1990,6 +2018,11 @@ async function simpanIdentitasDanTema(e) {
   let theme = document.getElementById('set-app-theme').value;
   let themeColor = document.getElementById('set-app-theme-color') ? document.getElementById('set-app-theme-color').value : '#1e3a8a';
   let waNumber = document.getElementById('set-rt-wa-number') ? document.getElementById('set-rt-wa-number').value.trim() : '';
+  if (waNumber.startsWith('0')) {
+    waNumber = '62' + waNumber.substring(1);
+  } else if (waNumber.startsWith('+62')) {
+    waNumber = waNumber.substring(1);
+  }
   let namaSekretaris = document.getElementById('set-nama-sekretaris') ? document.getElementById('set-nama-sekretaris').value.trim() : '';
   let namaRtKetua = document.getElementById('set-nama-rt-ketua') ? document.getElementById('set-nama-rt-ketua').value.trim() : '';
   let ttdSekretaris = document.getElementById('set-ttd-sekretaris') ? document.getElementById('set-ttd-sekretaris').value.trim() : '';
@@ -2061,9 +2094,9 @@ function handleTtdFileUpload(e, targetType) {
 }
 async function simpanRekeningDanQRIS(e) {
   e.preventDefault();
-  let qrisString = document.getElementById('set-payment-qris-string').value;
-  let qrisName   = document.getElementById('set-payment-qris-name').value;
-  let qrisUrl    = document.getElementById('set-payment-qris').value;
+  let qrisString = document.getElementById('set-payment-qris-string').value.trim();
+  let qrisName   = document.getElementById('set-payment-qris-name').value.trim();
+  let qrisUrl    = document.getElementById('set-payment-qris').value.trim();
   let rekList = [];
   document.querySelectorAll('.row-rek-item').forEach(row => {
     let b = row.querySelector('.inp-rek-bank').value.trim();
