@@ -35,7 +35,7 @@ function renderIuranCustom(data) {
       <!-- Header Banner Status Iuran -->
       <div class="bg-gradient-to-r from-blue-900 to-blue-600 text-white p-5 rounded-2xl shadow-md mb-4 text-center">
         <h2 class="font-bold text-lg mb-1"><i class="bi bi-wallet2 me-2"></i>Status Iuran Warga ${new Date().getFullYear()}</h2>
-        <p class="text-xs text-blue-100">Transparan, Cek Status & Pembayaran Bulanan RT 008/006</p>
+        <p class="text-xs text-blue-100">Transparan, Cek Status & Pembayaran Bulanan RT 5</p>
       </div>
       <!-- Tombol Tambah Khusus RT -->
       ${session.role === 'RT' ? `
@@ -328,7 +328,7 @@ async function verifikasiPembayaranRT(id) {
     let formData = {
       status: 'LUNAS',
       tanggal_bayar: nowFormatted,
-      diterima_oleh: 'RT 008/006 (' + (session.nama || 'Pengurus') + ')'
+      diterima_oleh: 'RT 5 (' + (session.nama || 'Pengurus') + ')'
     };
     let res = await safeSupabaseUpdate('Iuran', formData, 'id', id);
     if (res && (!res.error || res.status === 'success')) {
@@ -452,7 +452,7 @@ async function simpanEditIuranRT(event, id) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
     updatePayload.tanggal_bayar = nowFormatted;
-    updatePayload.diterima_oleh = 'RT 008/006 (' + (session.nama || 'Pengurus') + ')';
+    updatePayload.diterima_oleh = 'RT 5 (' + (session.nama || 'Pengurus') + ')';
   }
   let res = await safeSupabaseUpdate('Iuran', updatePayload, 'id', id);
   if (res && (!res.error || res.status === 'success')) {
@@ -593,7 +593,7 @@ async function simpanIuranBaruRT(event) {
       day: '2-digit', month: '2-digit', year: 'numeric'
     }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB';
     formData.tanggal_bayar = nowFormatted;
-    formData.diterima_oleh = 'RT 008/006 (' + (session.nama || 'Pengurus') + ')';
+    formData.diterima_oleh = 'RT 5 (' + (session.nama || 'Pengurus') + ')';
     let kasItem = {
       id: 'KAS-' + Date.now(),
       tanggal: nowFormatted,
@@ -638,7 +638,7 @@ function switchTabBayar(type) {
   }
 }
 function kirimKonfirmasiWA() {
-  let pesan = `Halo Pengurus RT 008/006, saya ${session.nama || session.nik} ingin konfirmasi telah mengirimkan bukti pembayaran iuran bulanan warga.`;
+  let pesan = `Halo Pengurus RT 5, saya ${session.nama || session.nik} ingin konfirmasi telah mengirimkan bukti pembayaran iuran bulanan warga.`;
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(pesan)}`, '_blank');
 }
 const originalLoadMenuIuran = window.loadMenu;

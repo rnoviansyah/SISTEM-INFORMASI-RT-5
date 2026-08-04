@@ -13,7 +13,7 @@ function renderWargaCustom(data) {
         <div>
           <h2 class="font-bold text-base text-gray-800 flex items-center gap-2">
             <i class="bi bi-houses-fill text-blue-600 text-lg"></i>
-            Data Warga & Hunian RT 008/006
+            Data Warga & Hunian RT 5
           </h2>
           <p class="text-[11px] text-gray-500 mt-0.5">Daftar hunian rumah per alamat dan anggota keluarga terdaftar</p>
         </div>
@@ -185,7 +185,6 @@ function filterDataWarga() {
                   </div>
                   <div>
                     <h3 class="font-bold text-gray-800 text-xs line-clamp-1">${group.alamatNama}</h3>
-                    <p class="text-[10px] text-gray-400 font-medium">RT 008/006</p>
                   </div>
                 </div>
                 <span class="badge bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-1 rounded-lg">
@@ -398,7 +397,7 @@ function waHubungiWarga(noHp) {
     alert("Nomor WhatsApp warga ini tidak tersedia.");
     return;
   }
-  bukaWa(cleanNo, `Halo warga RT 008/006, ada hal yang ingin saya sampaikan.`);
+  bukaWa(cleanNo, `Halo warga RT 5, ada hal yang ingin saya sampaikan.`);
 }
 async function loadWargaView() {
   const res = await callGASGet('getTableData', { sheetName: 'Warga' });

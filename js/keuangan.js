@@ -216,7 +216,7 @@ function showDetailKeuangan(id) {
     </div>
   `;
   document.getElementById('modal-detail-body').innerHTML = detailHtml;
-  let msg = `Halo RT 008/006, saya mau bertanya/melaporkan kendala mengenai Transaksi Keuangan ID: ${row[idIdx]}`;
+  let msg = `Halo RT 5, saya mau bertanya/melaporkan kendala mengenai Transaksi Keuangan ID: ${row[idIdx]}`;
   document.getElementById('btn-wa-detail').href = `https://wa.me/${noWaAdmin}?text=${encodeURIComponent(msg)}`;
   document.getElementById('modal-detail-keuangan').classList.remove('hidden');
 }
@@ -242,7 +242,7 @@ function hapusDariDetail() {
   }, 'Hapus Transaksi');
 }
 function waLaporMasalahKeuangan(id) {
-  let msg = `Halo RT 008/006, saya mau melaporkan kendala/pertanyaan terkait Transaksi Keuangan dengan ID: ${id}`;
+  let msg = `Halo RT 5, saya mau melaporkan kendala/pertanyaan terkait Transaksi Keuangan dengan ID: ${id}`;
   window.open(`https://wa.me/${noWaAdmin}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 const originalLoadMenuKeuangan = window.loadMenu;

@@ -10,7 +10,7 @@ function renderKelahiranCustom(data) {
   let html = `
     <div class="p-1 text-gray-800 font-sans">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-gender-ambiguous me-2 text-primary"></i>Data Kelahiran RT 008/006</h2>
+        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-gender-ambiguous me-2 text-primary"></i>Data Kelahiran RT 5</h2>
         ${session.role === 'RT' ? `
           <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
             + Tambah Kelahiran Baru

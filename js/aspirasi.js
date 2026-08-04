@@ -39,7 +39,7 @@ function renderAspirasiView(data) {
         <button onclick="tutupModalAspirasi()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm">Tulis Aspirasi / Saran</h3>
-          <p class="text-[11px] text-gray-500">Kirim kritik, saran, atau masukan untuk kemajuan RT 008/006.</p>
+          <p class="text-[11px] text-gray-500">Kirim kritik, saran, atau masukan untuk kemajuan RT 5.</p>
         </div>
         <form id="formAspirasi" onsubmit="submitAspirasi(event)" class="space-y-3">
           <div>

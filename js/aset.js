@@ -15,7 +15,7 @@ function renderAsetCustom(data) {
   let html = `
     <div class="p-1 text-gray-800 font-sans space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-2">
-        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-tools me-2 text-blue-600"></i>Aset & Inventaris RT 008/006</h2>
+        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-tools me-2 text-blue-600"></i>Aset & Inventaris RT 5</h2>
         <div class="flex gap-2">
           ${btnRtTambah}
           <button onclick="bukaModalPinjamBarang()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">

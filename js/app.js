@@ -538,8 +538,15 @@ async function callGASPost(actionName, extraPayload = {}) {
     }
     if (actionName === 'tambahUserWarga') {
       if (session.role !== 'RT') return { status: 'error', message: 'Hanya RT yang diizinkan mengelola user!' };
-      const { error } = await safeSupabaseInsert('Users', [extraPayload.userObj]);
-      if (error) return { status: 'error', message: error.message };
+      let uObj = { ...extraPayload.userObj };
+      if (!uObj.id) uObj.id = Date.now();
+      let { error } = await safeSupabaseInsert('Users', [uObj]);
+      if (error) {
+        delete uObj.id;
+        let resFallback = await safeSupabaseInsert('Users', [uObj]);
+        if (!resFallback.error) return { status: 'success', message: 'Akun user berhasil didaftarkan!' };
+        return { status: 'error', message: error.message };
+      }
       return { status: 'success', message: 'Akun user berhasil didaftarkan!' };
     }
     if (actionName === 'hapusUserAkun') {
@@ -1922,6 +1929,7 @@ async function simpanUserBaru(e) {
     return;
   }
   let userObj = {
+    id: Date.now(),
     username: username,
     nik: nik || username,
     password: password,
