@@ -1,35 +1,51 @@
 let rawKelahiranData = [];
 let selectedKelahiranRow = null;
-async function renderKelahiranCustom(data) {
+function renderKelahiranCustom(data) {
   if (!data || !data.headers) {
     document.getElementById('main-content').innerHTML = '<div class="alert alert-warning text-center p-4">Belum ada data kelahiran.</div>';
     return;
   }
   rawKelahiranData = data.rows || [];
-  
-  await loadViewTemplate('kelahiran');
-
-  let actionBox = document.getElementById('kelahiran-header-action');
-  if (actionBox) {
-    if (session.role === 'RT') {
-      actionBox.innerHTML = `
-        <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
-          + Tambah Kelahiran Baru
-        </button>
-      `;
-    } else {
-      actionBox.innerHTML = '';
-    }
-  }
-
-  let theadRow = document.getElementById('kelahiran-thead-row');
-  if (theadRow) {
-    let trContent = `<th class="p-3 text-center">No</th>`;
-    data.headers.forEach(h => trContent += `<th class="p-3">${h.toUpperCase()}</th>`);
-    trContent += `<th class="p-3 text-center">Aksi</th>`;
-    theadRow.innerHTML = trContent;
-  }
-
+  let headers = data.headers.map(h => h.toLowerCase().trim());
+  let html = `
+    <div class="p-1 text-gray-800 font-sans">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-gender-ambiguous me-2 text-primary"></i>Data Kelahiran RT 5</h2>
+        ${session.role === 'RT' ? `
+          <button onclick="bukaModalForm()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition">
+            + Tambah Kelahiran Baru
+          </button>
+        ` : ''}
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3 text-center">No</th>`;
+  data.headers.forEach(h => html += `<th class="p-3">${h.toUpperCase()}</th>`);
+  html += `
+                <th class="p-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="kelahiran-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="modal-detail-kelahiran" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
+        <button onclick="tutupDetailKelahiran()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-3 border-b pb-2 pe-6">
+          <h3 class="font-bold text-gray-800 text-sm">Rincian Data Kelahiran</h3>
+        </div>
+        <div id="modal-detail-kelahiran-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
+        <div id="kelahiran-action-buttons" class="space-y-2 mb-2"></div>
+        <button onclick="tutupDetailKelahiran()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
   filterDataKelahiran();
   let searchInp = document.getElementById('searchInput');
   if (searchInp) {

@@ -1,37 +1,95 @@
 let rawKeuanganData = [];
 let selectedKeuanganRow = null;
-async function renderKeuanganCustom(data) {
+function renderKeuanganCustom(data) {
   rawKeuanganData = data.rows || [];
-  
-  await loadViewTemplate('keuangan');
-
-  let btnBox = document.getElementById('keuangan-btn-tambah');
-  if (btnBox) {
-    if (session.role === 'RT') {
-      btnBox.innerHTML = `
-        <button onclick="bukaModalForm()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs shadow transition">
-          + Transaksi Baru
-        </button>
-      `;
-    } else {
-      btnBox.innerHTML = '';
-    }
-  }
-
-  let actBox = document.getElementById('keuangan-rt-actions');
-  if (actBox) {
-    if (session.role === 'RT') {
-      actBox.innerHTML = `
-        <div class="grid grid-cols-2 gap-2 border-t pt-3 mt-2">
-          <button onclick="editDariDetail()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>
-          <button onclick="hapusDariDetail()" class="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hapus Data</button>
+  let html = `
+    <div class="p-1 text-gray-800 font-sans">
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white border-l-4 border-emerald-500 p-3 rounded-xl shadow-sm">
+          <p class="text-[10px] text-gray-500 uppercase font-bold">Masuk</p>
+          <p id="card-masuk" class="font-bold text-emerald-600 text-sm md:text-base">Rp 0</p>
         </div>
-      `;
-    } else {
-      actBox.innerHTML = '';
-    }
-  }
-
+        <div class="bg-white border-l-4 border-rose-500 p-3 rounded-xl shadow-sm">
+          <p class="text-[10px] text-gray-500 uppercase font-bold">Keluar</p>
+          <p id="card-keluar" class="font-bold text-rose-600 text-sm md:text-base">Rp 0</p>
+        </div>
+        <div class="bg-white border-l-4 border-blue-500 p-3 rounded-xl shadow-sm">
+          <p class="text-[10px] text-gray-500 uppercase font-bold">Saldo</p>
+          <p id="card-saldo" class="font-bold text-blue-600 text-sm md:text-base">Rp 0</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+        ${session.role === 'RT' ? `
+          <button onclick="bukaModalForm()" class="col-span-2 md:col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg text-xs shadow transition">
+            + Transaksi Baru
+          </button>
+        ` : ''}
+        <select id="filter-periode" onchange="filterDataKeuangan()" class="p-2 border rounded-lg text-xs bg-white shadow-sm">
+          <option value="all">Semua Periode</option>
+          <option value="hari">Hari Ini</option>
+          <option value="bulan">Bulan Ini</option>
+          <option value="tahun">Tahun Ini</option>
+          <option value="custom">Pilih Tanggal</option>
+        </select>
+        <select id="sort-order" onchange="filterDataKeuangan()" class="p-2 border rounded-lg text-xs bg-white shadow-sm">
+          <option value="newest">Terbaru</option>
+          <option value="oldest">Terlama</option>
+        </select>
+        <button onclick="cetakLaporanKeuanganPDF()" class="bg-gray-800 text-white rounded-lg text-xs py-2 font-bold shadow hover:bg-gray-900 transition">
+          <i class="bi bi-file-earmark-pdf-fill me-1"></i> Cetak PDF
+        </button>
+      </div>
+      <div id="custom-date-box" class="hidden grid grid-cols-2 gap-2 mb-4">
+        <div>
+          <label class="text-[10px] text-gray-500 font-bold ml-1">Dari Tanggal</label>
+          <input type="date" id="date-start" onchange="filterDataKeuangan()" class="w-full p-2 border rounded-lg text-xs bg-white">
+        </div>
+        <div>
+          <label class="text-[10px] text-gray-500 font-bold ml-1">Sampai Tanggal</label>
+          <input type="date" id="date-end" onchange="filterDataKeuangan()" class="w-full p-2 border rounded-lg text-xs bg-white">
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3 text-center">No</th>
+                <th class="p-3">ID</th>
+                <th class="p-3">Tgl</th>
+                <th class="p-3">Keterangan</th>
+                <th class="p-3 text-right">Masuk</th>
+                <th class="p-3 text-right">Keluar</th>
+                <th class="p-3 text-center">Bukti</th>
+                <th class="p-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="keuangan-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="modal-detail-keuangan" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl animate-fade-in">
+        <div class="flex justify-between items-center mb-3 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm">Rincian Transaksi</h3>
+          <button onclick="tutupDetailKeuangan()" class="text-gray-400 hover:text-gray-600 font-bold text-lg">&times;</button>
+        </div>
+        <div id="modal-detail-body" class="mb-4"></div>
+        <a id="btn-wa-detail" href="#" target="_blank" class="block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl font-bold text-xs shadow-sm transition mb-2">
+          <i class="bi bi-whatsapp me-1"></i> Laporkan Masalah (WA)
+        </a>
+        ${session.role === 'RT' ? `
+          <div class="grid grid-cols-2 gap-2 border-t pt-3 mt-2">
+            <button onclick="editDariDetail()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Edit Data</button>
+            <button onclick="hapusDariDetail()" class="bg-rose-600 hover:bg-rose-700 text-white p-2 rounded-xl text-xs font-bold shadow-sm">Hapus Data</button>
+          </div>
+        ` : ''}
+        <button onclick="tutupDetailKeuangan()" class="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
   filterDataKeuangan();
   let searchInp = document.getElementById('searchInput');
   if (searchInp) {
@@ -39,6 +97,7 @@ async function renderKeuanganCustom(data) {
       filterDataKeuangan();
     };
   }
+}
 }
 function filterDataKeuangan() {
   let p = document.getElementById('filter-periode') ? document.getElementById('filter-periode').value : 'all';

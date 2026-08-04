@@ -1,28 +1,61 @@
-async function renderAspirasiView(data) {
+function renderAspirasiView(data) {
   let rows = data.rows || [];
   let isRt = session && session.role === 'RT';
-  
-  await loadViewTemplate('aspirasi');
-
-  let titleHeader = document.getElementById('aspirasi-title-header');
-  if (titleHeader) {
-    titleHeader.innerText = `💬 DAFTAR ASPIRASI MASUK ${isRt ? '(KHUSUS RT: NAMA PENGIRIM TERLIHAT)' : '(100% RAHASIA & ANONIM UNTUK WARGA)'}`;
-  }
-
-  let theadRow = document.getElementById('aspirasi-thead-row');
-  if (theadRow) {
-    theadRow.innerHTML = `
-      <th class="p-3 text-center">NO</th>
-      <th class="p-3">TANGGAL</th>
-      ${isRt ? '<th class="p-3 text-blue-600 font-bold">PENGIRIM (KHUSUS RT)</th>' : ''}
-      <th class="p-3">ISI ASPIRASI / MASUKAN</th>
-      <th class="p-3 text-center">STATUS</th>
-      ${isRt ? '<th class="p-3 text-center">AKSI</th>' : ''}
-    `;
-  }
-
+  let html = `
+    <div class="p-1 text-gray-800 font-sans space-y-4">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-chat-heart me-2 text-blue-600"></i>Aspirasi & Kotak Saran Warga</h2>
+        <button onclick="bukaModalAspirasi()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
+          <i class="bi bi-plus-lg"></i> Tulis Aspirasi Anonim
+        </button>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">💬 Daftar Aspirasi Masuk ${isRt ? '(Khusus RT: Nama Pengirim Terlihat)' : '(100% Rahasia & Anonim Untuk Warga)'}</h3>
+          <button onclick="loadMenu('Aspirasi')" class="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3 text-center">NO</th>
+                <th class="p-3">TANGGAL</th>
+                ${isRt ? '<th class="p-3 text-blue-600 font-bold">PENGIRIM (KHUSUS RT)</th>' : ''}
+                <th class="p-3">ISI ASPIRASI / MASUKAN</th>
+                <th class="p-3 text-center">STATUS</th>
+                ${isRt ? '<th class="p-3 text-center">AKSI</th>' : ''}
+              </tr>
+            </thead>
+            <tbody id="aspirasi-table-body">
+              <tr><td colspan="${isRt ? '6' : '5'}" class="text-center p-4 text-gray-400">Memuat aspirasi...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL TULIS ASPIRASI -->
+    <div id="modal-aspirasi" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+        <button onclick="tutupModalAspirasi()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm">Tulis Aspirasi / Saran</h3>
+          <p class="text-[11px] text-gray-500">Kirim kritik, saran, atau masukan untuk kemajuan RT 5.</p>
+        </div>
+        <form id="formAspirasi" onsubmit="submitAspirasi(event)" class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">ISI ASPIRASI / MASUKAN</label>
+            <textarea id="aspirasiIsi" rows="4" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Tulis kritik, saran, atau masukan untuk kemajuan RT 5..."></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="tutupModalAspirasi()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+            <button type="submit" id="btnSubmitAspirasi" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">Kirim Aspirasi</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
   renderTabelAspirasiRows(rows, isRt, data.headers || []);
-}
 }
 function renderTabelAspirasiRows(rows, isRt, headers = []) {
   let tbody = document.getElementById('aspirasi-table-body');

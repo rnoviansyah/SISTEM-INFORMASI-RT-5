@@ -4,27 +4,209 @@ let activeVerifikasiData = null;
 let activeKembaliData = null;
 let currentAsetTab = 'stok';
 let isEditModeAset = false;
-async function renderAsetCustom(data) {
+function renderAsetCustom(data) {
   rawAsetData = data.rows || [];
   let isRt = session && session.role === 'RT';
-  
-  await loadViewTemplate('aset');
-
-  let btnHeaderBox = document.getElementById('aset-header-buttons');
-  if (btnHeaderBox) {
-    let btnRtTambah = isRt ? `
-      <button onclick="bukaModalTambahAset()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
-        <i class="bi bi-plus-circle"></i> + Tambah Barang Aset
-      </button>
-    ` : '';
-    btnHeaderBox.innerHTML = `
-      ${btnRtTambah}
-      <button onclick="bukaModalPinjamBarang()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
-        <i class="bi bi-plus-lg"></i> Form Peminjaman Barang
-      </button>
-    `;
-  }
-
+  let btnRtTambah = isRt ? `
+    <button onclick="bukaModalTambahAset()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
+      <i class="bi bi-plus-circle"></i> + Tambah Barang Aset
+    </button>
+  ` : '';
+  let html = `
+    <div class="p-1 text-gray-800 font-sans space-y-4">
+      <div class="flex justify-between items-center flex-wrap gap-2">
+        <h2 class="font-bold text-base text-gray-800"><i class="bi bi-tools me-2 text-blue-600"></i>Aset & Inventaris RT 5</h2>
+        <div class="flex gap-2">
+          ${btnRtTambah}
+          <button onclick="bukaModalPinjamBarang()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-xl text-xs shadow transition flex items-center gap-1">
+            <i class="bi bi-plus-lg"></i> Form Peminjaman Barang
+          </button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl p-1.5 shadow-sm border border-gray-100 flex gap-2">
+        <button id="tab-btn-stok" onclick="switchAsetTab('stok')" class="flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 ${currentAsetTab === 'stok' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}">
+          <span>📦</span> Daftar Barang Aset RT
+        </button>
+        <button id="tab-btn-riwayat" onclick="switchAsetTab('riwayat')" class="flex-1 py-2 px-3 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 ${currentAsetTab === 'riwayat' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}">
+          <span>📋</span> Riwayat Peminjaman Warga
+        </button>
+      </div>
+      <div id="tab-content-stok" class="${currentAsetTab === 'stok' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📦 Stok Barang Aset RT</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3 text-center">NO</th>
+                <th class="p-3">ID BARANG</th>
+                <th class="p-3">NAMA BARANG</th>
+                <th class="p-3">STOK TERSEDIA</th>
+                <th class="p-3 text-center">STATUS</th>
+                ${isRt ? '<th class="p-3 text-center">AKSI RT</th>' : ''}
+              </tr>
+            </thead>
+            <tbody id="aset-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="tab-content-riwayat" class="${currentAsetTab === 'riwayat' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="font-bold text-xs text-gray-700 uppercase tracking-wide">📋 Riwayat & Status Peminjaman</h3>
+          <button onclick="loadTabelRiwayat()" class="text-blue-600 hover:text-blue-800 text-xs font-bold flex items-center gap-1"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-gray-100/70 text-gray-600 uppercase font-semibold border-b">
+              <tr>
+                <th class="p-3">NAMA PEMINJAM</th>
+                <th class="p-3">BARANG</th>
+                <th class="p-3 text-center">MINTA</th>
+                <th class="p-3 text-center">ACC RT</th>
+                <th class="p-3">KET. WARGA</th>
+                <th class="p-3">CATATAN / LOKASI RT</th>
+                <th class="p-3 text-center">STATUS</th>
+                <th class="p-3 text-center">AKSI RT</th>
+              </tr>
+            </thead>
+            <tbody id="riwayat-table-body">
+              <tr><td colspan="8" class="text-center p-4 text-gray-400">Memuat riwayat peminjaman...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL KELOLA ASET RT -->
+    <div id="modal-kelola-aset" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+        <button onclick="tutupModalKelolaAset()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm" id="modalKelolaTitle">Kelola Barang Aset</h3>
+          <p class="text-[11px] text-gray-500">Tambah barang baru atau perbarui stok inventaris RT</p>
+        </div>
+        <form id="formKelolaAset" onsubmit="submitKelolaAset(event)" class="space-y-3">
+          <input type="hidden" id="editAsetId" value="">
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA BARANG</label>
+            <input type="text" id="asetNama" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Kursi Plastik, Tenda, Sound System">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">STOK / JUMLAH TERSEDIA</label>
+            <input type="number" id="asetStok" min="0" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah stok...">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">STATUS BARANG</label>
+            <select id="asetStatus" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+              <option value="Tersedia">Tersedia</option>
+              <option value="Habis">Habis</option>
+              <option value="Perbaikan">Perbaikan / Rusak</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onclick="tutupModalKelolaAset()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+            <button type="submit" id="btnSubmitKelolaAset" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Simpan Data Aset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- MODAL FORM PEMINJAMAN WARGA -->
+    <div id="modal-form-pinjam" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+        <button onclick="tutupModalPinjam()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm">Form Peminjaman Barang</h3>
+          <p class="text-[11px] text-gray-500">Isi detail pengajuan peminjaman fasilitas/aset RT</p>
+        </div>
+        <form id="formPinjamAset" onsubmit="submitFormPinjam(event)" class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA PEMINJAM</label>
+            <input type="text" id="pinjamNama" readonly style="background-color: #f1f5f9; cursor: not-allowed;" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan nama peminjam...">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">NAMA BARANG</label>
+            <select id="pinjamBarangSelect" required onchange="onBarangSelectChange()" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+              <option value="">-- Pilih Barang --</option>
+            </select>
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-[11px] font-bold text-gray-600 uppercase">JUMLAH</label>
+              <span id="stokInfoText" class="text-[10px] text-emerald-600 font-bold">Maksimal Stok: -</span>
+            </div>
+            <input type="number" id="pinjamJumlah" min="1" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah yang mau dipinjam...">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">KETERANGAN WARGA</label>
+            <textarea id="pinjamKeterangan" rows="2" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Untuk keperluan apa peminjaman ini..."></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="tutupModalPinjam()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+            <button type="submit" id="btnSubmitPinjam" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition">Kirim Pengajuan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- MODAL VERIFIKASI RT -->
+    <div id="modal-verifikasi-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+        <button onclick="tutupModalVerifikasiRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm">Verifikasi Peminjaman (RT)</h3>
+          <p class="text-[11px] text-gray-500">Proses persetujuan peminjaman warga</p>
+        </div>
+        <div class="space-y-3">
+          <div class="bg-blue-50/70 p-3 rounded-xl text-xs border border-blue-100 space-y-1">
+            <p><b>Peminjam:</b> <span id="verifNamaPeminjam">-</span></p>
+            <p><b>Barang:</b> <span id="verifNamaBarang">-</span></p>
+            <p><b>Jumlah Diminta:</b> <span id="verifJumlahMinta" class="font-bold text-blue-600">-</span></p>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG DI-ACC RT</label>
+            <input type="number" id="verifJumlahAcc" min="1" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">CATATAN RT / LOKASI PENGAMBILAN BARANG</label>
+            <textarea id="verifCatatanRt" rows="3" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Ambil di gudang RT samping posyandu jam 4 sore..."></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onclick="kirimVerifikasiRT('Ditolak')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition">Tolak</button>
+            <button type="button" onclick="kirimVerifikasiRT('Disetujui')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Setujui (ACC)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL PENGEMBALIAN BARANG RT -->
+    <div id="modal-kembali-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
+        <button onclick="tutupModalKembaliRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold text-gray-800 text-sm">Pengembalian Barang Aset</h3>
+          <p class="text-[11px] text-gray-500">Catat jumlah barang yang dikembalikan warga</p>
+        </div>
+        <div class="space-y-3">
+          <div class="bg-gray-50 p-3 rounded-xl text-xs border space-y-1">
+            <p><b>Peminjam:</b> <span id="kembaliNamaPeminjam">-</span></p>
+            <p><b>Barang:</b> <span id="kembaliNamaBarang">-</span></p>
+            <p><b>Total Dipinjam (ACC):</b> <span id="kembaliTotalAcc" class="font-bold text-blue-600">-</span></p>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG BENERAN DIKEMBALIKAN</label>
+            <input type="number" id="kembaliJumlahBalik" min="0" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">CATATAN RT / KONDISI BARANG</label>
+            <textarea id="kembaliCatatanRt" rows="2" class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Dikembalikan kondisi bersih & lengkap..."></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onclick="tutupModalKembaliRT()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-xs font-bold transition">Batal</button>
+            <button type="button" id="btnKirimKembaliRT" onclick="kirimPengembalianRT(event)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center justify-center gap-1">Proses Selesai</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
   filterDataAset();
   loadTabelRiwayat();
 }
