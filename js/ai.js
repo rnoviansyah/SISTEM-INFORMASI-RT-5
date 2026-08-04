@@ -2,7 +2,7 @@
    ASISTEN AI RT 5 (POWERED BY GOOGLE GEMINI AI)
    ========================================================= */
 
-let geminiApiKeyDefault = 'AQ.Ab8RN6KcMDqKhTyZxUnQ2v10IaqcNqTkGvBpf8yk0qkSlVLzAg';
+let geminiApiKeyDefault = '';
 
 function getGeminiApiKey() {
   if (typeof appSettings !== 'undefined' && appSettings.gemini_api_key && appSettings.gemini_api_key.trim() !== '') {
@@ -189,8 +189,8 @@ async function kirimPesanAI(pesanTeksCustom = null) {
   const typingEl = document.getElementById('ai-typing-indicator');
   if (typingEl) typingEl.classList.remove('hidden');
 
-  // 3. Ambil Konteks Data Realtime Warga
-  let personalContext = await getUserPersonalDataContext();
+  // 3. Ambil Konteks Data Realtime Warga / RT Admin
+  let personalContext = await getUserPersonalDataContext(pesan);
 
   // 4. Panggil API Gemini AI
   try {
@@ -216,64 +216,91 @@ async function kirimPesanAI(pesanTeksCustom = null) {
 
   } catch (err) {
     if (typingEl) typingEl.classList.add('hidden');
-    console.warn('[Gemini AI Fallback Triggered]', err);
+    console.error('[Gemini API Error]', err);
 
-    const fallbackAnswer = getSmartFallbackAnswer(pesan, personalContext);
-    const formattedAnswer = formatMarkdownAI(fallbackAnswer);
-
-    const aiBubble = `
+    const errorBubble = `
       <div class="flex gap-2.5 items-start">
-        <div class="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
-          <i class="bi bi-robot"></i>
+        <div class="w-7 h-7 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xs shrink-0 shadow-sm">
+          <i class="bi bi-exclamation-triangle-fill"></i>
         </div>
-        <div class="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm max-w-[85%] text-gray-700 leading-relaxed text-xs space-y-1">
-          ${formattedAnswer}
+        <div class="bg-rose-50 border border-rose-200 p-3 rounded-2xl rounded-tl-none text-rose-800 text-xs max-w-[85%]">
+          <p class="font-bold">Gagal Menghubungi API Gemini ⚠️</p>
+          <p class="text-[11px] mt-0.5">${escapeHtmlAI(err.message || 'Koneksi ke API Gemini gagal.')}</p>
         </div>
       </div>
     `;
-    container.innerHTML += aiBubble;
+    container.innerHTML += errorBubble;
     container.scrollTop = container.scrollHeight;
   }
 }
 
-async function getUserPersonalDataContext() {
+function isUserAdminRT() {
+  if (typeof session === 'undefined' || !session) return false;
+  let r = String(session.role || '').toUpperCase().trim();
+  return r === 'RT' || r === 'ADMIN' || r === 'SEKRETARIS' || r === 'KETUA' || r === 'BENDAHARA';
+}
+
+async function getUserPersonalDataContext(prompt = '') {
   let userNik = (session?.nik || '').trim();
   let userNama = (session?.nama || userNik).trim();
+  let isRT = isUserAdminRT();
   let info = [];
+
+  // Jika RT Admin nanya NIK/data warga tertentu (misal: "berapa nik rizka?")
+  if (isRT && prompt) {
+    let lowerP = prompt.toLowerCase();
+    try {
+      let wargaList = (typeof rawWargaData !== 'undefined' && Array.isArray(rawWargaData)) ? rawWargaData : [];
+      let searchKey = lowerP.replace(/berapa|nik|no|kk|siapa|data|alamat|nomor/g, '').trim();
+      if (searchKey.length >= 2) {
+        let matched = wargaList.filter(r => JSON.stringify(r).toLowerCase().includes(searchKey));
+        if (matched.length > 0) {
+          let text = matched.slice(0, 3).map(r => {
+            let nik = r[0] || '-';
+            let nama = r[1] || 'Warga';
+            let noKk = r[2] || '-';
+            let noHp = r[10] || r[9] || '-';
+            return `• **Nama**: ${nama}\n  - NIK: **${nik}**\n  - No KK: ${noKk}\n  - No HP: ${noHp}`;
+          }).join('\n\n');
+          info.push(`📋 **Hasil Pencarian Data Warga (Khusus Pengurus RT):**\n${text}`);
+        }
+      }
+    } catch(e) {}
+  }
 
   // Aduan
   try {
     let aduanData = (typeof rawAduanData !== 'undefined' && Array.isArray(rawAduanData)) ? rawAduanData : [];
-    let myAduan = aduanData.filter(r => {
+    let myAduan = isRT ? aduanData : aduanData.filter(r => {
       let s = JSON.stringify(r).toLowerCase();
       return (userNik && s.includes(userNik.toLowerCase())) || (userNama && s.includes(userNama.toLowerCase()));
     });
     if (myAduan.length > 0) {
-      let aduanStr = myAduan.map((r, i) => {
+      let aduanStr = myAduan.slice(0, 5).map((r, i) => {
+        let pelapor = r[0] || 'Warga';
         let judul = r[1] || r[2] || 'Pengaduan';
         let status = r[r.length - 1] || r[r.length - 2] || 'Diproses';
-        return `• "${judul}" -> Status: **${status}**`;
+        return `• ${isRT ? '[' + pelapor + '] ' : ''}"${judul}" -> Status: **${status}**`;
       }).join('\n');
-      info.push(`📌 **Status Pengaduan/Keluhan ${userNama}:**\n${aduanStr}`);
-    } else {
-      info.push(`📌 **Status Pengaduan ${userNama}:** Belum ada catatan pengaduan yang diajukan.`);
+      info.push(`📌 **${isRT ? 'Daftar Pengaduan Masuk RT' : 'Status Pengaduan ' + userNama}:**\n${aduanStr}`);
     }
   } catch(e) {}
 
   // Surat
   try {
     let suratData = (typeof rawSuratData !== 'undefined' && Array.isArray(rawSuratData)) ? rawSuratData : [];
-    let mySurat = suratData.filter(r => {
+    let mySurat = isRT ? suratData : suratData.filter(r => {
       let s = JSON.stringify(r).toLowerCase();
       return (userNik && s.includes(userNik.toLowerCase())) || (userNama && s.includes(userNama.toLowerCase()));
     });
     if (mySurat.length > 0) {
-      let suratStr = mySurat.map((r, i) => {
+      let suratStr = mySurat.slice(0, 5).map((r, i) => {
+        let pemohon = r[0] || 'Warga';
         let jenis = r[1] || r[2] || 'Surat Pengantar';
         let status = r[r.length - 1] || r[r.length - 2] || 'Menunggu';
-        return `• ${jenis} -> Status: **${status}**`;
+        return `• ${isRT ? '[' + pemohon + '] ' : ''}${jenis} -> Status: **${status}**`;
       }).join('\n');
-      info.push(`📄 **Status Pengajuan Surat ${userNama}:**\n${suratStr}`);
+      info.push(`📄 **${isRT ? 'Daftar Pengajuan Surat Warga' : 'Status Pengajuan Surat ' + userNama}:**\n${suratStr}`);
     }
   } catch(e) {}
 
@@ -285,17 +312,30 @@ function getSmartFallbackAnswer(prompt, personalContext = '') {
   let rtRw = (typeof appSettings !== 'undefined' && appSettings.rt_rw_text) ? appSettings.rt_rw_text : 'RT 05 / RW 01';
   let ketua = (typeof appSettings !== 'undefined' && appSettings.nama_rt_ketua) ? appSettings.nama_rt_ketua : 'Ketua RT';
   let sekretaris = (typeof appSettings !== 'undefined' && appSettings.nama_sekretaris) ? appSettings.nama_sekretaris : 'Sekretaris RT';
-  let isRT = session && session.role === 'RT';
+  let isRT = isUserAdminRT();
 
-  // PRIVACY SECURITY FILTER FOR WARGA ROLE
+  // Jika RT Admin menanyakan data warga (misal: "nik rizka")
+  if (isRT && personalContext && personalContext.includes('Hasil Pencarian Data Warga')) {
+    return `${personalContext}\n\n*Data disajikan khusus untuk Pengurus RT yang sedang aktif.*`;
+  }
+
+  // PRIVACY SECURITY FILTER FOR WARGA ROLE ONLY
   if (!isRT) {
-    if (lower.includes('nik warga') || lower.includes('nik tetangga') || lower.includes('kk warga') || lower.includes('password') || lower.includes('rahasia') || lower.includes('semua warga') || lower.includes('data warga lain')) {
-      return `🔒 **Akses Ditolak (Privasi Data Kependudukan)**\n\nMohon maaf 🙏, demi menjaga privasi dan kerahasiaan data kependudukan warga, informasi sensitif (seperti NIK, No KK, atau data pribadi warga lain) hanya dapat diakses oleh **Pengurus RT**.`;
+    if (lower.includes('nik') || lower.includes('kk') || lower.includes('password') || lower.includes('rahasia') || lower.includes('semua warga') || lower.includes('data warga') || lower.includes('no hp') || lower.includes('telepon')) {
+      return `🔒 **Akses Ditolak (Privasi Data Kependudukan)**\n\nMohon maaf 🙏, demi menjaga privasi dan kerahasiaan data kependudukan warga, informasi sensitif (seperti NIK, No KK, No HP, atau data pribadi warga lain) hanya dapat diakses oleh **Pengurus RT**.`;
     }
   }
 
-  // Jika menanyakan status personal (aduan/surat saya)
-  if (lower.includes('aduan') || lower.includes('keluhan') || lower.includes('lapor')) {
+  // 1. Keuangan / Kas RT (Harus diproses SEBELUM aduan agar "laporan keuangan" tidak nyangkut di aduan)
+  if (lower.includes('keuangan') || lower.includes('kas') || lower.includes('saldo') || lower.includes('laporan keuangan') || lower.includes('uang')) {
+    return `📊 **Transparansi Keuangan & Laporan Kas ${rtRw}**\n\n` +
+           `• **Akses Laporan**: Masuk ke menu **Keuangan** di navigasi bawah/samping.\n` +
+           `• **Rincian Kas**: Seluruh arus kas pemasukan (iuran warga/sumbangan) dan pengeluaran RT dicatat secara transparan & realtime.\n` +
+           `• **Cetak PDF**: Anda dapat mengunduh **Laporan Keuangan Bulanan PDF** lengkap dengan rincian saldo dan pengesahan pengurus RT secara mandiri.`;
+  }
+
+  // 2. Aduan & Keluhan Warga (Hanya cocok jika bicara aduan/keluhan/pengaduan)
+  if (lower.includes('aduan') || lower.includes('keluhan') || lower.includes('pengaduan') || lower.includes('masalah lingkungan')) {
     if (lower.includes('saya') || lower.includes('sudah') || lower.includes('selesai') || lower.includes('belum') || lower.includes('status')) {
       if (personalContext && personalContext.includes('Status Pengaduan')) {
         return `${personalContext}\n\nPengurus RT akan memperbarui status aduan Anda secara realtime di aplikasi.`;
@@ -436,20 +476,10 @@ Gaya Bahasa:
     }
   }
 
-  // 2. FALLBACK UTAMA: Free Public AI Proxy Engine (Tanpa API Key, 100% Selalu Berhasil)
+  // 2. FALLBACK UTAMA: Free Public AI Proxy Engine (Powered by Gemini / OpenAI, Tanpa API Key)
   try {
     const fullPrompt = `${systemContext}\n\nPertanyaan Warga: ${promptUser}`;
-    const freeRes = await fetch(`https://text.pollinations.ai/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemContext },
-          { role: 'user', content: promptUser }
-        ],
-        model: 'openai'
-      })
-    });
+    const freeRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=gemini`);
     if (freeRes.ok) {
       const freeText = await freeRes.text();
       if (freeText && freeText.trim().length > 5) {
