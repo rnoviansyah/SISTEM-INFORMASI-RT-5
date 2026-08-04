@@ -2155,6 +2155,60 @@ async function hapusSesiLogin(token) {
     }
   }, 'Putuskan Sesi Login');
 }
+function initTtdSignaturePad(canvasId, type) {
+  let canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  let ctx = canvas.getContext('2d');
+  let drawing = false;
+  let lastX = 0, lastY = 0;
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  function getPos(e) {
+    let rect = canvas.getBoundingClientRect();
+    let scaleX = canvas.width / rect.width;
+    let scaleY = canvas.height / rect.height;
+    if (e.touches) {
+      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+    }
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+  function startDraw(e) { e.preventDefault(); drawing = true; let p = getPos(e); lastX = p.x; lastY = p.y; ctx.beginPath(); ctx.arc(lastX, lastY, 1, 0, Math.PI * 2); ctx.fillStyle = '#1a1a2e'; ctx.fill(); }
+  function draw(e) { e.preventDefault(); if (!drawing) return; let p = getPos(e); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; }
+  function endDraw() { drawing = false; }
+  canvas.addEventListener('mousedown', startDraw);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseleave', endDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', endDraw);
+}
+function hapusTtdCanvas(type) {
+  let canvasId = type === 'sekretaris' ? 'canvas-ttd-sekretaris' : 'canvas-ttd-ketua';
+  let canvas = document.getElementById(canvasId);
+  if (canvas) {
+    let ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+function simpanTtdCanvas(type) {
+  let canvasId = type === 'sekretaris' ? 'canvas-ttd-sekretaris' : 'canvas-ttd-ketua';
+  let inputId = type === 'sekretaris' ? 'set-ttd-sekretaris' : 'set-ttd-ketua-rt';
+  let previewWrpId = type === 'sekretaris' ? 'preview-ttd-sekretaris-wrapper' : 'preview-ttd-ketua-wrapper';
+  let previewImgId = type === 'sekretaris' ? 'preview-ttd-sekretaris' : 'preview-ttd-ketua-rt';
+  let canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  let imgData = canvas.toDataURL('image/png');
+  let inp = document.getElementById(inputId);
+  if (inp) inp.value = imgData;
+  let previewImg = document.getElementById(previewImgId);
+  if (previewImg) previewImg.src = imgData;
+  let wrapper = document.getElementById(previewWrpId);
+  if (wrapper) wrapper.style.display = 'block';
+  showUIToast('✅ Tanda tangan berhasil! Klik "Simpan Identitas & Tema" untuk menyimpan.', 'success');
+}
 async function renderPengaturanRTView() {
   if (session.role !== 'RT') return;
   document.getElementById('page-title').innerText = 'Pengaturan RT & Sistem';
@@ -2295,65 +2349,6 @@ async function renderPengaturanRTView() {
                   </div>
                 </div>
               </div>
-              <script>
-                (function() {
-                  function initSignaturePad(canvasId, type) {
-                    let canvas = document.getElementById(canvasId);
-                    if (!canvas) return;
-                    let ctx = canvas.getContext('2d');
-                    let drawing = false;
-                    let lastX = 0, lastY = 0;
-                    ctx.strokeStyle = '#1a1a2e';
-                    ctx.lineWidth = 2.5;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-
-                    function getPos(e) {
-                      let rect = canvas.getBoundingClientRect();
-                      let scaleX = canvas.width / rect.width;
-                      let scaleY = canvas.height / rect.height;
-                      if (e.touches) {
-                        return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
-                      }
-                      return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
-                    }
-                    function startDraw(e) { e.preventDefault(); drawing = true; let p = getPos(e); lastX = p.x; lastY = p.y; ctx.beginPath(); ctx.arc(lastX, lastY, 1, 0, Math.PI * 2); ctx.fillStyle = '#1a1a2e'; ctx.fill(); }
-                    function draw(e) { e.preventDefault(); if (!drawing) return; let p = getPos(e); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; }
-                    function endDraw(e) { drawing = false; }
-                    canvas.addEventListener('mousedown', startDraw);
-                    canvas.addEventListener('mousemove', draw);
-                    canvas.addEventListener('mouseup', endDraw);
-                    canvas.addEventListener('mouseleave', endDraw);
-                    canvas.addEventListener('touchstart', startDraw, { passive: false });
-                    canvas.addEventListener('touchmove', draw, { passive: false });
-                    canvas.addEventListener('touchend', endDraw);
-                  }
-                  window.hapusTtdCanvas = function(type) {
-                    let canvasId = type === 'sekretaris' ? 'canvas-ttd-sekretaris' : 'canvas-ttd-ketua';
-                    let canvas = document.getElementById(canvasId);
-                    if (canvas) { let ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); }
-                  };
-                  window.simpanTtdCanvas = function(type) {
-                    let canvasId = type === 'sekretaris' ? 'canvas-ttd-sekretaris' : 'canvas-ttd-ketua';
-                    let inputId = type === 'sekretaris' ? 'set-ttd-sekretaris' : 'set-ttd-ketua-rt';
-                    let previewWrpId = type === 'sekretaris' ? 'preview-ttd-sekretaris-wrapper' : 'preview-ttd-ketua-wrapper';
-                    let previewImgId = type === 'sekretaris' ? 'preview-ttd-sekretaris' : 'preview-ttd-ketua-rt';
-                    let canvas = document.getElementById(canvasId);
-                    if (!canvas) return;
-                    let imgData = canvas.toDataURL('image/png');
-                    document.getElementById(inputId).value = imgData;
-                    let previewImg = document.getElementById(previewImgId);
-                    if (previewImg) previewImg.src = imgData;
-                    let wrapper = document.getElementById(previewWrpId);
-                    if (wrapper) wrapper.style.display = 'block';
-                    showToast('Tanda tangan berhasil disimpan! Klik "Simpan Identitas & Tema" untuk menyimpan ke database.', 'success');
-                  };
-                  setTimeout(function() {
-                    initSignaturePad('canvas-ttd-sekretaris', 'sekretaris');
-                    initSignaturePad('canvas-ttd-ketua', 'ketua');
-                  }, 100);
-                })();
-              </script>
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">NOMOR WHATSAPP DEFAULT LAPORAN RT <small class="text-primary font-bold">(Untuk Laporan Aduan, Surat & Sumbangan)</small></label>
                 <div class="input-group">
@@ -2618,6 +2613,10 @@ async function renderPengaturanRTView() {
       </div>
     </div>`;
   document.getElementById('main-content').innerHTML = html;
+  setTimeout(function() {
+    initTtdSignaturePad('canvas-ttd-sekretaris', 'sekretaris');
+    initTtdSignaturePad('canvas-ttd-ketua', 'ketua');
+  }, 100);
 }
 document.addEventListener("DOMContentLoaded", function() {
   try {
