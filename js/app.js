@@ -1508,10 +1508,11 @@ async function generateFormInputs(rowData) {
         { value: 'Surat Izin Keramaian', label: 'Surat Izin Keramaian/Acara' }
       ];
       let opts = optList.map(o => `<option value="${o.value}" ${val.toLowerCase().trim()===o.value.toLowerCase().trim()?'selected':''}>${o.label}</option>`).join('');
-      inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
+      inputHtml = `<select class="form-select dynamic-input" data-key="${h}" onchange="if(typeof renderExtraSuratFields==='function') renderExtraSuratFields(this.value);">
         <option value="">-- Pilih Jenis Surat Pengantar --</option>
         ${opts}
-      </select>`;
+      </select>
+      <div id="extra-surat-fields-container" class="p-3 border rounded-3 bg-light mt-2 mb-2" style="display:none;"></div>`;
     } else if (nameLower.includes('tanggal')) {
       inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${val}">`;
     } else if (nameLower === 'jenis_kelamin') {
@@ -1549,6 +1550,25 @@ async function generateFormInputs(rowData) {
       inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${val}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>${helpText}`;
     }
     formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
+  }
+  if (currentActiveMenu === 'SuratPengantar' && typeof renderExtraSuratFields === 'function') {
+    let jenisSelect = document.querySelector('.dynamic-input[data-key*="jenis"], .dynamic-input[data-key*="perihal"], .dynamic-input[data-key*="keperluan"]');
+    let selVal = jenisSelect ? jenisSelect.value : '';
+    let existingObj = {};
+    if (rowData) {
+      let ketVal = '';
+      if (Array.isArray(rowData)) {
+        let headers = (currentHeaders || []).map(h => (h || '').toLowerCase().trim());
+        let kIdx = headers.findIndex(h => h.includes('keterangan') || h.includes('catatan'));
+        if (kIdx > -1) ketVal = rowData[kIdx];
+      } else if (typeof rowData === 'object') {
+        ketVal = rowData.keterangan || rowData.Keterangan || '';
+      }
+      try { existingObj = JSON.parse(ketVal); } catch(e) { existingObj = { catatan: ketVal }; }
+    }
+    if (selVal) {
+      renderExtraSuratFields(selVal, existingObj);
+    }
   }
 }
 function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75) {
@@ -1588,6 +1608,18 @@ function submitFormBaru(e) {
   if (e) e.preventDefault();
   let payload = {};
   document.querySelectorAll('.dynamic-input').forEach(inp => { payload[inp.getAttribute('data-key')] = inp.value; });
+  if (currentActiveMenu === 'SuratPengantar') {
+    let extraObj = {};
+    document.querySelectorAll('.extra-surat-input').forEach(inp => {
+      let k = inp.getAttribute('data-extra-key');
+      if (k && inp.value) extraObj[k] = inp.value;
+    });
+    if (Object.keys(extraObj).length > 0) {
+      let ketKey = Object.keys(payload).find(k => k.toLowerCase().includes('keterangan') || k.toLowerCase().includes('catatan'));
+      if (!ketKey) ketKey = 'keterangan';
+      payload[ketKey] = JSON.stringify(extraObj);
+    }
+  }
   let filePromises = [];
   document.querySelectorAll('.dynamic-file-input').forEach(fileInp => {
     let key = fileInp.getAttribute('data-key');

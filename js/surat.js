@@ -272,10 +272,18 @@ function showDetailSurat(id) {
   currentHeaders.forEach((h, idx) => {
     let hLower = h.toLowerCase().trim();
     if (hLower.includes('foto') || hLower.includes('bukti') || hLower === 'id' || hLower === 'no') return;
+    let valStr = row[idx] || '-';
+    let formattedVal = valStr;
+    if (valStr.trim().startsWith('{') && valStr.trim().endsWith('}')) {
+      try {
+        let parsed = JSON.parse(valStr);
+        formattedVal = Object.entries(parsed).map(([k, v]) => `<div class="mt-0.5"><span class="text-gray-500 font-bold">${k.replace(/_/g, ' ').toUpperCase()}:</span> ${v}</div>`).join('');
+      } catch(e) {}
+    }
     detailHtml += `
       <div class="border-b pb-1">
         <p class="text-[10px] text-gray-400 font-bold uppercase">${h.replace(/_/g, ' ')}</p>
-        <p class="font-semibold text-gray-800">${row[idx] || '-'}</p>
+        <p class="font-semibold text-gray-800">${formattedVal}</p>
       </div>`;
   });
   document.getElementById('modal-detail-surat-body').innerHTML = detailHtml;

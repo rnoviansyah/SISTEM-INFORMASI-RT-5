@@ -176,3 +176,106 @@ function renderSuratBody(jenisSurat, data) {
     `
   };
 }
+
+window.renderExtraSuratFields = function(selectedJenis, existingVal = {}) {
+  let container = document.getElementById('extra-surat-fields-container');
+  if (!container) return;
+  
+  if (!selectedJenis) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+  
+  let kode = typeof getKodeSurat === 'function' ? getKodeSurat(selectedJenis) : '';
+  container.style.display = 'block';
+  
+  let html = `<div class="mb-2"><h6 class="font-bold text-xs text-primary mb-1"><i class="bi bi-file-earmark-plus-fill me-1"></i> Data Khusus ${selectedJenis}</h6><small class="text-muted text-[10px]">Isi data spesifik di bawah ini untuk dicetak pada dokumen PDF.</small></div>`;
+  
+  if (kode === 'IZIN') {
+    html += `
+      <div class="row g-2">
+        <div class="col-12 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Nama / Jenis Acara <span class="text-danger">*</span></label>
+          <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="nama_acara" value="${existingVal.nama_acara || ''}" placeholder="Contoh: Hajatan Pernikahan / Syukuran / Pentas Seni">
+        </div>
+        <div class="col-12 col-md-6 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Tanggal Acara Pelaksanaan <span class="text-danger">*</span></label>
+          <input type="date" class="form-control form-control-sm extra-surat-input" data-extra-key="tgl_acara" value="${existingVal.tgl_acara || ''}">
+        </div>
+        <div class="col-6 col-md-3 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Jam Mulai</label>
+          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_mulai" value="${existingVal.jam_mulai || '08:00'}">
+        </div>
+        <div class="col-6 col-md-3 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Jam Selesai</label>
+          <input type="time" class="form-control form-control-sm extra-surat-input" data-extra-key="jam_selesai" value="${existingVal.jam_selesai || '23:00'}">
+        </div>
+      </div>`;
+  } else if (kode === 'SKDU') {
+    html += `
+      <div class="row g-2">
+        <div class="col-12 col-md-6 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Nama Usaha / Toko <span class="text-danger">*</span></label>
+          <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="nama_usaha" value="${existingVal.nama_usaha || ''}" placeholder="Contoh: Toko Berkah Jaya">
+        </div>
+        <div class="col-12 col-md-6 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Jenis Usaha / Bidang <span class="text-danger">*</span></label>
+          <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="jenis_usaha" value="${existingVal.jenis_usaha || ''}" placeholder="Contoh: Sembako / Kuliner / Konveksi">
+        </div>
+      </div>`;
+  } else if (kode === 'SKTM') {
+    html += `
+      <div class="mb-1">
+        <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Keperluan Pengurusan SKTM <span class="text-danger">*</span></label>
+        <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="keperluan" value="${existingVal.keperluan || ''}" placeholder="Contoh: Beasiswa Sekolah / Keringanan Biaya RS / BPJS">
+      </div>`;
+  } else if (kode === 'PINDAH') {
+    html += `
+      <div class="mb-1">
+        <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Alamat Tujuan Pindah Lengkap <span class="text-danger">*</span></label>
+        <textarea class="form-control form-control-sm extra-surat-input" data-extra-key="alamat_baru" rows="2" placeholder="Masukkan alamat lengkap tujuan pindah (RT, RW, Desa/Kel, Kec, Kab/Kota)...">${existingVal.alamat_baru || ''}</textarea>
+      </div>`;
+  } else if (kode === 'NIKAH') {
+    html += `
+      <div class="mb-1">
+        <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Status Perkawinan Saat Ini <span class="text-danger">*</span></label>
+        <select class="form-select form-select-sm extra-surat-input" data-extra-key="status_nikah">
+          <option value="Belum Menikah" ${(existingVal.status_nikah || '') === 'Belum Menikah' ? 'selected' : ''}>Belum Menikah</option>
+          <option value="Duda" ${(existingVal.status_nikah || '') === 'Duda' ? 'selected' : ''}>Duda</option>
+          <option value="Janda" ${(existingVal.status_nikah || '') === 'Janda' ? 'selected' : ''}>Janda</option>
+        </select>
+      </div>`;
+  } else if (kode === 'AHLI_WARIS') {
+    html += `
+      <div class="row g-2">
+        <div class="col-12 col-md-6 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Nama Almarhum / Almarhumah <span class="text-danger">*</span></label>
+          <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="nama_almarhum" value="${existingVal.nama_almarhum || ''}" placeholder="Nama lengkap almarhum">
+        </div>
+        <div class="col-12 col-md-6 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Tanggal Meninggal Dunia</label>
+          <input type="date" class="form-control form-control-sm extra-surat-input" data-extra-key="tgl_meninggal" value="${existingVal.tgl_meninggal || ''}">
+        </div>
+        <div class="col-12 mb-1">
+          <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Keterangan / Daftar Ahli Waris</label>
+          <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="daftar_waris" value="${existingVal.daftar_waris || ''}" placeholder="Contoh: Memiliki 3 orang anak kandung">
+        </div>
+      </div>`;
+  } else if (kode === 'SKCK') {
+    html += `
+      <div class="mb-1">
+        <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Keperluan Pengurusan SKCK</label>
+        <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="keperluan" value="${existingVal.keperluan || ''}" placeholder="Contoh: Persyaratan Melamar Pekerjaan / CPNS">
+      </div>`;
+  } else {
+    html += `
+      <div class="mb-1">
+        <label class="form-label text-[11px] font-semibold text-gray-700 mb-0">Keterangan / Catatan Tambahan</label>
+        <input type="text" class="form-control form-control-sm extra-surat-input" data-extra-key="catatan" value="${existingVal.catatan || ''}" placeholder="Keterangan tambahan jika ada...">
+      </div>`;
+  }
+
+  container.innerHTML = html;
+};
+
