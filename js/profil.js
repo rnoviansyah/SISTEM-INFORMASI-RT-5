@@ -1,11 +1,13 @@
 let rawKeluargaData = [];
 let profilHeaders = [];
+
 function renderProfilCustom(res) {
   let pribadi = res.pribadi || {};
   let keluarga = res.keluarga || [];
   profilHeaders = res.headers || [];
   rawKeluargaData = keluarga;
   let pribadiHtml = '';
+  
   profilHeaders.forEach(h => {
     let labelText = h.replace(/_/g, ' ').toUpperCase();
     let val = pribadi[h] || '-';
@@ -24,7 +26,49 @@ function renderProfilCustom(res) {
         </div>`;
     }
   });
+
+  // ============================================================
+  // NOTIFIKASI BUTTON - TAMBAHKAN INI!
+  // ============================================================
+  let notifStatusText = 'Klik tombol untuk mengaktifkan';
+  let notifStatusColor = 'text-gray-400';
+  let notifIcon = 'bi-info-circle';
+  
+  if (typeof Notification !== 'undefined') {
+    if (Notification.permission === 'granted') {
+      notifStatusText = 'Notifikasi aktif ✅';
+      notifStatusColor = 'text-emerald-600';
+      notifIcon = 'bi-check-circle-fill';
+    } else if (Notification.permission === 'denied') {
+      notifStatusText = 'Notifikasi diblokir ❌';
+      notifStatusColor = 'text-red-600';
+      notifIcon = 'bi-x-circle-fill';
+    }
+  }
+
+  let notifButtonHtml = `
+    <div class="mt-4 pt-3 border-t border-gray-200">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h5 class="font-bold text-xs text-gray-700"><i class="bi bi-bell-fill me-1 text-primary"></i> Notifikasi Push</h5>
+          <p class="text-[10px] text-gray-500">Aktifkan notifikasi untuk menerima info terbaru dari RT</p>
+        </div>
+        <button onclick="mintaIzinNotifikasi()" class="btn btn-primary btn-sm fw-bold py-1.5 px-3 rounded-xl text-xs shadow transition">
+          <i class="bi bi-bell-fill me-1"></i> Aktifkan Notifikasi
+        </button>
+      </div>
+      <div id="notif-status" class="text-[10px] mt-1 ${notifStatusColor}">
+        <i class="bi ${notifIcon} me-1"></i>
+        ${notifStatusText}
+      </div>
+    </div>
+  `;
+
+  // Tambahkan notifButtonHtml ke pribadiHtml
+  pribadiHtml += notifButtonHtml;
+
   let displayHeaders = profilHeaders.filter(h => !['no_kk', 'alamat'].includes(h.toLowerCase().trim()));
+  
   let html = `
     <div class="p-1 text-gray-800 font-sans space-y-4">
       <!-- HEADER & TOMBOL KEMBALI -->
@@ -58,6 +102,7 @@ function renderProfilCustom(res) {
               </thead>
               <tbody id="keluarga-table-body">
   `;
+  
   if (keluarga.length === 0) {
     html += `<tr><td colspan="${displayHeaders.length + 1}" class="text-center p-4 text-gray-400">Tidak ada anggota keluarga lain dengan No KK yang sama.</td></tr>`;
   } else {
@@ -76,6 +121,7 @@ function renderProfilCustom(res) {
       html += `</tr>`;
     });
   }
+  
   html += `
               </tbody>
             </table>
@@ -95,14 +141,17 @@ function renderProfilCustom(res) {
       </div>
     </div>
   `;
+  
   document.getElementById('main-content').innerHTML = html;
 }
+
 function showDetailKeluarga(identifier) {
   if (!rawKeluargaData) return;
   let member = rawKeluargaData.find(m => (m.id == identifier || m.nik == identifier));
   if (!member) return;
   let detailHtml = '';
   let fotoUrl = '';
+  
   profilHeaders.forEach(h => {
     let val = member[h] || '-';
     let hLower = h.toLowerCase().trim();
@@ -118,6 +167,7 @@ function showDetailKeluarga(identifier) {
         </div>`;
     }
   });
+  
   if (fotoUrl) {
     detailHtml += `
       <div class="mt-2">
@@ -125,12 +175,15 @@ function showDetailKeluarga(identifier) {
         <img src="${fotoUrl}" onclick="bukaPopUpFoto('${fotoUrl}')" class="w-full max-h-40 object-contain rounded-xl border cursor-pointer shadow-sm">
       </div>`;
   }
+  
   document.getElementById('modal-detail-keluarga-body').innerHTML = detailHtml;
   document.getElementById('modal-detail-keluarga').classList.remove('hidden');
 }
+
 function tutupDetailKeluarga() {
   document.getElementById('modal-detail-keluarga').classList.add('hidden');
 }
+
 async function loadProfilView() {
   const res = await callGASGet('getProfileData', { nik: session.nik });
   if (!res) return;
@@ -140,6 +193,7 @@ async function loadProfilView() {
   }
   renderProfilCustom(res);
 }
+
 const originalLoadMenuProfil = window.loadMenu;
 window.loadMenu = async function(menu) {
   if (menu === 'Profil') {

@@ -195,3 +195,101 @@ window.initInlineCanvas = initInlineCanvas;
 window.hapusTandaTanganInline = hapusTandaTanganInline;
 window.getTTDPemohonInline = getTTDPemohonInline;
 window.renderFieldTTDPemohon = renderFieldTTDPemohon;
+
+// ---------------- MODAL TANDA TANGAN PEMOHON (buka dari mana saja) ----------------
+let modalTtdCanvas = null;
+let modalTtdCtx = null;
+let modalTtdDrawing = false;
+let modalTtdData = '';        // hasil TTD (dataURL PNG) dari modal
+let modalTtdCallback = null;  // callback saat "Gunakan TTD Ini"
+
+function bukaModalTandaTangan(callback) {
+  modalTtdCallback = (typeof callback === 'function') ? callback : null;
+  modalTtdData = '';
+  let modal = document.getElementById('modal-ttd-pemohon');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  let btn = document.getElementById('btn-konfirmasi-ttd');
+  if (btn) btn.disabled = true;
+  setTimeout(function() {
+    modalTtdCanvas = document.getElementById('canvas-ttd-pemohon');
+    if (!modalTtdCanvas) return;
+    let rect = modalTtdCanvas.getBoundingClientRect();
+    let dpr = window.devicePixelRatio || 1;
+    modalTtdCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    modalTtdCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    modalTtdCtx = modalTtdCanvas.getContext('2d');
+    modalTtdCtx.scale(dpr, dpr);
+    modalTtdCtx.lineWidth = 3;
+    modalTtdCtx.lineCap = 'round';
+    modalTtdCtx.lineJoin = 'round';
+    modalTtdCtx.strokeStyle = '#1e3a8a';
+    hapusTandaTangan();
+    attachModalTtdEvents();
+  }, 60);
+}
+window.bukaModalTandaTangan = bukaModalTandaTangan;
+
+function tutupModalTandaTangan() {
+  let modal = document.getElementById('modal-ttd-pemohon');
+  if (modal) modal.classList.add('hidden');
+  modalTtdDrawing = false;
+}
+window.tutupModalTandaTangan = tutupModalTandaTangan;
+
+function hapusTandaTangan() {
+  if (modalTtdCtx && modalTtdCanvas) {
+    modalTtdCtx.clearRect(0, 0, modalTtdCanvas.width, modalTtdCanvas.height);
+  }
+  modalTtdData = '';
+  let btn = document.getElementById('btn-konfirmasi-ttd');
+  if (btn) btn.disabled = true;
+}
+window.hapusTandaTangan = hapusTandaTangan;
+
+function konfirmasiTandaTangan() {
+  if (!modalTtdCanvas || !modalTtdCtx) return;
+  modalTtdData = modalTtdCanvas.toDataURL('image/png');
+  let cb = modalTtdCallback;
+  modalTtdCallback = null;
+  tutupModalTandaTangan();
+  if (typeof cb === 'function') {
+    cb(modalTtdData);
+  } else if (modalTtdData) {
+    if (typeof showUIToast === 'function') showUIToast('Tanda tangan tersimpan!', 'success');
+  }
+}
+window.konfirmasiTandaTangan = konfirmasiTandaTangan;
+
+function attachModalTtdEvents() {
+  if (!modalTtdCanvas) return;
+  let pos = function(e) {
+    let r = modalTtdCanvas.getBoundingClientRect();
+    let t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  modalTtdCanvas.onpointerdown = function(e) {
+    e.preventDefault();
+    modalTtdDrawing = true;
+    let p = pos(e);
+    modalTtdCtx.beginPath();
+    modalTtdCtx.moveTo(p.x, p.y);
+  };
+  modalTtdCanvas.onpointermove = function(e) {
+    if (!modalTtdDrawing) return;
+    e.preventDefault();
+    let p = pos(e);
+    modalTtdCtx.lineTo(p.x, p.y);
+    modalTtdCtx.stroke();
+  };
+  modalTtdCanvas.onpointerup = function() {
+    if (modalTtdDrawing) {
+      let btn = document.getElementById('btn-konfirmasi-ttd');
+      if (btn) btn.disabled = false;
+    }
+    modalTtdDrawing = false;
+  };
+  modalTtdCanvas.onpointerleave = function() {
+    modalTtdDrawing = false;
+  };
+}

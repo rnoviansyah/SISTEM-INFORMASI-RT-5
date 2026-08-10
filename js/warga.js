@@ -2,10 +2,39 @@ let rawWargaData = [];
 let selectedWargaRow = null;
 let currentWargaViewMode = 'rumah';
 let groupedRumahCache = {};
-function renderWargaCustom(data) {
+async function renderWargaCustom(data) {
   rawWargaData = data.rows || [];
   currentHeaders = data.headers || [];
   currentRows = data.rows || [];
+  // Warga yang tercatat meninggal di menu Kematian otomatis tidak ditampilkan lagi di menu Warga.
+  // Data asli TIDAK dihapus — tetap tersimpan sebagai arsip di tabel Kematian.
+  try {
+    const { data: dataKematian } = await safeSupabaseSelect('Kematian');
+    if (dataKematian && dataKematian.length > 0) {
+      const nikIdxK = currentHeaders.findIndex(h => String(h).toLowerCase().includes('nik') || String(h).toLowerCase().includes('ktp'));
+      const namaIdxK = currentHeaders.findIndex(h => String(h).toLowerCase().includes('nama'));
+      const nikMeninggal = new Set();
+      const namaMeninggal = new Set();
+      dataKematian.forEach(k => {
+        const kNik = (cariNilaiKolom(k, ['nik', 'ktp']) || '').toString().trim();
+        const kNama = (cariNilaiKolom(k, ['nama', 'nama_lengkap']) || '').toString().toLowerCase().trim();
+        if (kNik) nikMeninggal.add(kNik);
+        if (kNama) namaMeninggal.add(kNama);
+      });
+      rawWargaData = rawWargaData.filter(row => {
+        if (nikIdxK > -1) {
+          const wNik = String(row[nikIdxK] !== undefined && row[nikIdxK] !== null ? row[nikIdxK] : '').trim();
+          if (wNik && nikMeninggal.has(wNik)) return false;
+        }
+        if (namaIdxK > -1) {
+          const wNama = String(row[namaIdxK] !== undefined && row[namaIdxK] !== null ? row[namaIdxK] : '').toLowerCase().trim();
+          if (wNama && namaMeninggal.has(wNama)) return false;
+        }
+        return true;
+      });
+      currentRows = rawWargaData;
+    }
+  } catch(e) {}
   let html = `
     <div class="p-1 text-gray-800 font-sans space-y-4">
       <!-- Header Controls & Toggle Mode -->

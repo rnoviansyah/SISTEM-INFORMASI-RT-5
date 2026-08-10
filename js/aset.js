@@ -338,9 +338,27 @@ async function submitKelolaAset(e) {
   }
 }
 async function bukaModalPinjamBarang() {
-  if (session && session.nama) {
-    document.getElementById('pinjamNama').value = session.nama;
-  }
+  // Nama otomatis: cari nama asli dari data Warga (agar akun warga langsung terisi, bukan hanya RT)
+  let namaPeminjam = (session && session.nama) ? session.nama : '';
+  try {
+    if (session && session.nik) {
+      const { data: safeWarga } = await safeSupabaseSelect('Warga');
+      if (safeWarga && safeWarga.length > 0) {
+        const sNik = String(session.nik).trim();
+        const myW = safeWarga.find(w => String(cariNilaiKolom(w, ['nik', 'ktp'])).trim() === sNik);
+        if (myW) {
+          const realNama = cariNilaiKolom(myW, ['nama_lengkap', 'nama', 'nama_warga']);
+          if (realNama) {
+            namaPeminjam = realNama;
+            session.nama = realNama;
+            try { localStorage.setItem('rt_user_session', JSON.stringify(session)); } catch(e) {}
+          }
+        }
+      }
+    }
+  } catch(e) {}
+  const elNama = document.getElementById('pinjamNama');
+  if (elNama && namaPeminjam) elNama.value = namaPeminjam;
   const res = await callGASGet('getDaftarBarangAset');
   if (res && res.status === 'success') {
     listDaftarBarang = res.data || [];

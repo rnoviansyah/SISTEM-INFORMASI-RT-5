@@ -26,15 +26,9 @@ async function simpanInfoWarga() {
   let textBaru = textarea ? textarea.value : '';
   if (textBaru) {
     let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
-    if (btnSimpan) {
-      btnSimpan.innerText = 'Menyimpan...';
-      btnSimpan.disabled = true;
-    }
+    if (btnSimpan) setBtnLoading(btnSimpan, true, 'Menyimpan...');
     const res = await callGASPost('simpanInfoWarga', { teksBaru: textBaru });
-    if (btnSimpan) {
-      btnSimpan.innerText = 'Simpan Perubahan';
-      btnSimpan.disabled = false;
-    }
+    if (btnSimpan) setBtnLoading(btnSimpan, false);
     if (res && res.status === 'success') {
       alert('Informasi Warga berhasil diperbarui!');
       let modalEl = document.getElementById('modalEditInfo');
@@ -78,6 +72,28 @@ async function bukaModalEditInfo() {
     textarea.value = (rawText && rawText.trim() !== '') ? rawText : defaultInfoText;
   }
 }
+function toggleInfoWarga() {
+  const body = document.getElementById('infoWargaBody');
+  const chev = document.getElementById('infoWargaChevron');
+  if (!body) return;
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  if (chev) chev.classList.toggle('rotated', isHidden);
+}
+window.toggleInfoWarga = toggleInfoWarga;
+function applyDashboardBadges(counts) {
+  if (!counts) return;
+  const map = { 'Warga':'Warga', 'Pengaduan':'Pengaduan', 'SuratPengantar':'SuratPengantar', 'Sumbangan':'Sumbangan', 'Aset':'Aset', 'Aspirasi':'Aspirasi', 'Bansos':'Bansos' };
+  for (let menu in map) {
+    const el = document.getElementById('qbadge-' + map[menu]);
+    const c = counts[menu] || 0;
+    if (el) {
+      if (c > 0) { el.textContent = c > 99 ? '99+' : c; el.style.display = 'inline-flex'; }
+      else { el.style.display = 'none'; }
+    }
+  }
+}
+window.applyDashboardBadges = applyDashboardBadges;
 async function loadDashboardView() {
   currentActiveMenu = 'Dashboard';
   if (typeof syncActiveNav === 'function') syncActiveNav('Dashboard');
@@ -127,17 +143,18 @@ function renderDashboardLayout(res) {
       </div>
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
-          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
+          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
           <div class="quick-action-item" onclick="loadMenu('Kelahiran')"><div class="quick-action-icon"><i class="bi bi-gender-ambiguous"></i></div>Kelahiran</div>
           <div class="quick-action-item" onclick="loadMenu('Kematian')"><div class="quick-action-icon"><i class="bi bi-heartbreak-fill"></i></div>Kematian</div>
           <div class="quick-action-item" onclick="loadMenu('PindahMasuk')"><div class="quick-action-icon"><i class="bi bi-box-arrow-in-right"></i></div>Pindah Masuk</div>
           <div class="quick-action-item" onclick="loadMenu('PindahKeluar')"><div class="quick-action-icon"><i class="bi bi-box-arrow-left"></i></div>Pindah Keluar</div>
-          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i></div>Aduan</div>
-          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i></div>Surat</div>
+          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Aduan</div>
+          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
           <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i></div>Sumbangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i></div>Inventaris</div>
-          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i></div>Aspirasi</div>
+          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
+          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
+          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
+          <div class="quick-action-item" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
           <div class="quick-action-item" onclick="loadMenu('Pengaturan')"><div class="quick-action-icon"><i class="bi bi-gear-fill text-primary"></i></div>Pengaturan</div>
           <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
         </div>
@@ -159,13 +176,14 @@ function renderDashboardLayout(res) {
       </div>
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
-          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i></div>Warga</div>
-          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i></div>Aduan</div>
-          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i></div>Surat</div>
+          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
+          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Aduan</div>
+          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
           <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i></div>Sumbangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i></div>Inventaris</div>
-          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i></div>Aspirasi</div>
+          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
+          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
+          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
+          <div class="quick-action-item" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
           <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
         </div>
         <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Laporan Saya</p>
@@ -183,17 +201,32 @@ function renderDashboardLayout(res) {
     ? `<button class="btn btn-warning btn-sm fw-bold me-2" onclick="bukaModalEditInfo()"><i class="bi bi-pencil-square me-1"></i> Edit Info Warga</button>` 
     : '';
 
-  htmlLayout += `
-    <div class="card card-custom mt-2">
-      <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-md-center mb-2">
-        <h5 class="fw-bold text-dark mb-2 mb-md-0"><i class="bi bi-clock-history me-2"></i>Informasi Warga</h5>
-        <div class="d-flex align-items-center">
-          ${btnEditAdmin}
-          <button class="btn btn-outline-primary btn-sm fw-bold d-none d-md-block" onclick="loadMenu('Profil')"><i class="bi bi-person-vcard me-1"></i> Buka Profil & Keluarga</button>
+  // Kartu Informasi Warga dipindah ke ATAS judul "Dashboard Utama" (#info-warga-atas di index.html).
+  // Bisa di-minimize/expand (klik judul), defaultnya terexpand.
+  const infoWargaAtas = document.getElementById('info-warga-atas');
+  if (infoWargaAtas) {
+    infoWargaAtas.innerHTML = `
+      <div class="card card-custom mb-3 info-warga-card">
+        <div class="info-warga-header d-flex align-items-center justify-content-between px-3 py-2" onclick="toggleInfoWarga()" role="button" title="Klik untuk minimize / expand">
+          <h5 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-megaphone-fill text-primary"></i>Informasi Warga
+            <i class="bi bi-chevron-up info-warga-chev" id="infoWargaChevron"></i>
+          </h5>
+          <div class="d-flex align-items-center gap-2">
+            ${btnEditAdmin}
+          </div>
         </div>
-      </div>
-      <p id="infoWargaTextDisplay" class="text-muted small mb-0"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</p>
-    </div>
+        <div id="infoWargaBody" class="px-3 pb-3 pt-1">
+          <p class="text-muted small mb-0 d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle-fill text-primary info-warga-icon mt-1"></i>
+            <span id="infoWargaTextDisplay"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat informasi...</span>
+          </p>
+        </div>
+      </div>`;
+    infoWargaAtas.style.display = 'block';
+  }
+
+  htmlLayout += `
     <!-- Modal Edit Informasi Khusus RT Admin -->
     <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
@@ -217,6 +250,15 @@ function renderDashboardLayout(res) {
     </div>
   `;
   document.getElementById('main-content').innerHTML = htmlLayout;
+  // Terapkan badge quick-action SETELAH grid dirender (anti hilang saat pindah menu / refresh)
+  try {
+    // 1) Sinkron: pakai cache yang ada - badge langsung tampil tanpa nunggu fetch
+    if (typeof window.applyDashboardBadges === 'function' && typeof window.getMenuBadgeCache === 'function') {
+      window.applyDashboardBadges(window.getMenuBadgeCache());
+    }
+    // 2) Async: perbarui angka bila cache lama/kosong
+    if (typeof window.updateMenuBadges === 'function') window.updateMenuBadges();
+  } catch(e) {}
   muatInfoWargaRealtime();
   if (infoWargaTimer) clearInterval(infoWargaTimer);
   infoWargaTimer = setInterval(muatInfoWargaRealtime, 10000);
