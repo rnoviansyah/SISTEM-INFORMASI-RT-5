@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SISTEM INFORMASI RT 5</title>
+  
+  <!-- DEVELOPED BY RIZKY NOVIANSYAH -->
+  <meta name="author" content="Rizky Noviansyah">
+  <meta name="developer" content="Rizky Noviansyah">
+  
+  <!-- META TAG KHUSUS PWA MOBILE -->
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RT 5">
+  <link rel="icon" type="image/webp" href="img/logo.webp">
+  <link rel="apple-touch-icon" href="./img/logo.webp">
+
+  <!-- MANIFEST PWA -->
+  <link rel="manifest" href="./manifest.json">
+
+  <!-- CSS & TAILWIND -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --primary-blue: #1e3a8a;
+      --secondary-blue: #3b82f6;
+      --light-blue: #eff6ff;
+      --dark-slate: #1e293b;
+      --card-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    
+    body { background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif; color: var(--dark-slate); }
+    .login-box { max-width: 400px; margin: 80px auto; background: white; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+    #app-container { display: none; }
+    
+    .sidebar { background: var(--primary-blue); min-height: 100vh; height: 100vh; overflow-y: auto; position: sticky; top: 0; color: white; padding-top: 25px; box-shadow: 4px 0 10px rgba(0,0,0,0.05); scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.3) transparent; }
+    .sidebar h5 { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .sidebar a { color: rgba(255,255,255,0.8); text-decoration: none; display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 12px 20px; font-weight: 500; transition: all 0.2s ease; border-left: 4px solid transparent; }
+    .sidebar a .door-wrapper { margin-left: auto; }
+    .sidebar a:hover, .sidebar a.active-menu { background: rgba(255,255,255,0.1); color: white; border-left: 4px solid var(--secondary-blue); cursor: pointer; }
+    
+    .img-table { max-width: 65px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .img-table:hover { transform: scale(1.08); }
+    .rekening-box { background: #fff; padding: 20px; border-radius: 12px; border-left: 5px solid var(--secondary-blue); box-shadow: var(--card-shadow); margin-bottom: 25px; }
+    
+    .main-content-wrapper { padding: 30px; }
+    .card-custom { background: white; border: none; border-radius: 16px; box-shadow: var(--card-shadow); padding: 24px; transition: transform 0.2s; }
+    .card-custom:hover { transform: translateY(-2px); }
+    /* Kartu Informasi Warga (Dashboard) */
+    .info-warga-card { padding: 0 !important; overflow: hidden; }
+    .info-warga-header { cursor: pointer; border-bottom: 1px solid #eef2f7; background: #f8fafc; transition: background-color 0.2s ease; }
+    .info-warga-header:hover { background: #f1f5f9; }
+    .info-warga-chev { font-size: 0.85rem; color: #64748b; transition: transform 0.25s ease; }
+    .info-warga-chev.rotated { transform: rotate(180deg); }
+    .info-warga-icon { font-size: 0.8rem; opacity: 0.85; }
+    
+    .mobile-header { display: none; background: var(--primary-blue); color: white; padding: 15px 20px; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .mobile-header h6 { margin: 0; font-weight: 700; font-size: 0.85rem; line-height: 1.2; }
+    
+    .quick-actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 25px; text-align: center; }
+    .quick-action-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: var(--dark-slate); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .quick-action-icon { width: 50px; height: 50px; border-radius: 50%; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; color: var(--secondary-blue); font-size: 1.3rem; transition: background 0.2s; border: 1px solid #e2e8f0; }
+    .quick-action-item:hover .quick-action-icon { background: var(--light-blue); }
+
+    .mobile-stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 25px; }
+    .m-stat-card { border-radius: 14px; padding: 16px; color: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; min-height: 95px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .m-stat-card.blue-card { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
+    .m-stat-card.teal-card { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+    .m-stat-card.orange-card { background: linear-gradient(135deg, #ea580c, #f97316); }
+    .m-stat-card.slate-card { background: linear-gradient(135deg, #475569, #64748b); }
+    .m-stat-title { font-size: 0.75rem; font-weight: 600; opacity: 0.9; text-transform: uppercase; }
+    .m-stat-value { font-size: 1.3rem; font-weight: 700; margin-top: 5px; }
+
+    .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; height: 65px; border-top: 1px solid #e2e8f0; justify-content: space-around; align-items: center; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); padding-bottom: env(safe-area-inset-bottom); }
+    .bottom-nav-item { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #94a3b8; font-size: 0.7rem; font-weight: 600; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.2s; cursor: pointer; }
+    .bottom-nav-item i { font-size: 1.35rem; margin-bottom: 3px; }
+    .bottom-nav-item.active { color: var(--secondary-blue); }
+
+    /* ========================================================
+       MENU BADGE (angka jumlah per menu) & GRUP SIDEBAR
+       ======================================================== */
+    .menu-badge { display: none; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #fbbf24; color: #1e3a8a; font-size: 0.62rem; font-weight: 800; line-height: 1; margin-left: auto; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+    .sidebar a .menu-badge { margin-left: auto; }
+    .menu-badge-bottom, .menu-badge-sheet { position: absolute; top: -6px; right: -13px; margin-left: 0; min-width: 17px; height: 17px; padding: 0 4px; font-size: 0.56rem; }
+    /* Badge angka di ikon quick-action Dashboard */
+    .quick-action-icon { position: relative; }
+    .qbadge { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: #fbbf24; color: #1e3a8a; font-size: 0.56rem; font-weight: 800; line-height: 1; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+
+    .sidebar-group { border-top: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-group-header { display: flex; align-items: center; gap: 10px; padding: 11px 20px; color: rgba(255,255,255,0.6); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; cursor: pointer; user-select: none; transition: background 0.2s, color 0.2s; }
+    .sidebar-group-header:hover { color: #fff; background: rgba(255,255,255,0.06); }
+    .sidebar-group-arrow { margin-left: auto; font-size: 0.7rem; transition: transform 0.25s ease; }
+    .sidebar-group.open .sidebar-group-arrow { transform: rotate(180deg); }
+    .sidebar-group-body { display: none; }
+    .sidebar-group.open .sidebar-group-body { display: block; }
+    .sidebar-group.open .sidebar-group-header { color: #fff; }
+    .sidebar-group .sidebar-group-body a { padding: 10px 20px 10px 34px; font-size: 0.9rem; }
+
+    .sheet-menu-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 4px; border-radius: 14px; cursor: pointer; transition: background 0.2s; }
+    .sheet-menu-item:hover { background: var(--light-blue); }
+    .sheet-menu-item i { font-size: 1.4rem; color: var(--secondary-blue); }
+    .sheet-menu-item.active { background: var(--light-blue); box-shadow: inset 0 0 0 2px rgba(59,130,246,0.25); }
+    .sheet-menu-item.active i { color: var(--primary-blue); }
+    .sheet-menu-item p { margin-top: 6px; margin-bottom: 0; font-size: 0.65rem; font-weight: 700; color: #334155; }
+
+    /* ========================================================
+       ANIMASI PINTU LOG IN & LOG OUT
+       ======================================================== */
+    .door-wrapper { perspective: 300px; }
+    
+    /* Poros engsel di KIRI (x=18) */
+    .door-panel { transform-origin: 18px center; }
+
+    /* --- ANIMASI LOG IN --- */
+    .figure-login { opacity: 0; transform: translateX(24px); }
+    
+    @keyframes doorOpenCloseLogin {
+      0% { transform: rotateY(0deg); }
+      20% { transform: rotateY(-80deg); }
+      70% { transform: rotateY(-80deg); }
+      100% { transform: rotateY(0deg); }
+    }
+
+    @keyframes personEnterAndStay {
+      0% { opacity: 0; transform: translateX(24px); }
+      25% { opacity: 1; transform: translateX(14px); }
+      65% { opacity: 1; transform: translateX(0px); }
+      100% { opacity: 1; transform: translateX(0px); }
+    }
+
+    .btn-door-login.is-animating .door-panel {
+      animation: doorOpenCloseLogin 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .btn-door-login.is-animating .figure-login {
+      animation: personEnterAndStay 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    /* --- LOADING LOGIN: orang masuk pintu berulang (tanpa teks "Memproses...") --- */
+    @keyframes doorOpenCloseLoop {
+      0%   { transform: rotateY(0deg); }
+      15%  { transform: rotateY(-80deg); }
+      55%  { transform: rotateY(-80deg); }
+      75%  { transform: rotateY(0deg); }
+      100% { transform: rotateY(0deg); }
+    }
+    @keyframes personEnterLoop {
+      0%   { opacity: 0; transform: translateX(24px); }
+      25%  { opacity: 1; transform: translateX(14px); }
+      60%  { opacity: 1; transform: translateX(0px); }
+      75%  { opacity: 0; transform: translateX(0px); }
+      100% { opacity: 0; transform: translateX(24px); }
+    }
+    .btn-door-login.is-loading .door-panel { animation: doorOpenCloseLoop 2s ease-in-out infinite; }
+    .btn-door-login.is-loading .figure-login { animation: personEnterLoop 2s ease-in-out infinite; }
+    .btn-door-login.is-loading > span { opacity: .45; }
+
+    /* --- ANIMASI LOG OUT --- */
+    .figure-logout { opacity: 1; transform: translateX(0px); }
+
+    @keyframes personExitAndLeave {
+      0% { opacity: 1; transform: translateX(0px); }
+      35% { opacity: 1; transform: translateX(14px); }
+      85% { opacity: 0; transform: translateX(26px); }
+      100% { opacity: 0; transform: translateX(26px); }
+    }
+
+    .btn-door-logout.is-animating .door-panel {
+      animation: doorOpenCloseLogin 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    .btn-door-logout.is-animating .figure-logout {
+      animation: personExitAndLeave 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    @media (max-width: 767.98px) {
+      .sidebar { display: none !important; }
+      .mobile-header.show-nav { display: flex !important; }
+      .bottom-nav.show-nav { display: flex !important; }
+      .main-content-wrapper { padding: 105px 15px 85px 15px !important; }
+      #searchInput { width: 100% !important; margin-top: 10px; }
+      .d-flex.justify-content-between { flex-direction: column; align-items: flex-start !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN CONTAINER -->
+  <div id="login-container" class="login-box text-center">
+    <img id="login-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
+    <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 5</h3>
+    <p id="login-app-subtitle" class="text-muted mb-4"><small class="fw-semibold text-secondary">Layanan Digital RT 05 / RW 01 • Transparan & Efisien</small></p>
+    
+    <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga" onkeypress="if(event.key==='Enter') triggerLoginAnimation(event)"></div>
+    <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') triggerLoginAnimation(event)"></div>
+    
+    <!-- TOMBOL LOG IN ANIMASI PINTU -->
+    <button class="btn btn-primary w-100 fw-bold py-2.5 d-flex align-items-center justify-content-center gap-3 btn-door-login" id="btn-masuk" onclick="triggerLoginAnimation(event)">
+      <span>Masuk</span>
+      <div class="door-wrapper" style="width: 38px; height: 32px;">
+        <svg viewBox="0 0 46 42" class="w-10 h-8 overflow-visible" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="18" y="5" width="20" height="32" rx="3" stroke="#3b82f6" stroke-width="3" fill="none"/>
+          <g class="door-panel">
+            <rect x="18" y="5" width="20" height="32" rx="2" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1.2"/>
+            <circle cx="32" cy="21" r="1.8" fill="#ffffff"/>
+          </g>
+          <g class="figure-login">
+            <circle cx="8" cy="14" r="3" fill="#60a5fa" />
+            <path d="M8 18 V26 M8 20 L4 23 M8 20 L12 23 M8 26 L4 32 M8 26 L12 32" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
+    </button>
+
+    <div id="login-msg" class="text-danger mt-2 small font-bold"></div>
+  </div>
+
+  <!-- MOBILE HEADER -->
+  <div class="mobile-header" id="mob-header">
+    <div class="d-flex align-items-center gap-2">
+      <img id="mob-app-logo" src="img/logo.webp" alt="Logo" class="rounded-circle app-logo-img" style="width: 32px; height: 32px; object-fit: cover;">
+      <h6><span id="mob-app-title" class="fw-bold">SISTEM INFORMASI RT 5</span> <br><span id="mob-app-subtitle" style="font-size: 0.65rem; font-weight: 500; opacity: 0.85; letter-spacing: 0.2px;">Layanan Digital RT 05 / RW 01 • Transparan & Efisien</span></h6>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <div class="position-relative me-2 rt-only" onclick="loadMenu('Pengaturan')" style="cursor:pointer;" title="Pengaturan RT">
+        <i class="bi bi-gear fs-5"></i>
+      </div>
+      <div class="position-relative me-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
+        <i class="bi bi-bell fs-5"></i>
+        <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
+      </div>
+      
+      <!-- TOMBOL LOGOUT MOBILE DENGAN ANIMASI PINTU -->
+      <div class="btn-door-logout cursor-pointer" onclick="triggerLogoutAnimation(event)" title="Logout">
+        <div class="door-wrapper" style="width: 32px; height: 28px;">
+          <svg viewBox="0 0 46 42" class="w-8 h-7 overflow-visible" fill="none">
+            <rect x="18" y="5" width="20" height="32" rx="3" stroke="#f87171" stroke-width="2.5" fill="none"/>
+            <g class="door-panel">
+              <rect x="18" y="5" width="20" height="32" rx="2" fill="#dc3545" stroke="#f87171" stroke-width="1"/>
+              <circle cx="32" cy="21" r="1.5" fill="#ffffff"/>
+            </g>
+            <g class="figure-logout">
+              <circle cx="8" cy="14" r="3" fill="#ffffff" />
+              <path d="M8 18 V26 M8 20 L4 23 M8 20 L12 23 M8 26 L4 32 M8 26 L12 32" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <div id="app-container" class="container-fluid">
+    <div class="row">
+      <!-- Sidebar Menu (Desktop) -->
+      <div class="col-md-2 sidebar p-0">
+        <div class="text-center mb-3 mt-2 px-3">
+          <img id="sidebar-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
+          <h5 id="sidebar-app-title" class="fw-bold mb-0 border-0 pb-0">SISTEM INFORMASI RT 5</h5>
+        </div>
+
+        <div class="px-3 mb-2">
+          <button id="btn-install-pwa" onclick="installPWA()" class="btn btn-success btn-sm w-100 font-bold shadow-sm">
+            <i class="bi bi-download me-1"></i> Install Aplikasi RT
+          </button>
+        </div>
+
+        <!-- Menu utama (paling sering dipakai) -->
+        <a id="dmenu-Dashboard" onclick="loadMenu('Dashboard')"><i class="bi bi-grid-1x2-fill me-2"></i>Dashboard</a>
+        <a id="dmenu-Warga" onclick="loadMenu('Warga')"><i class="bi bi-people-fill me-2"></i>Data Warga<span class="menu-badge" id="badge-dmenu-Warga"></span></a>
+        <a id="dmenu-Iuran" onclick="loadMenu('Iuran')"><i class="bi bi-wallet2 me-2"></i>Iuran Warga<span class="menu-badge" id="badge-dmenu-Iuran"></span></a>
+        <a id="dmenu-Bansos" onclick="loadMenu('Bansos')"><i class="bi bi-box-seam-fill me-2"></i>Bansos<span class="menu-badge" id="badge-dmenu-Bansos"></span></a>
+        <a id="dmenu-Pengaduan" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-square-text-fill me-2"></i>Pengaduan<span class="menu-badge" id="badge-dmenu-Pengaduan"></span></a>
+        <a id="dmenu-SuratPengantar" onclick="loadMenu('SuratPengantar')"><i class="bi bi-file-earmark-text-fill me-2"></i>Surat Pengantar<span class="menu-badge" id="badge-dmenu-SuratPengantar"></span></a>
+
+        <!-- Grup: Kependudukan (khusus RT) -->
+        <div class="sidebar-group rt-only">
+          <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
+            <i class="bi bi-people"></i><span>Kependudukan</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
+          </div>
+          <div class="sidebar-group-body">
+            <a id="dmenu-Kelahiran" class="rt-only" onclick="loadMenu('Kelahiran')"><i class="bi bi-gender-ambiguous me-2"></i>Kelahiran</a>
+            <a id="dmenu-Kematian" class="rt-only" onclick="loadMenu('Kematian')"><i class="bi bi-heartbreak-fill me-2"></i>Kematian</a>
+            <a id="dmenu-PindahMasuk" class="rt-only" onclick="loadMenu('PindahMasuk')"><i class="bi bi-box-arrow-in-right me-2"></i>Pindah Masuk</a>
+            <a id="dmenu-PindahKeluar" class="rt-only" onclick="loadMenu('PindahKeluar')"><i class="bi bi-box-arrow-left me-2"></i>Pindah Keluar</a>
+          </div>
+        </div>
+
+        <!-- Grup: Keuangan & Kas -->
+        <div class="sidebar-group">
+          <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
+            <i class="bi bi-cash-coin"></i><span>Keuangan &amp; Kas</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
+          </div>
+          <div class="sidebar-group-body">
+            <a id="dmenu-Keuangan" onclick="loadMenu('Keuangan')"><i class="bi bi-piggy-bank-fill me-2"></i>Kas Keuangan</a>
+            <a id="dmenu-Sumbangan" onclick="loadMenu('Sumbangan')"><i class="bi bi-gift-fill me-2"></i>Sumbangan<span class="menu-badge" id="badge-dmenu-Sumbangan"></span></a>
+          </div>
+        </div>
+
+        <!-- Grup: Layanan Lainnya -->
+        <div class="sidebar-group">
+          <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
+            <i class="bi bi-grid-3x3-gap-fill"></i><span>Layanan Lainnya</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
+          </div>
+          <div class="sidebar-group-body">
+            <a id="dmenu-Aset" onclick="loadMenu('Aset')"><i class="bi bi-tools me-2"></i>Aset &amp; Inventaris<span class="menu-badge" id="badge-dmenu-Aset"></span></a>
+            <a id="dmenu-Aspirasi" onclick="loadMenu('Aspirasi')"><i class="bi bi-chat-heart-fill me-2"></i>Aspirasi Warga<span class="menu-badge" id="badge-dmenu-Aspirasi"></span></a>
+          </div>
+        </div>
+
+        <a id="dmenu-Pengaturan" class="rt-only" onclick="loadMenu('Pengaturan')"><i class="bi bi-gear-fill me-2"></i>Pengaturan RT</a>
+        
+        <!-- TOMBOL LOGOUT SIDEBAR DESKTOP DENGAN ANIMASI PINTU -->
+        <a onclick="triggerLogoutAnimation(event)" class="text-danger mt-4 border-top border-secondary btn-door-logout" style="cursor:pointer;">
+          <span class="d-flex align-items-center"><i class="bi bi-power me-2"></i>Logout</span>
+          <div class="door-wrapper" style="width: 28px; height: 24px;">
+            <svg viewBox="0 0 46 42" class="w-7 h-6 overflow-visible" fill="none">
+              <rect x="18" y="5" width="20" height="32" rx="3" stroke="#f87171" stroke-width="2.5" fill="none"/>
+              <g class="door-panel">
+                <rect x="18" y="5" width="20" height="32" rx="2" fill="#dc3545" stroke="#f87171" stroke-width="1"/>
+                <circle cx="32" cy="21" r="1.5" fill="#ffffff"/>
+              </g>
+              <g class="figure-logout">
+                <circle cx="8" cy="14" r="3" fill="#f87171" />
+                <path d="M8 18 V26 M8 20 L4 23 M8 20 L12 23 M8 26 L4 32 M8 26 L12 32" stroke="#f87171" stroke-width="2.2" stroke-linecap="round"/>
+              </g>
+            </svg>
+          </div>
+        </a>
+      </div>
+
+      <!-- Main Content Area -->
+      <div class="col-md-10 main-content-wrapper">
+        <!-- Kartu Informasi Warga dipindah ke ATAS judul "Dashboard Utama" (diisi dashboard.js, bisa minimize/expand) -->
+        <div id="info-warga-atas" style="display:none;"></div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h3 id="page-title" class="fw-bold text-dark">Dashboard</h3>
+          <div class="d-flex align-items-center gap-3">
+            <input type="text" id="searchInput" class="form-control shadow-sm" style="min-width: 220px;" placeholder="Cari data atau menu..." onkeyup="filterTable()">
+            
+            <div class="position-relative d-none d-md-block ms-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
+              <i class="bi bi-bell fs-4 text-dark"></i>
+              <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
+            </div>
+          </div>
+        </div>
+        
+        <div id="rek-info" class="rekening-box" style="display:none;"></div>
+
+        <div id="main-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <div class="bottom-nav" id="mob-nav">
+    <a id="mmenu-Dashboard" class="bottom-nav-item" onclick="loadMenu('Dashboard')"><i class="bi bi-house-door-fill"></i>Home</a>
+    <a id="mmenu-Warga" class="bottom-nav-item" onclick="loadMenu('Warga')"><span class="position-relative"><i class="bi bi-people-fill"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Warga"></span></span>Warga</a>
+    <a id="mmenu-Iuran" class="bottom-nav-item" onclick="loadMenu('Iuran')"><span class="position-relative"><i class="bi bi-wallet2"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Iuran"></span></span>Iuran</a>
+    <a id="mmenu-Bansos" class="bottom-nav-item" onclick="loadMenu('Bansos')"><span class="position-relative"><i class="bi bi-box-seam-fill"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Bansos"></span></span>Bansos</a>
+    <a id="mmenu-Lainnya" class="bottom-nav-item" onclick="bukaMenuLainnya()"><span class="position-relative"><i class="bi bi-grid-3x3-gap-fill"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Lainnya"></span></span>Lainnya</a>
+  </div>
+
+  <!-- MOBILE: SHEET MENU LAINNYA -->
+  <div id="menu-lainnya-sheet" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[1100] flex items-end justify-center" onclick="if(event.target===this)tutupMenuLainnya()">
+    <div class="bg-white w-full rounded-t-3xl p-4 pb-8 max-h-[78vh] overflow-y-auto shadow-2xl">
+      <div class="mx-auto w-10 h-1 bg-gray-300 rounded-full mb-3"></div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold text-gray-800 mb-0" style="font-size:0.9rem;"><i class="bi bi-grid-3x3-gap-fill text-blue-600 me-1"></i> Menu Lainnya</h6>
+        <button onclick="tutupMenuLainnya()" class="btn btn-sm btn-light rounded-circle fw-bold px-2 py-0 border" style="font-size:1rem;line-height:1.4;">&times;</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div id="smenu-Pengaduan" class="sheet-menu-item" onclick="pilihMenuLainnya('Pengaduan')"><span class="position-relative"><i class="bi bi-chat-left-dots-fill"></i><span class="menu-badge menu-badge-sheet" id="badge-smenu-Pengaduan"></span></span><p>Pengaduan</p></div>
+        <div id="smenu-SuratPengantar" class="sheet-menu-item" onclick="pilihMenuLainnya('SuratPengantar')"><span class="position-relative"><i class="bi bi-file-earmark-text-fill"></i><span class="menu-badge menu-badge-sheet" id="badge-smenu-SuratPengantar"></span></span><p>Surat Pengantar</p></div>
+        <div id="smenu-Keuangan" class="sheet-menu-item" onclick="pilihMenuLainnya('Keuangan')"><span class="position-relative"><i class="bi bi-cash-coin"></i></span><p>Kas Keuangan</p></div>
+        <div id="smenu-Sumbangan" class="sheet-menu-item" onclick="pilihMenuLainnya('Sumbangan')"><span class="position-relative"><i class="bi bi-gift-fill"></i><span class="menu-badge menu-badge-sheet" id="badge-smenu-Sumbangan"></span></span><p>Sumbangan</p></div>
+        <div id="smenu-Aset" class="sheet-menu-item" onclick="pilihMenuLainnya('Aset')"><span class="position-relative"><i class="bi bi-tools"></i><span class="menu-badge menu-badge-sheet" id="badge-smenu-Aset"></span></span><p>Aset &amp; Inventaris</p></div>
+        <div id="smenu-Aspirasi" class="sheet-menu-item" onclick="pilihMenuLainnya('Aspirasi')"><span class="position-relative"><i class="bi bi-chat-heart-fill"></i><span class="menu-badge menu-badge-sheet" id="badge-smenu-Aspirasi"></span></span><p>Aspirasi</p></div>
+        <div id="smenu-Kelahiran" class="sheet-menu-item rt-only" onclick="pilihMenuLainnya('Kelahiran')"><span class="position-relative"><i class="bi bi-gender-ambiguous"></i></span><p>Kelahiran</p></div>
+        <div id="smenu-Kematian" class="sheet-menu-item rt-only" onclick="pilihMenuLainnya('Kematian')"><span class="position-relative"><i class="bi bi-heartbreak-fill"></i></span><p>Kematian</p></div>
+        <div id="smenu-PindahMasuk" class="sheet-menu-item rt-only" onclick="pilihMenuLainnya('PindahMasuk')"><span class="position-relative"><i class="bi bi-box-arrow-in-right"></i></span><p>Pindah Masuk</p></div>
+        <div id="smenu-PindahKeluar" class="sheet-menu-item rt-only" onclick="pilihMenuLainnya('PindahKeluar')"><span class="position-relative"><i class="bi bi-box-arrow-left"></i></span><p>Pindah Keluar</p></div>
+        <div id="smenu-Pengaturan" class="sheet-menu-item rt-only" onclick="pilihMenuLainnya('Pengaturan')"><span class="position-relative"><i class="bi bi-gear-fill"></i></span><p>Pengaturan RT</p></div>
+        <div id="smenu-Profil" class="sheet-menu-item" onclick="pilihMenuLainnya('Profil')"><span class="position-relative"><i class="bi bi-person-fill"></i></span><p>Profil Saya</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DYNAMIC FORM -->
+  <div class="modal fade" id="formModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold" id="formModalTitle">Tambah Data</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="dynamicForm"></form>
+        </div>
+        <div class="modal-footer d-flex justify-content-between bg-light">
+          <button type="button" class="btn btn-danger fw-bold" id="btn-hapus-modal" onclick="hapusDataAktif()">Hapus Data</button>
+          <div>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-primary fw-bold" onclick="submitFormBaru()">Simpan Data</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PREVIEW IMAGE -->
+  <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Pratinjau Foto / Dokumen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center bg-dark p-2">
+          <img id="modalPreviewImg" src="" class="img-fluid rounded" style="max-height: 75vh; object-fit: contain;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL NOTIFIKASI -->
+  <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-bell-fill me-2"></i>Pusat Notifikasi</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-3" id="notifList">
+          <div class="text-center py-4"><div class="spinner-border text-primary"></div><br><small class="text-muted">Memuat notifikasi...</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDIT INFORMASI WARGA -->
+  <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-light">
+          <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Informasi Warga</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label font-weight-bold small text-secondary">Teks Informasi (Gunakan <code>{NAMA}</code> untuk nama warga otomatis)</label>
+            <textarea id="editInfoTextarea" class="form-control" rows="5" placeholder="Masukkan teks informasi warga..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-primary fw-bold" onclick="simpanInfoWarga()">Simpan Perubahan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TANDA TANGAN PEMOHON -->
+  <div id="modal-ttd-pemohon" class="hidden fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="tutupModalTandaTangan()"></div>
+    <div class="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden" style="z-index:1;">
+      <div class="bg-gradient-to-r from-blue-800 to-blue-600 px-5 py-4 flex items-center justify-between">
+        <div>
+          <h5 class="text-white font-bold text-base mb-0"><i class="bi bi-pen-fill me-2"></i>Tanda Tangan Pemohon</h5>
+          <p class="text-blue-200 text-xs mt-0.5">Buat tanda tangan Anda di area bawah ini</p>
+        </div>
+        <button onclick="tutupModalTandaTangan()" class="text-white/70 hover:text-white w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition text-xl font-bold">&times;</button>
+      </div>
+      <div class="px-4 pt-4 pb-2">
+        <div class="relative border-2 border-blue-200 rounded-2xl overflow-hidden bg-white shadow-inner" style="touch-action: none;">
+          <canvas id="canvas-ttd-pemohon" class="w-full block cursor-crosshair" style="height: 180px; display:block;"></canvas>
+          <div class="absolute top-2 left-3 text-[10px] text-gray-300 font-medium select-none pointer-events-none">Tanda tangani di sini</div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button onclick="hapusTandaTangan()" type="button"
+            class="flex-1 flex items-center justify-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 rounded-xl text-sm transition">
+            <i class="bi bi-arrow-counterclockwise"></i> Ulangi
+          </button>
+          <button id="btn-konfirmasi-ttd" onclick="konfirmasiTandaTangan()" type="button" disabled
+            class="flex-1 flex items-center justify-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-sm transition opacity-50">
+            <i class="bi bi-check-circle-fill"></i> Gunakan TTD Ini
+          </button>
+        </div>
+        <p class="text-center text-[10px] text-gray-400 mt-2 mb-3">
+          <i class="bi bi-hand-index-thumb me-1"></i>Gunakan jari atau stylus untuk menandatangani
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOTSTRAP JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <!-- KONFIGURASI SUPABASE DIAMBIL DARI ENV LEWAT ENDPOINT /api/config (server.js / api/config.js).
+       Tidak ada kredensial yang di-hardcode di repo ini.
+       Isi SUPABASE_URL & SUPABASE_KEY di tab API Keys / .env, lalu restart preview. -->
+
+  <!-- LOAD MODUL JS BERURUTAN -->
+  <script src="js/app.js?v=3.22"></script>
+  <script src="js/auth.js?v=3.22"></script>
+  <script src="js/badges.js?v=3.22"></script>
+  <script src="js/table.js?v=3.22"></script>
+  <script src="js/settings.js?v=3.22"></script>
+  <script src="js/dashboard.js?v=3.22"></script>
+  <script src="js/profil.js?v=3.22"></script>
+  <script src="js/warga.js?v=3.22"></script>
+  <script src="js/iuran.js?v=3.22"></script>
+  <script src="js/pengaduan.js?v=3.22"></script>
+  <script src="js/tanda_tangan.js?v=3.22"></script>
+  <script src="js/surat_templates.js?v=3.22"></script>
+  <script src="js/surat.js?v=3.22"></script>
+  <script src="js/keuangan.js?v=3.22"></script>
+  <script src="js/sumbangan.js?v=3.22"></script>
+  <script src="js/aset.js?v=3.22"></script>
+  <script src="js/aspirasi.js?v=3.22"></script>
+  <script src="js/kelahiran.js?v=3.22"></script>
+  <script src="js/kematian.js?v=3.22"></script>
+  <script src="js/pindah_masuk.js?v=3.22"></script>
+  <script src="js/pindah_keluar.js?v=3.22"></script>
+  <script src="js/bansos.js?v=3.22"></script>
+
+  <!-- SCRIPT TRIGGER ANIMASI -->
+  <script>
+    function triggerLoginAnimation(e) {
+      if(e) e.preventDefault();
+      const btn = document.getElementById('btn-masuk');
+      
+      btn.classList.add('is-animating');
+
+      setTimeout(() => {
+        if(typeof doLogin === 'function') {
+          doLogin(e);
+        }
+        btn.classList.remove('is-animating');
+      }, 900);
+    }
+
+    function triggerLogoutAnimation(e) {
+      if(e) e.preventDefault();
+      const btns = document.querySelectorAll('.btn-door-logout');
+      btns.forEach(b => b.classList.add('is-animating'));
+
+      setTimeout(() => {
+        if(typeof doLogout === 'function') {
+          doLogout();
+        }
+        btns.forEach(b => b.classList.remove('is-animating'));
+      }, 900);
+    }
+
+    // Sembunyikan teks "Memeriksa ke database..." saat login — diganti animasi orang masuk pintu
+    (function() {
+      setInterval(function() {
+        var m = document.getElementById('login-msg');
+        if (m && m.innerHTML && m.innerHTML.indexOf('Memeriksa') > -1) m.innerHTML = '';
+      }, 300);
+    })();
+  </script>
+<!-- NOTIFIKASI MODUL -->
+<script src="js/notifikasi.js?v=3.22"></script>
+
+<!-- SCRIPT TAMBAHAN UNTUK NOTIFIKASI -->
+<script>
+  // Pastikan fungsi notifikasi tersedia di global scope
+  (function() {
+    // Jika fungsi belum ada, buat placeholder
+    if (typeof mintaIzinNotifikasi === 'undefined') {
+      window.mintaIzinNotifikasi = function() {
+        alert('Modul notifikasi belum dimuat. Silakan refresh halaman.');
+      };
+    }
+    if (typeof updateBadgeNotifikasi === 'undefined') {
+      window.updateBadgeNotifikasi = function() {
+        console.log('updateBadgeNotifikasi belum siap');
+      };
+    }
+    if (typeof kirimNotifikasi === 'undefined') {
+      window.kirimNotifikasi = function(judul, pesan, url) {
+        console.log('Notifikasi:', judul, pesan, url);
+        alert('Notifikasi: ' + judul + '\n' + pesan);
+      };
+    }
+    console.log('✅ Notifikasi scripts loaded!');
+  })();
+</script>
+</body>
+</html>

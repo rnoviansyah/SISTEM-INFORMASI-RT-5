@@ -1,14 +1,19 @@
-const CACHE_VERSION = 'kahfi-v1';
+const CACHE_VERSION = 'kahfi-v12';
 const CACHE_NAME = `kahfi-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './js/app.js',
+  './js/auth.js',
+  './js/badges.js',
+  './js/table.js',
+  './js/settings.js',
   './js/dashboard.js',
   './js/profil.js',
   './js/warga.js',
   './js/iuran.js',
+  './js/bansos.js',
   './js/pengaduan.js',
   './js/surat.js',
   './js/keuangan.js',
@@ -18,7 +23,8 @@ const APP_SHELL = [
   './js/kelahiran.js',
   './js/kematian.js',
   './js/pindah_masuk.js',
-  './js/pindah_keluar.js'
+  './js/pindah_keluar.js',
+  './js/notifikasi.js'
 ];
 const NEVER_CACHE = [
   'supabase.co',
@@ -28,6 +34,7 @@ const NEVER_CACHE = [
   'drive.google.com',
   'wa.me'
 ];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -39,12 +46,13 @@ self.addEventListener('install', (event) => {
       .then(() => self.skipWaiting())
   );
 });
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('rt05-') && name !== CACHE_NAME)
+          .filter((name) => (name.startsWith('rt05-') || name.startsWith('kahfi-')) && name !== CACHE_NAME)
           .map((name) => {
             console.log('[SW] Hapus cache lama:', name);
             return caches.delete(name);
@@ -53,6 +61,7 @@ self.addEventListener('activate', (event) => {
     }).then(() => self.clients.claim())
   );
 });
+
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
   const shouldSkip = NEVER_CACHE.some(domain => url.includes(domain))
@@ -61,6 +70,17 @@ self.addEventListener('fetch', (event) => {
     || url.includes('data:');
   if (shouldSkip) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+  // Navigasi halaman: network-first agar update terbaru langsung tampil (PWA tidak nyangkut di cache lama)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        const copy = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return networkResponse;
+      }).catch(() => caches.match(event.request).then((r) => r || caches.match('./index.html')))
+    );
     return;
   }
   event.respondWith(
@@ -98,6 +118,10 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// ============================================================
+// NOTIFICATION CLICK HANDLER
+// ============================================================
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
@@ -109,5 +133,57 @@ self.addEventListener('notificationclick', (event) => {
       }
       if (clients.openWindow) return clients.openWindow('./');
     })
+  );
+});
+
+// ============================================================
+// PUSH NOTIFICATION HANDLER
+// ============================================================
+self.addEventListener('push', function(event) {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Notifikasi Baru', body: event.data.text() };
+    }
+  }
+
+  const options = {
+    body: data.body || 'Ada informasi baru di RT 5',
+    icon: './img/logo.webp',
+    badge: './img/logo.webp',
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.url || './',
+      id: data.id || null
+    },
+    actions: [
+      { action: 'open', title: 'Lihat Detail' },
+      { action: 'close', title: 'Tutup' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || '📢 SISTEM INFORMASI RT 5', options)
+  );
+});
+
+// Perbaiki handler klik notifikasi (dengan URL handling)
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+
+  if (event.action === 'close') return;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(clientList) {
+        for (let client of clientList) {
+          if (client.url && client.url.includes('index.html')) {
+            return client.focus();
+          }
+        }
+        return clients.openWindow(event.notification.data.url || './');
+      })
   );
 });
