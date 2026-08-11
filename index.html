@@ -509,28 +509,38 @@
        Isi SUPABASE_URL & SUPABASE_KEY di tab API Keys / .env, lalu restart preview. -->
 
   <!-- LOAD MODUL JS BERURUTAN -->
-  <script src="js/app.js?v=3.22"></script>
-  <script src="js/auth.js?v=3.22"></script>
-  <script src="js/badges.js?v=3.22"></script>
-  <script src="js/table.js?v=3.22"></script>
-  <script src="js/settings.js?v=3.22"></script>
-  <script src="js/dashboard.js?v=3.22"></script>
-  <script src="js/profil.js?v=3.22"></script>
-  <script src="js/warga.js?v=3.22"></script>
-  <script src="js/iuran.js?v=3.22"></script>
-  <script src="js/pengaduan.js?v=3.22"></script>
-  <script src="js/tanda_tangan.js?v=3.22"></script>
-  <script src="js/surat_templates.js?v=3.22"></script>
-  <script src="js/surat.js?v=3.22"></script>
-  <script src="js/keuangan.js?v=3.22"></script>
-  <script src="js/sumbangan.js?v=3.22"></script>
-  <script src="js/aset.js?v=3.22"></script>
-  <script src="js/aspirasi.js?v=3.22"></script>
-  <script src="js/kelahiran.js?v=3.22"></script>
-  <script src="js/kematian.js?v=3.22"></script>
-  <script src="js/pindah_masuk.js?v=3.22"></script>
-  <script src="js/pindah_keluar.js?v=3.22"></script>
-  <script src="js/bansos.js?v=3.22"></script>
+<!-- CORE MODULES (BARU) -->
+<script type="module" src="js/core/db.js?v=4.0"></script>
+<script type="module" src="js/core/session.js?v=4.0"></script>
+<script type="module" src="js/helpers/uiHelper.js?v=4.0"></script>
+<script type="module" src="js/helpers/formHelper.js?v=4.0"></script>
+<script type="module" src="js/helpers/tableHelper.js?v=4.0"></script>
+
+<!-- APP CORE -->
+<script type="module" src="js/app.js?v=4.0"></script>
+
+<!-- MODUL MENU (TETAP SAMA) -->
+<script src="js/auth.js?v=4.0"></script>
+<script src="js/badges.js?v=4.0"></script>
+<script src="js/dashboard.js?v=4.0"></script>
+<script src="js/profil.js?v=4.0"></script>
+<script src="js/warga.js?v=4.0"></script>
+<script src="js/iuran.js?v=4.0"></script>
+<script src="js/pengaduan.js?v=4.0"></script>
+<script src="js/tanda_tangan.js?v=4.0"></script>
+<script src="js/surat_templates.js?v=4.0"></script>
+<script src="js/surat.js?v=4.0"></script>
+<script src="js/keuangan.js?v=4.0"></script>
+<script src="js/sumbangan.js?v=4.0"></script>
+<script src="js/aset.js?v=4.0"></script>
+<script src="js/aspirasi.js?v=4.0"></script>
+<script src="js/kelahiran.js?v=4.0"></script>
+<script src="js/kematian.js?v=4.0"></script>
+<script src="js/pindah_masuk.js?v=4.0"></script>
+<script src="js/pindah_keluar.js?v=4.0"></script>
+<script src="js/bansos.js?v=4.0"></script>
+<script src="js/settings.js?v=4.0"></script>
+<script src="js/notifikasi.js?v=4.0"></script>
 
   <!-- SCRIPT TRIGGER ANIMASI -->
   <script>
