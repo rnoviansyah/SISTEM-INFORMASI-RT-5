@@ -1,28 +1,60 @@
 // ============================================================
-// legacy-global.js - Definisi callGASGet/Post GLOBAL (tanpa module)
+// legacy-global.js - callGASGet/Post GLOBAL (tanpa module)
 // ============================================================
 
 // ============================================================
-// callGASGet - Wrapper GET (versi global)
+// Helper: ambil session
+// ============================================================
+function getSess() {
+  try {
+    var saved = localStorage.getItem('rt_user_session');
+    if (saved) {
+      var parsed = JSON.parse(saved);
+      if (parsed && parsed.token) {
+        return parsed;
+      }
+    }
+  } catch(e) {}
+  return window.session || { token: '', role: 'Warga', nik: '', nama: '' };
+}
+
+// ============================================================
+// callGASGet
 // ============================================================
 window.callGASGet = async function(actionName, params = {}) {
   try {
-    // Ambil session dari localStorage
-    let session = null;
-    try {
-      const saved = localStorage.getItem('rt_user_session');
-      if (saved) session = JSON.parse(saved);
-    } catch(e) {}
-
-    // Ambil konfigurasi Supabase dari window
+    const session = getSess();
     const supabaseUrl = window.SUPABASE_URL || '';
     const supabaseKey = window.SUPABASE_KEY || '';
     if (!supabaseUrl || !supabaseKey) {
       return { status: 'error', message: 'Konfigurasi backend belum siap.' };
     }
-
     const db = supabase.createClient(supabaseUrl, supabaseKey);
-    const token = session?.token || '';
+    const token = session.token || '';
+
+    // ============================================================
+    // processLogin (khusus callGASPost, tapi kita handle di sini juga)
+    // ============================================================
+    if (actionName === 'processLogin') {
+      const uClean = params.username ? params.username.toString().trim().toLowerCase() : '';
+      const pClean = params.password ? params.password.toString().trim() : '';
+      if (!uClean || !pClean) {
+        return { status: 'error', message: 'Username / NIK dan Password tidak boleh kosong!' };
+      }
+      try {
+        const { data, error } = await db.rpc('verify_user_login', {
+          p_username: uClean,
+          p_password: pClean
+        });
+        if (!error && data && data.status === 'success') {
+          return data;
+        }
+        return { status: 'error', message: data?.message || 'Login gagal' };
+      } catch (err) {
+        console.warn('[Login] Error:', err);
+        return { status: 'error', message: 'Terjadi kesalahan saat login' };
+      }
+    }
 
     // ============================================================
     // getTableData
@@ -31,24 +63,20 @@ window.callGASGet = async function(actionName, params = {}) {
       const sheetName = params.sheetName;
       const limit = params.limit || 100;
       const offset = params.offset || 0;
-      
       const { data, error } = await db.rpc('generic_select_secured', {
         p_table: sheetName,
         p_token: token,
         p_limit: limit,
         p_offset: offset
       });
-
       if (error || (data && data.status !== 'success')) {
         return { status: 'error', message: error?.message || data?.message || 'Gagal memuat data' };
       }
-
       const rows = data.data || [];
       let headers = [];
       if (rows.length > 0) {
         headers = Object.keys(rows[0]).map(h => h.toUpperCase());
       } else {
-        // Fallback headers
         const fallback = {
           'Warga': ['id','nama_lengkap','nama_panggilan','nik','no_kk','tempat_lahir','tanggal_lahir','jenis_kelamin','alamat','status_nikah','status_tinggal','pekerjaan','no_hp','foto_url'],
           'Iuran': ['id','nik','nama','no_kk','bulan','tahun','nominal','status','tanggal_bayar','diterima_oleh','bukti_transfer'],
@@ -66,8 +94,6 @@ window.callGASGet = async function(actionName, params = {}) {
         };
         headers = fallback[sheetName] || ['id','data'];
       }
-
-      // Konversi ke array of arrays
       const rowsArray = rows.map(row => headers.map(h => row[h.toLowerCase()] !== undefined ? row[h.toLowerCase()] : '-'));
       return { status: 'success', headers: headers, rows: rowsArray };
     }
@@ -271,26 +297,18 @@ window.callGASGet = async function(actionName, params = {}) {
 };
 
 // ============================================================
-// callGASPost - Wrapper POST (versi global)
+// callGASPost
 // ============================================================
 window.callGASPost = async function(actionName, extraPayload = {}) {
   try {
-    // Ambil session dari localStorage
-    let session = null;
-    try {
-      const saved = localStorage.getItem('rt_user_session');
-      if (saved) session = JSON.parse(saved);
-    } catch(e) {}
-
-    // Ambil konfigurasi Supabase
+    const session = getSess();
     const supabaseUrl = window.SUPABASE_URL || '';
     const supabaseKey = window.SUPABASE_KEY || '';
     if (!supabaseUrl || !supabaseKey) {
       return { status: 'error', message: 'Konfigurasi backend belum siap.' };
     }
-
     const db = supabase.createClient(supabaseUrl, supabaseKey);
-    const token = session?.token || '';
+    const token = session.token || '';
 
     // ============================================================
     // processLogin
@@ -425,7 +443,6 @@ window.callGASPost = async function(actionName, extraPayload = {}) {
       const idPinjam = extraPayload.idPinjam;
       const qtyKembali = parseInt(extraPayload.qtyKembali) || 0;
       const catatanRt = extraPayload.catatanRt || '';
-      // Ambil data peminjaman dulu
       const { data: pinjamData } = await db.rpc('generic_select_secured', {
         p_table: 'Peminjaman',
         p_token: token
@@ -466,7 +483,6 @@ window.callGASPost = async function(actionName, extraPayload = {}) {
           p_row: { nilai: val }
         });
         if (error) {
-          // Coba insert
           const { error: insErr } = await db.rpc('generic_insert_secured', {
             p_table: 'Pengaturan',
             p_token: token,
