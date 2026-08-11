@@ -509,41 +509,41 @@
        Isi SUPABASE_URL & SUPABASE_KEY di tab API Keys / .env, lalu restart preview. -->
 
   <!-- LOAD MODUL JS BERURUTAN -->
-<!-- CORE MODULES (BARU) -->
-<script type="module" src="js/core/db.js?v=4.0"></script>
-<script type="module" src="js/core/session.js?v=4.0"></script>
-<script type="module" src="js/helpers/uiHelper.js?v=4.0"></script>
-<script type="module" src="js/helpers/formHelper.js?v=4.0"></script>
-<script type="module" src="js/helpers/tableHelper.js?v=4.0"></script>
-
-<!-- APP CORE -->
-<script type="module" src="js/app.js?v=4.0"></script>
-
-<!-- LEGACY COMPATIBILITY (callGASGet/Post) -->
-<script type="module" src="js/legacy.js?v=4.0"></script>
-
-<!-- MODUL MENU (TETAP SAMA) -->
-<script src="js/auth.js?v=4.0"></script>
-<script src="js/badges.js?v=4.0"></script>
-<script src="js/dashboard.js?v=4.0"></script>
-<script src="js/profil.js?v=4.0"></script>
-<script src="js/warga.js?v=4.0"></script>
-<script src="js/iuran.js?v=4.0"></script>
-<script src="js/pengaduan.js?v=4.0"></script>
-<script src="js/tanda_tangan.js?v=4.0"></script>
-<script src="js/surat_templates.js?v=4.0"></script>
-<script src="js/surat.js?v=4.0"></script>
-<script src="js/keuangan.js?v=4.0"></script>
-<script src="js/sumbangan.js?v=4.0"></script>
-<script src="js/aset.js?v=4.0"></script>
-<script src="js/aspirasi.js?v=4.0"></script>
-<script src="js/kelahiran.js?v=4.0"></script>
-<script src="js/kematian.js?v=4.0"></script>
-<script src="js/pindah_masuk.js?v=4.0"></script>
-<script src="js/pindah_keluar.js?v=4.0"></script>
-<script src="js/bansos.js?v=4.0"></script>
-<script src="js/settings.js?v=4.0"></script>
-<script src="js/notifikasi.js?v=4.0"></script>
+  <!-- CORE MODULES (BARU) - type="module" biar import/export jalan -->
+  <script type="module" src="js/core/db.js?v=4.0"></script>
+  <script type="module" src="js/core/session.js?v=4.0"></script>
+  <script type="module" src="js/helpers/uiHelper.js?v=4.0"></script>
+  <script type="module" src="js/helpers/formHelper.js?v=4.0"></script>
+  <script type="module" src="js/helpers/tableHelper.js?v=4.0"></script>
+  
+  <!-- APP CORE (MODULE) -->
+  <script type="module" src="js/app.js?v=4.0"></script>
+  
+  <!-- LEGACY GLOBAL (TANPA MODULE) - biar callGASGet/Post langsung jadi global -->
+  <script src="js/legacy-global.js?v=4.0"></script>
+  
+  <!-- MODUL MENU (TETAP SAMA) -->
+  <script src="js/auth.js?v=4.0"></script>
+  <script src="js/badges.js?v=4.0"></script>
+  <script src="js/dashboard.js?v=4.0"></script>
+  <script src="js/profil.js?v=4.0"></script>
+  <script src="js/warga.js?v=4.0"></script>
+  <script src="js/iuran.js?v=4.0"></script>
+  <script src="js/pengaduan.js?v=4.0"></script>
+  <script src="js/tanda_tangan.js?v=4.0"></script>
+  <script src="js/surat_templates.js?v=4.0"></script>
+  <script src="js/surat.js?v=4.0"></script>
+  <script src="js/keuangan.js?v=4.0"></script>
+  <script src="js/sumbangan.js?v=4.0"></script>
+  <script src="js/aset.js?v=4.0"></script>
+  <script src="js/aspirasi.js?v=4.0"></script>
+  <script src="js/kelahiran.js?v=4.0"></script>
+  <script src="js/kematian.js?v=4.0"></script>
+  <script src="js/pindah_masuk.js?v=4.0"></script>
+  <script src="js/pindah_keluar.js?v=4.0"></script>
+  <script src="js/bansos.js?v=4.0"></script>
+  <script src="js/settings.js?v=4.0"></script>
+  <script src="js/notifikasi.js?v=4.0"></script>
 
   <!-- SCRIPT TRIGGER ANIMASI -->
   <script>
@@ -582,32 +582,29 @@
       }, 300);
     })();
   </script>
-<!-- NOTIFIKASI MODUL -->
-<script src="js/notifikasi.js?v=3.22"></script>
 
-<!-- SCRIPT TAMBAHAN UNTUK NOTIFIKASI -->
-<script>
-  // Pastikan fungsi notifikasi tersedia di global scope
-  (function() {
-    // Jika fungsi belum ada, buat placeholder
-    if (typeof mintaIzinNotifikasi === 'undefined') {
-      window.mintaIzinNotifikasi = function() {
-        alert('Modul notifikasi belum dimuat. Silakan refresh halaman.');
-      };
-    }
-    if (typeof updateBadgeNotifikasi === 'undefined') {
-      window.updateBadgeNotifikasi = function() {
-        console.log('updateBadgeNotifikasi belum siap');
-      };
-    }
-    if (typeof kirimNotifikasi === 'undefined') {
-      window.kirimNotifikasi = function(judul, pesan, url) {
-        console.log('Notifikasi:', judul, pesan, url);
-        alert('Notifikasi: ' + judul + '\n' + pesan);
-      };
-    }
-    console.log('✅ Notifikasi scripts loaded!');
-  })();
-</script>
+  <!-- SCRIPT TAMBAHAN UNTUK NOTIFIKASI -->
+  <script>
+    // Pastikan fungsi notifikasi tersedia di global scope
+    (function() {
+      if (typeof mintaIzinNotifikasi === 'undefined') {
+        window.mintaIzinNotifikasi = function() {
+          alert('Modul notifikasi belum dimuat. Silakan refresh halaman.');
+        };
+      }
+      if (typeof updateBadgeNotifikasi === 'undefined') {
+        window.updateBadgeNotifikasi = function() {
+          console.log('updateBadgeNotifikasi belum siap');
+        };
+      }
+      if (typeof kirimNotifikasi === 'undefined') {
+        window.kirimNotifikasi = function(judul, pesan, url) {
+          console.log('Notifikasi:', judul, pesan, url);
+          alert('Notifikasi: ' + judul + '\n' + pesan);
+        };
+      }
+      console.log('✅ Notifikasi scripts loaded!');
+    })();
+  </script>
 </body>
 </html>
