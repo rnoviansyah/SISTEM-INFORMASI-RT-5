@@ -1,5 +1,5 @@
 // ============================================================
-// formHelper.js - Generate Form Inputs & Helpers
+// formHelper.js - Generate Form Inputs & Helpers (LENGKAP)
 // ============================================================
 
 // ============================================================
@@ -63,10 +63,9 @@ export function sanitizeFormData(sheetName, formData) {
 }
 
 // ============================================================
-// 3. Validasi Form (sementara, placeholder)
+// 3. Validasi Form
 // ============================================================
 export function validateDynamicForm(menu, payload, session) {
-  // Validasi dasar: cek field wajib
   const requiredFields = {
     'Warga': ['nama_lengkap', 'nik'],
     'Iuran': ['bulan', 'tahun', 'nominal'],
@@ -154,3 +153,5 @@ export function isNumericColumn(kName) {
   let kLower = String(kName).toLowerCase().replace(/_/g, '').trim();
   return ['nominal', 'tahun', 'rt', 'rw', 'jumlah', 'stok', 'qty', 'pemasukan', 'pengeluaran', 'saldo', 'acc', 'jumlahminta'].includes(kLower);
 }
+
+console.log('✅ formHelper.js loaded, exports: cariNilaiKolom, sanitizeFormData, validateDynamicForm, convertToImageLink, compressImageFile, extractStoragePathFromUrl, isNumericColumn');
