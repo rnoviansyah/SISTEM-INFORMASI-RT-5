@@ -504,9 +504,12 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
-  <!-- KONFIGURASI SUPABASE DIAMBIL DARI ENV LEWAT ENDPOINT /api/config (server.js / api/config.js).
-       Tidak ada kredensial yang di-hardcode di repo ini.
-       Isi SUPABASE_URL & SUPABASE_KEY di tab API Keys / .env, lalu restart preview. -->
+  <!-- HARDCODE SUPABASE CONFIG (SEMENTARA) -->
+  <script>
+    window.SUPABASE_URL = 'https://pemxsgiisqgmvtuomkjq.supabase.co/rest/v1/';
+    window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbXhzZ2lpc3FnbXZ0dW9ta2pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MTY3NjMsImV4cCI6MjEwMTM5Mjc2M30.5oTxN3qZNdpks__10qIa7oWx2LsV7Vqr_E40V8OTqb8';
+    console.log('✅ SUPABASE_CONFIG hardcoded');
+  </script>
 
   <!-- LOAD MODUL JS BERURUTAN -->
   <!-- CORE MODULES (BARU) - type="module" biar import/export jalan -->
