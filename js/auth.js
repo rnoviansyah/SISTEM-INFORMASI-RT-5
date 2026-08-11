@@ -2,7 +2,6 @@
 // auth.js - Autentikasi & sesi login (FIXED)
 // ============================================================
 
-// Pastikan window.session tersedia
 if (typeof window.session === 'undefined') {
   window.session = { token: '', role: 'Warga', nik: '', nama: '', alamat: '', noHp: '' };
 }
@@ -12,14 +11,8 @@ async function saveSessionToDatabase(token, nik, role) {
   if (!token || !nik) return;
   try {
     const db = window.db || supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
-    await db.rpc('save_session_secured', {
-      p_token: String(token).trim(),
-      p_nik: String(nik).trim(),
-      p_role: String(role || 'Warga').trim()
-    });
-  } catch (e) {
-    console.warn('Gagal menyimpan sesi:', e);
-  }
+    await db.rpc('save_session_secured', { p_token: String(token).trim(), p_nik: String(nik).trim(), p_role: String(role || 'Warga').trim() });
+  } catch (e) { console.warn('Gagal menyimpan sesi:', e); }
 }
 
 async function doLogin(e) {
@@ -36,22 +29,18 @@ async function doLogin(e) {
       return;
     }
     if (msgEl) msgEl.innerHTML = "Memeriksa ke database...";
-    
-    // Panggil callGASPost via legacy-global
     const res = await window.callGASPost('processLogin', { username: u, password: p });
-    
     if (res && res.status === 'success') {
       var roleClean = res.role.toString().trim().toLowerCase();
       let sessionToken = 'SESS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
-      window.session.token     = sessionToken;
+      window.session.token = sessionToken;
       window.session.loginTime = Date.now();
-      window.session.role      = (roleClean === 'rt') ? 'RT' : 'Warga';
-      window.session.nik       = res.nik    ? res.nik.toString().trim()    : (res.username || u);
-      window.session.nama      = res.nama   ? res.nama.toString().trim()   : '';
-      window.session.alamat    = res.alamat ? res.alamat.toString().trim() : '';
-      window.session.noHp      = res.noHp   ? res.noHp.toString().trim()   : '';
+      window.session.role = (roleClean === 'rt') ? 'RT' : 'Warga';
+      window.session.nik = res.nik ? res.nik.toString().trim() : (res.username || u);
+      window.session.nama = res.nama ? res.nama.toString().trim() : '';
+      window.session.alamat = res.alamat ? res.alamat.toString().trim() : '';
+      window.session.noHp = res.noHp ? res.noHp.toString().trim() : '';
       localStorage.setItem('rt_user_session', JSON.stringify(window.session));
-      
       await saveSessionToDatabase(sessionToken, window.session.nik, window.session.role);
       await applySessionUI();
     } else {
@@ -67,15 +56,11 @@ window.processLogin = doLogin;
 
 async function verifySessionToken() {
   if (!window.session || !window.session.token) return true;
-  if (window.session.loginTime && (Date.now() - window.session.loginTime < 15000)) {
-    return true;
-  }
+  if (window.session.loginTime && (Date.now() - window.session.loginTime < 15000)) return true;
   try {
-    // Gunakan legacy call
     const res = await window.callGASGet('getTableData', { sheetName: 'Sessions' });
     if (res && res.status === 'success') {
-      let sessData = res.rows || [];
-      let match = sessData.find(s => {
+      let match = (res.rows || []).find(s => {
         let sTok = s[0] || s.token || s.TOKEN || '';
         return String(sTok).trim() === String(window.session.token).trim();
       });
@@ -88,9 +73,7 @@ async function verifySessionToken() {
       }
     }
     return true;
-  } catch(e) {
-    return true;
-  }
+  } catch(e) { return true; }
 }
 
 async function applySessionUI() {
@@ -98,22 +81,14 @@ async function applySessionUI() {
   document.getElementById('app-container').style.display = 'block';
   document.getElementById('mob-header').classList.add('show-nav');
   document.getElementById('mob-nav').classList.add('show-nav');
-  
   let currentRole = window.session.role || 'Warga';
   document.querySelectorAll('.rt-only').forEach(el => {
     if (currentRole === 'RT') {
-      if (el.classList.contains('bottom-nav-item')) {
-        el.style.display = 'flex';
-      } else if (el.matches('.sidebar a, .sheet-menu-item')) {
-        el.style.display = 'flex';
-      } else {
-        el.style.display = 'block';
-      }
-    } else {
-      el.style.display = 'none';
-    }
+      if (el.classList.contains('bottom-nav-item')) el.style.display = 'flex';
+      else if (el.matches('.sidebar a, .sheet-menu-item')) el.style.display = 'flex';
+      else el.style.display = 'block';
+    } else el.style.display = 'none';
   });
-
   loadMenu('Dashboard');
   updateMenuBadges(true);
   requestNotifPermission();
@@ -136,12 +111,9 @@ async function applySessionUI() {
 }
 
 async function doLogout() {
-  showUIConfirm('Apakah Anda yakin ingin keluar dari sistem aplikasi SISTEM INFORMASI RT 5?', async function() {
+  showUIConfirm('Apakah Anda yakin ingin keluar?', async function() {
     if (window.session.token) {
-      try { 
-        const db = window.db || supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
-        await db.rpc('delete_session_secured', { p_token: window.session.token });
-      } catch(e) {}
+      try { const db = window.db || supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY); await db.rpc('delete_session_secured', { p_token: window.session.token }); } catch(e) {}
     }
     if (notifTimer) clearInterval(notifTimer);
     if (supabaseRealtimeChannel && window.db) window.db.removeChannel(supabaseRealtimeChannel);
@@ -160,19 +132,17 @@ async function checkExistingSession() {
     try {
       let parsed = JSON.parse(savedSession);
       if (parsed && parsed.token && parsed.role) {
-        window.session.token     = parsed.token;
-        window.session.role      = (parsed.role.toString().toUpperCase() === 'RT') ? 'RT' : 'Warga';
-        window.session.nik       = parsed.nik || '';
-        window.session.nama      = parsed.nama || '';
-        window.session.alamat    = parsed.alamat || '';
-        window.session.noHp      = parsed.noHp || '';
+        window.session.token = parsed.token;
+        window.session.role = (parsed.role.toString().toUpperCase() === 'RT') ? 'RT' : 'Warga';
+        window.session.nik = parsed.nik || '';
+        window.session.nama = parsed.nama || '';
+        window.session.alamat = parsed.alamat || '';
+        window.session.noHp = parsed.noHp || '';
         window.session.loginTime = parsed.loginTime || Date.now();
         await applySessionUI();
         verifySessionToken();
       }
-    } catch(e) {
-      console.warn('Gagal membaca sesi lokal:', e);
-    }
+    } catch(e) { console.warn('Gagal membaca sesi lokal:', e); }
   }
 }
 window.checkExistingSession = checkExistingSession;
