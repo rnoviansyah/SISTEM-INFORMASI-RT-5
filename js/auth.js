@@ -1,13 +1,17 @@
 // ============================================================
-// auth.js
-// Autentikasi & sesi login
-// Dipisah dari app.js (refactor modul). Classic script — berbagi global
-// scope dengan file JS lain. URUTAN LOAD di index.html WAJIB dijaga.
+// auth.js - Autentikasi & sesi login (FIXED)
 // ============================================================
+
+// Pastikan window.session tersedia
+if (typeof window.session === 'undefined') {
+  window.session = { token: '', role: 'Warga', nik: '', nama: '', alamat: '', noHp: '' };
+}
+var session = window.session;
 
 async function saveSessionToDatabase(token, nik, role) {
   if (!token || !nik) return;
   try {
+    const db = window.db || supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
     await db.rpc('save_session_secured', {
       p_token: String(token).trim(),
       p_nik: String(nik).trim(),
@@ -32,19 +36,23 @@ async function doLogin(e) {
       return;
     }
     if (msgEl) msgEl.innerHTML = "Memeriksa ke database...";
-    const res = await callGASPost('processLogin', { username: u, password: p });
+    
+    // Panggil callGASPost via legacy-global
+    const res = await window.callGASPost('processLogin', { username: u, password: p });
+    
     if (res && res.status === 'success') {
       var roleClean = res.role.toString().trim().toLowerCase();
       let sessionToken = 'SESS-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
-      session.token     = sessionToken;
-      session.loginTime = Date.now();
-      session.role      = (roleClean === 'rt') ? 'RT' : 'Warga';
-      session.nik       = res.nik    ? res.nik.toString().trim()    : (res.username || u);
-      session.nama      = res.nama   ? res.nama.toString().trim()   : '';
-      session.alamat    = res.alamat ? res.alamat.toString().trim() : '';
-      session.noHp      = res.noHp   ? res.noHp.toString().trim()   : '';
-      localStorage.setItem('rt_user_session', JSON.stringify(session));
-      await saveSessionToDatabase(sessionToken, session.nik, session.role);
+      window.session.token     = sessionToken;
+      window.session.loginTime = Date.now();
+      window.session.role      = (roleClean === 'rt') ? 'RT' : 'Warga';
+      window.session.nik       = res.nik    ? res.nik.toString().trim()    : (res.username || u);
+      window.session.nama      = res.nama   ? res.nama.toString().trim()   : '';
+      window.session.alamat    = res.alamat ? res.alamat.toString().trim() : '';
+      window.session.noHp      = res.noHp   ? res.noHp.toString().trim()   : '';
+      localStorage.setItem('rt_user_session', JSON.stringify(window.session));
+      
+      await saveSessionToDatabase(sessionToken, window.session.nik, window.session.role);
       await applySessionUI();
     } else {
       if (msgEl) msgEl.innerHTML = res ? res.message : 'Login gagal!';
@@ -58,24 +66,26 @@ window.doLogin = doLogin;
 window.processLogin = doLogin;
 
 async function verifySessionToken() {
-  if (!session || !session.token) return true;
-  if (session.loginTime && (Date.now() - session.loginTime < 15000)) {
+  if (!window.session || !window.session.token) return true;
+  if (window.session.loginTime && (Date.now() - window.session.loginTime < 15000)) {
     return true;
   }
   try {
-    delete menuDataCache['Sessions'];
-    const { data: sessData, error } = await safeSupabaseSelect('Sessions');
-    if (error) return true;
-    let match = (sessData || []).find(s => {
-      let sTok = s.token || s.TOKEN || '';
-      return String(sTok).trim() === String(session.token).trim();
-    });
-    if (!match && Array.isArray(sessData)) {
-      if (notifTimer) clearInterval(notifTimer);
-      localStorage.removeItem('rt_user_session');
-      showUIToast('Sesi login Anda telah dihentikan oleh RT. Mengalihkan...', 'error');
-      setTimeout(() => location.reload(), 1000);
-      return false;
+    // Gunakan legacy call
+    const res = await window.callGASGet('getTableData', { sheetName: 'Sessions' });
+    if (res && res.status === 'success') {
+      let sessData = res.rows || [];
+      let match = sessData.find(s => {
+        let sTok = s[0] || s.token || s.TOKEN || '';
+        return String(sTok).trim() === String(window.session.token).trim();
+      });
+      if (!match) {
+        if (notifTimer) clearInterval(notifTimer);
+        localStorage.removeItem('rt_user_session');
+        showUIToast('Sesi login Anda telah dihentikan oleh RT. Mengalihkan...', 'error');
+        setTimeout(() => location.reload(), 1000);
+        return false;
+      }
     }
     return true;
   } catch(e) {
@@ -89,7 +99,7 @@ async function applySessionUI() {
   document.getElementById('mob-header').classList.add('show-nav');
   document.getElementById('mob-nav').classList.add('show-nav');
   
-  let currentRole = await getValidUserRole();
+  let currentRole = window.session.role || 'Warga';
   document.querySelectorAll('.rt-only').forEach(el => {
     if (currentRole === 'RT') {
       if (el.classList.contains('bottom-nav-item')) {
@@ -113,7 +123,7 @@ async function applySessionUI() {
   verifySessionToken();
   if (notifTimer) clearInterval(notifTimer);
   notifTimer = setInterval(async function() {
-    if (session.token && document.visibilityState === "visible") {
+    if (window.session.token && document.visibilityState === "visible") {
       fetchNotifikasi();
       updateMenuBadges();
       verifySessionToken();
@@ -127,11 +137,14 @@ async function applySessionUI() {
 
 async function doLogout() {
   showUIConfirm('Apakah Anda yakin ingin keluar dari sistem aplikasi SISTEM INFORMASI RT 5?', async function() {
-    if (session.token) {
-      try { await safeSupabaseDelete('Sessions', 'token', session.token); } catch(e) {}
+    if (window.session.token) {
+      try { 
+        const db = window.db || supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
+        await db.rpc('delete_session_secured', { p_token: window.session.token });
+      } catch(e) {}
     }
     if (notifTimer) clearInterval(notifTimer);
-    if (supabaseRealtimeChannel && db) db.removeChannel(supabaseRealtimeChannel);
+    if (supabaseRealtimeChannel && window.db) window.db.removeChannel(supabaseRealtimeChannel);
     document.getElementById('mob-header').classList.remove('show-nav');
     document.getElementById('mob-nav').classList.remove('show-nav');
     localStorage.removeItem('rt_user_session');
@@ -139,6 +152,7 @@ async function doLogout() {
     location.reload();
   }, 'Konfirmasi Logout');
 }
+window.doLogout = doLogout;
 
 async function checkExistingSession() {
   let savedSession = localStorage.getItem('rt_user_session');
@@ -146,13 +160,13 @@ async function checkExistingSession() {
     try {
       let parsed = JSON.parse(savedSession);
       if (parsed && parsed.token && parsed.role) {
-        session.token     = parsed.token;
-        session.role      = (parsed.role.toString().toUpperCase() === 'RT') ? 'RT' : 'Warga';
-        session.nik       = parsed.nik || '';
-        session.nama      = parsed.nama || '';
-        session.alamat    = parsed.alamat || '';
-        session.noHp      = parsed.noHp || '';
-        session.loginTime = parsed.loginTime || Date.now();
+        window.session.token     = parsed.token;
+        window.session.role      = (parsed.role.toString().toUpperCase() === 'RT') ? 'RT' : 'Warga';
+        window.session.nik       = parsed.nik || '';
+        window.session.nama      = parsed.nama || '';
+        window.session.alamat    = parsed.alamat || '';
+        window.session.noHp      = parsed.noHp || '';
+        window.session.loginTime = parsed.loginTime || Date.now();
         await applySessionUI();
         verifySessionToken();
       }
@@ -161,3 +175,4 @@ async function checkExistingSession() {
     }
   }
 }
+window.checkExistingSession = checkExistingSession;
