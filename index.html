@@ -82,13 +82,9 @@
     .bottom-nav-item i { font-size: 1.35rem; margin-bottom: 3px; }
     .bottom-nav-item.active { color: var(--secondary-blue); }
 
-    /* ========================================================
-       MENU BADGE (angka jumlah per menu) & GRUP SIDEBAR
-       ======================================================== */
     .menu-badge { display: none; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #fbbf24; color: #1e3a8a; font-size: 0.62rem; font-weight: 800; line-height: 1; margin-left: auto; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
     .sidebar a .menu-badge { margin-left: auto; }
     .menu-badge-bottom, .menu-badge-sheet { position: absolute; top: -6px; right: -13px; margin-left: 0; min-width: 17px; height: 17px; padding: 0 4px; font-size: 0.56rem; }
-    /* Badge angka di ikon quick-action Dashboard */
     .quick-action-icon { position: relative; }
     .qbadge { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: #fbbf24; color: #1e3a8a; font-size: 0.56rem; font-weight: 800; line-height: 1; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
 
@@ -109,15 +105,8 @@
     .sheet-menu-item.active i { color: var(--primary-blue); }
     .sheet-menu-item p { margin-top: 6px; margin-bottom: 0; font-size: 0.65rem; font-weight: 700; color: #334155; }
 
-    /* ========================================================
-       ANIMASI PINTU LOG IN & LOG OUT
-       ======================================================== */
     .door-wrapper { perspective: 300px; }
-    
-    /* Poros engsel di KIRI (x=18) */
     .door-panel { transform-origin: 18px center; }
-
-    /* --- ANIMASI LOG IN --- */
     .figure-login { opacity: 0; transform: translateX(24px); }
     
     @keyframes doorOpenCloseLogin {
@@ -126,22 +115,18 @@
       70% { transform: rotateY(-80deg); }
       100% { transform: rotateY(0deg); }
     }
-
     @keyframes personEnterAndStay {
       0% { opacity: 0; transform: translateX(24px); }
       25% { opacity: 1; transform: translateX(14px); }
       65% { opacity: 1; transform: translateX(0px); }
       100% { opacity: 1; transform: translateX(0px); }
     }
-
     .btn-door-login.is-animating .door-panel {
       animation: doorOpenCloseLogin 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
     .btn-door-login.is-animating .figure-login {
       animation: personEnterAndStay 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
-
-    /* --- LOADING LOGIN: orang masuk pintu berulang (tanpa teks "Memproses...") --- */
     @keyframes doorOpenCloseLoop {
       0%   { transform: rotateY(0deg); }
       15%  { transform: rotateY(-80deg); }
@@ -160,16 +145,13 @@
     .btn-door-login.is-loading .figure-login { animation: personEnterLoop 2s ease-in-out infinite; }
     .btn-door-login.is-loading > span { opacity: .45; }
 
-    /* --- ANIMASI LOG OUT --- */
     .figure-logout { opacity: 1; transform: translateX(0px); }
-
     @keyframes personExitAndLeave {
       0% { opacity: 1; transform: translateX(0px); }
       35% { opacity: 1; transform: translateX(14px); }
       85% { opacity: 0; transform: translateX(26px); }
       100% { opacity: 0; transform: translateX(26px); }
     }
-
     .btn-door-logout.is-animating .door-panel {
       animation: doorOpenCloseLogin 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
@@ -188,8 +170,6 @@
   </style>
 </head>
 <body>
-
-  <!-- LOGIN CONTAINER -->
   <div id="login-container" class="login-box text-center">
     <img id="login-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
     <h3 id="login-app-title" class="fw-bold text-primary mb-1">SISTEM INFORMASI RT 5</h3>
@@ -198,7 +178,6 @@
     <div class="mb-3"><input type="text" id="username" class="form-control" placeholder="Username / NIK Warga" onkeypress="if(event.key==='Enter') triggerLoginAnimation(event)"></div>
     <div class="mb-3"><input type="password" id="password" class="form-control" placeholder="Password" onkeypress="if(event.key==='Enter') triggerLoginAnimation(event)"></div>
     
-    <!-- TOMBOL LOG IN ANIMASI PINTU -->
     <button class="btn btn-primary w-100 fw-bold py-2.5 d-flex align-items-center justify-content-center gap-3 btn-door-login" id="btn-masuk" onclick="triggerLoginAnimation(event)">
       <span>Masuk</span>
       <div class="door-wrapper" style="width: 38px; height: 32px;">
@@ -219,7 +198,6 @@
     <div id="login-msg" class="text-danger mt-2 small font-bold"></div>
   </div>
 
-  <!-- MOBILE HEADER -->
   <div class="mobile-header" id="mob-header">
     <div class="d-flex align-items-center gap-2">
       <img id="mob-app-logo" src="img/logo.webp" alt="Logo" class="rounded-circle app-logo-img" style="width: 32px; height: 32px; object-fit: cover;">
@@ -234,7 +212,6 @@
         <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
       </div>
       
-      <!-- TOMBOL LOGOUT MOBILE DENGAN ANIMASI PINTU -->
       <div class="btn-door-logout cursor-pointer" onclick="triggerLogoutAnimation(event)" title="Logout">
         <div class="door-wrapper" style="width: 32px; height: 28px;">
           <svg viewBox="0 0 46 42" class="w-8 h-7 overflow-visible" fill="none">
@@ -250,27 +227,21 @@
           </svg>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- MAIN CONTAINER -->
   <div id="app-container" class="container-fluid">
     <div class="row">
-      <!-- Sidebar Menu (Desktop) -->
       <div class="col-md-2 sidebar p-0">
         <div class="text-center mb-3 mt-2 px-3">
           <img id="sidebar-app-logo" src="img/logo.webp" alt="Logo RT" class="mb-3 rounded-circle shadow-sm app-logo-img" style="width: 80px; height: 80px; object-fit: cover;">
           <h5 id="sidebar-app-title" class="fw-bold mb-0 border-0 pb-0">SISTEM INFORMASI RT 5</h5>
         </div>
-
         <div class="px-3 mb-2">
           <button id="btn-install-pwa" onclick="installPWA()" class="btn btn-success btn-sm w-100 font-bold shadow-sm">
             <i class="bi bi-download me-1"></i> Install Aplikasi RT
           </button>
         </div>
-
-        <!-- Menu utama (paling sering dipakai) -->
         <a id="dmenu-Dashboard" onclick="loadMenu('Dashboard')"><i class="bi bi-grid-1x2-fill me-2"></i>Dashboard</a>
         <a id="dmenu-Warga" onclick="loadMenu('Warga')"><i class="bi bi-people-fill me-2"></i>Data Warga<span class="menu-badge" id="badge-dmenu-Warga"></span></a>
         <a id="dmenu-Iuran" onclick="loadMenu('Iuran')"><i class="bi bi-wallet2 me-2"></i>Iuran Warga<span class="menu-badge" id="badge-dmenu-Iuran"></span></a>
@@ -278,7 +249,6 @@
         <a id="dmenu-Pengaduan" onclick="loadMenu('Pengaduan')"><i class="bi bi-chat-square-text-fill me-2"></i>Pengaduan<span class="menu-badge" id="badge-dmenu-Pengaduan"></span></a>
         <a id="dmenu-SuratPengantar" onclick="loadMenu('SuratPengantar')"><i class="bi bi-file-earmark-text-fill me-2"></i>Surat Pengantar<span class="menu-badge" id="badge-dmenu-SuratPengantar"></span></a>
 
-        <!-- Grup: Kependudukan (khusus RT) -->
         <div class="sidebar-group rt-only">
           <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
             <i class="bi bi-people"></i><span>Kependudukan</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
@@ -291,7 +261,6 @@
           </div>
         </div>
 
-        <!-- Grup: Keuangan & Kas -->
         <div class="sidebar-group">
           <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
             <i class="bi bi-cash-coin"></i><span>Keuangan &amp; Kas</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
@@ -302,7 +271,6 @@
           </div>
         </div>
 
-        <!-- Grup: Layanan Lainnya -->
         <div class="sidebar-group">
           <div class="sidebar-group-header" onclick="toggleSidebarGroup(this)">
             <i class="bi bi-grid-3x3-gap-fill"></i><span>Layanan Lainnya</span><i class="bi bi-chevron-down sidebar-group-arrow"></i>
@@ -315,7 +283,6 @@
 
         <a id="dmenu-Pengaturan" class="rt-only" onclick="loadMenu('Pengaturan')"><i class="bi bi-gear-fill me-2"></i>Pengaturan RT</a>
         
-        <!-- TOMBOL LOGOUT SIDEBAR DESKTOP DENGAN ANIMASI PINTU -->
         <a onclick="triggerLogoutAnimation(event)" class="text-danger mt-4 border-top border-secondary btn-door-logout" style="cursor:pointer;">
           <span class="d-flex align-items-center"><i class="bi bi-power me-2"></i>Logout</span>
           <div class="door-wrapper" style="width: 28px; height: 24px;">
@@ -334,30 +301,24 @@
         </a>
       </div>
 
-      <!-- Main Content Area -->
       <div class="col-md-10 main-content-wrapper">
-        <!-- Kartu Informasi Warga dipindah ke ATAS judul "Dashboard Utama" (diisi dashboard.js, bisa minimize/expand) -->
         <div id="info-warga-atas" style="display:none;"></div>
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h3 id="page-title" class="fw-bold text-dark">Dashboard</h3>
           <div class="d-flex align-items-center gap-3">
             <input type="text" id="searchInput" class="form-control shadow-sm" style="min-width: 220px;" placeholder="Cari data atau menu..." onkeyup="filterTable()">
-            
             <div class="position-relative d-none d-md-block ms-2" onclick="bukaModalNotifikasi()" style="cursor:pointer;" title="Notifikasi">
               <i class="bi bi-bell fs-4 text-dark"></i>
               <span class="notif-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem; display:none;">0</span>
             </div>
           </div>
         </div>
-        
         <div id="rek-info" class="rekening-box" style="display:none;"></div>
-
         <div id="main-content"></div>
       </div>
     </div>
   </div>
 
-  <!-- MOBILE BOTTOM NAV -->
   <div class="bottom-nav" id="mob-nav">
     <a id="mmenu-Dashboard" class="bottom-nav-item" onclick="loadMenu('Dashboard')"><i class="bi bi-house-door-fill"></i>Home</a>
     <a id="mmenu-Warga" class="bottom-nav-item" onclick="loadMenu('Warga')"><span class="position-relative"><i class="bi bi-people-fill"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Warga"></span></span>Warga</a>
@@ -366,7 +327,6 @@
     <a id="mmenu-Lainnya" class="bottom-nav-item" onclick="bukaMenuLainnya()"><span class="position-relative"><i class="bi bi-grid-3x3-gap-fill"></i><span class="menu-badge menu-badge-bottom" id="badge-mmenu-Lainnya"></span></span>Lainnya</a>
   </div>
 
-  <!-- MOBILE: SHEET MENU LAINNYA -->
   <div id="menu-lainnya-sheet" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[1100] flex items-end justify-center" onclick="if(event.target===this)tutupMenuLainnya()">
     <div class="bg-white w-full rounded-t-3xl p-4 pb-8 max-h-[78vh] overflow-y-auto shadow-2xl">
       <div class="mx-auto w-10 h-1 bg-gray-300 rounded-full mb-3"></div>
@@ -391,7 +351,6 @@
     </div>
   </div>
 
-  <!-- MODAL DYNAMIC FORM -->
   <div class="modal fade" id="formModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -413,7 +372,6 @@
     </div>
   </div>
 
-  <!-- MODAL PREVIEW IMAGE -->
   <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -428,7 +386,6 @@
     </div>
   </div>
 
-  <!-- MODAL NOTIFIKASI -->
   <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -443,7 +400,6 @@
     </div>
   </div>
 
-  <!-- MODAL EDIT INFORMASI WARGA -->
   <div class="modal fade" id="modalEditInfo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -465,7 +421,6 @@
     </div>
   </div>
 
-  <!-- MODAL TANDA TANGAN PEMOHON -->
   <div id="modal-ttd-pemohon" class="hidden fixed inset-0 z-[9999] flex items-end sm:items-center justify-center">
     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="tutupModalTandaTangan()"></div>
     <div class="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden" style="z-index:1;">
@@ -498,34 +453,25 @@
     </div>
   </div>
 
-  <!-- BOOTSTRAP JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
-  <!-- HARDCODE SUPABASE CONFIG (SEMENTARA) -->
+  <!-- HARDCODE SUPABASE CONFIG -->
   <script>
-    window.SUPABASE_URL = 'https://pemxsgiisqgmvtuomkjq.supabase.co/rest/v1/';
+    window.SUPABASE_URL = 'https://pemxsgiisqgmvtuomkjq.supabase.co';
     window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlbXhzZ2lpc3FnbXZ0dW9ta2pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MTY3NjMsImV4cCI6MjEwMTM5Mjc2M30.5oTxN3qZNdpks__10qIa7oWx2LsV7Vqr_E40V8OTqb8';
     console.log('✅ SUPABASE_CONFIG hardcoded');
   </script>
 
-  <!-- LOAD MODUL JS BERURUTAN -->
-  <!-- CORE MODULES (BARU) - type="module" biar import/export jalan -->
   <script type="module" src="js/core/db.js?v=4.0"></script>
   <script type="module" src="js/core/session.js?v=4.0"></script>
   <script type="module" src="js/helpers/uiHelper.js?v=4.0"></script>
   <script type="module" src="js/helpers/formHelper.js?v=4.0"></script>
   <script type="module" src="js/helpers/tableHelper.js?v=4.0"></script>
-  
-  <!-- APP CORE (MODULE) -->
   <script type="module" src="js/app.js?v=4.0"></script>
-  
-  <!-- LEGACY GLOBAL (TANPA MODULE) - biar callGASGet/Post langsung jadi global -->
   <script src="js/legacy-global.js?v=4.0"></script>
-  
-  <!-- MODUL MENU (TETAP SAMA) -->
   <script src="js/auth.js?v=4.0"></script>
   <script src="js/badges.js?v=4.0"></script>
   <script src="js/dashboard.js?v=4.0"></script>
@@ -548,14 +494,11 @@
   <script src="js/settings.js?v=4.0"></script>
   <script src="js/notifikasi.js?v=4.0"></script>
 
-  <!-- SCRIPT TRIGGER ANIMASI -->
   <script>
     function triggerLoginAnimation(e) {
       if(e) e.preventDefault();
       const btn = document.getElementById('btn-masuk');
-      
       btn.classList.add('is-animating');
-
       setTimeout(() => {
         if(typeof doLogin === 'function') {
           doLogin(e);
@@ -568,7 +511,6 @@
       if(e) e.preventDefault();
       const btns = document.querySelectorAll('.btn-door-logout');
       btns.forEach(b => b.classList.add('is-animating'));
-
       setTimeout(() => {
         if(typeof doLogout === 'function') {
           doLogout();
@@ -577,7 +519,6 @@
       }, 900);
     }
 
-    // Sembunyikan teks "Memeriksa ke database..." saat login — diganti animasi orang masuk pintu
     (function() {
       setInterval(function() {
         var m = document.getElementById('login-msg');
@@ -586,9 +527,7 @@
     })();
   </script>
 
-  <!-- SCRIPT TAMBAHAN UNTUK NOTIFIKASI -->
   <script>
-    // Pastikan fungsi notifikasi tersedia di global scope
     (function() {
       if (typeof mintaIzinNotifikasi === 'undefined') {
         window.mintaIzinNotifikasi = function() {
