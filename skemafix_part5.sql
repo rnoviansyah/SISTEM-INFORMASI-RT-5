@@ -1,3 +1,727 @@
+
+ALTER FUNCTION public.get_usage_secured(p_token text, p_org_slug text) OWNER TO postgres;
+
+--
+-- Name: get_usage_secured(text, text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_usage_secured(p_token text, p_org_slug text DEFAULT NULL::text, p_ref text DEFAULT NULL::text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    SET statement_timeout TO '0'
+    AS $$
+DECLARE
+  v_role    text := public.auth_role(p_token);
+  v_pat     text;
+  v_slug    text;
+  v_ref     text;
+  v_url     text;
+  v_headers jsonb;
+  v_rid     bigint;
+  v_rid2    bigint;
+BEGIN
+  IF v_role <> 'RT' THEN
+    RETURN jsonb_build_object('status','error','message','Akses ditolak.');
+  END IF;
+
+  BEGIN
+    SELECT decrypted_secret INTO v_pat FROM vault.decrypted_secrets
+      WHERE name = 'supabase_mgmt_pat' LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('status','error','message',
+      'Vault belum siap: ' || SQLERRM || '. Aktifkan: create extension if not exists supabase_vault;');
+  END;
+  IF coalesce(v_pat,'') = '' THEN
+    RETURN jsonb_build_object('status','error','message',
+      'PAT belum disimpan di Vault. Buat di supabase.com -> Account -> Access Tokens, lalu: select vault.create_secret(''<PAT>'', ''supabase_mgmt_pat'');');
+  END IF;
+
+  v_headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'apikey', v_pat,
+    'Authorization', 'Bearer ' || v_pat
+  );
+
+  -- Ref project: prioritas dari frontend (SUPABASE_URL), fallback Vault
+  v_ref := coalesce(nullif(trim(coalesce(p_ref,'')), ''));
+  IF v_ref IS NULL OR v_ref = '' THEN
+    BEGIN
+      SELECT decrypted_secret INTO v_url FROM vault.decrypted_secrets
+        WHERE name = 'storage_project_url' LIMIT 1;
+    EXCEPTION WHEN OTHERS THEN v_url := NULL; END;
+    IF coalesce(v_url,'') <> '' THEN
+      v_ref := split_part(split_part(v_url, '://', 2), '.', 1);
+    END IF;
+  END IF;
+
+  -- Slug organisasi: parameter -> Vault -> discovery
+  v_slug := coalesce(nullif(trim(coalesce(p_org_slug,'')), ''));
+  IF v_slug IS NULL OR v_slug = '' THEN
+    BEGIN
+      SELECT decrypted_secret INTO v_slug FROM vault.decrypted_secrets
+        WHERE name = 'supabase_org_slug' LIMIT 1;
+    EXCEPTION WHEN OTHERS THEN v_slug := NULL; END;
+  END IF;
+
+  -- Mode discovery bila slug belum diketahui
+  IF coalesce(v_slug,'') = '' THEN
+    IF coalesce(v_ref,'') = '' THEN
+      RETURN jsonb_build_object('status','error','message',
+        'Ref project tidak terdeteksi. Cek SUPABASE_URL aplikasi atau simpan: select vault.create_secret(''https://<REF>.supabase.co'', ''storage_project_url'');');
+    END IF;
+    BEGIN
+      v_rid := net.http_get(
+        url := 'https://api.supabase.com/v1/organizations',
+        headers := v_headers,
+        timeout_milliseconds := 15000
+      );
+      v_rid2 := net.http_get(
+        url := 'https://api.supabase.com/v1/projects/' || v_ref,
+        headers := v_headers,
+        timeout_milliseconds := 15000
+      );
+    EXCEPTION WHEN OTHERS THEN
+      BEGIN
+        v_rid := extensions.net.http_get(
+          url := 'https://api.supabase.com/v1/organizations',
+          headers := v_headers,
+          timeout_milliseconds := 15000
+        );
+        v_rid2 := extensions.net.http_get(
+          url := 'https://api.supabase.com/v1/projects/' || v_ref,
+          headers := v_headers,
+          timeout_milliseconds := 15000
+        );
+      EXCEPTION WHEN OTHERS THEN
+        RETURN jsonb_build_object('status','error','message',
+          'pg_net tidak tersedia: ' || SQLERRM || '. Aktifkan: create extension if not exists pg_net;');
+      END;
+    END;
+    RETURN jsonb_build_object('status','needs_slug',
+      'message','Slug organisasi belum diketahui — discovery.',
+      'request_id_orgs', v_rid, 'request_id_project', v_rid2, 'ref', v_ref);
+  END IF;
+
+  -- Antrekan GET usage organisasi
+  BEGIN
+    v_rid := net.http_get(
+      url := 'https://api.supabase.com/v1/organizations/' || v_slug || '/usage',
+      headers := v_headers,
+      timeout_milliseconds := 15000
+    );
+  EXCEPTION WHEN OTHERS THEN
+    BEGIN
+      v_rid := extensions.net.http_get(
+        url := 'https://api.supabase.com/v1/organizations/' || v_slug || '/usage',
+        headers := v_headers,
+        timeout_milliseconds := 15000
+      );
+    EXCEPTION WHEN OTHERS THEN
+      RETURN jsonb_build_object('status','error','message',
+        'pg_net tidak tersedia: ' || SQLERRM || '. Aktifkan: create extension if not exists pg_net;');
+    END;
+  END;
+
+  RETURN jsonb_build_object('status','success',
+    'message','Permintaan statistik dikirim.',
+    'request_id', v_rid, 'ref', v_ref, 'org_slug', v_slug);
+END $$;
+
+
+ALTER FUNCTION public.get_usage_secured(p_token text, p_org_slug text, p_ref text) OWNER TO postgres;
+
+--
+-- Name: get_users_secured(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_users_secured(p_token text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare v_rows jsonb;
+begin
+  if public.auth_role(p_token) <> 'RT' then
+    return jsonb_build_object('status','error','message','Akses ditolak.');
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'username', username,
+           'nik', public._dec_data(nik),
+           'role', role,
+           'nama', nama)), '[]'::jsonb)
+    into v_rows from public."Users";
+  return v_rows;
+end $$;
+
+
+ALTER FUNCTION public.get_users_secured(p_token text) OWNER TO postgres;
+
+--
+-- Name: get_warga_page_secured(text, text, integer, integer, text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_warga_page_secured(p_token text, p_mode text DEFAULT 'tabel'::text, p_page integer DEFAULT 1, p_page_size integer DEFAULT 25, p_search text DEFAULT ''::text, p_status text DEFAULT ''::text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_role      text := public.auth_role(p_token);
+  v_nik       text := '';
+  v_user_kk   text := '';
+  v_rows      jsonb := '[]'::jsonb;
+  v_all       jsonb := '[]'::jsonb;
+  v_row       jsonb;
+  v_row_kk    text;
+  v_row_nik   text;
+  v_allow     boolean;
+  v_needle    text;
+  v_status    text;
+  v_mode      text := lower(trim(coalesce(p_mode, 'tabel')));
+  v_total     int := 0;
+  v_page      int := greatest(1, coalesce(p_page, 1));
+  v_page_size int := least(10000, greatest(1, coalesce(p_page_size, 25)));
+  v_start     int := 0;
+  v_page_rows jsonb := '[]'::jsonb;
+  v_groups    jsonb := '[]'::jsonb;
+  v_map       jsonb := '{}'::jsonb;
+  v_key       text;
+  v_g         jsonb;
+  v_item      jsonb;
+begin
+  if v_role is null then
+    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
+  end if;
+
+  select coalesce(public._dec_data(nik),'') into v_nik
+    from public."Sessions" where token = trim(p_token) limit 1;
+
+  if v_nik <> '' then
+    select coalesce(public._dec_data(no_kk),'') into v_user_kk
+      from public."Warga" where nik_sha = public._sha(v_nik) limit 1;
+  end if;
+
+  -- Kecualikan warga yang tercatat meninggal di tabel Kematian
+  -- (nik_sha sama ATAU NIK terdekripsi sama), konsisten dengan filter klien.
+  for v_row in execute 'select to_jsonb(t) from public."Warga" t' loop
+    if exists (
+      select 1 from public."Kematian" km
+      where (coalesce(v_row->>'nik_sha','') <> '' and km.nik_sha is not null and v_row->>'nik_sha' = km.nik_sha)
+         or (coalesce(lower(trim(public._dec_data(km.nik))),'') <> ''
+             and coalesce(lower(trim(public._dec_data(km.nik))),'') = lower(trim(coalesce(public._dec_data(v_row->>'nik'),''))))
+    ) then
+      continue;
+    end if;
+    if v_role = 'RT' then
+      v_rows := v_rows || public._decrypt_row(v_row, true);
+    else
+      v_row_kk  := lower(trim(coalesce(public._dec_data(v_row->>'no_kk'),'')));
+      v_row_nik := lower(trim(coalesce(public._dec_data(v_row->>'nik'),'')));
+      v_allow := (v_user_kk <> '' and v_row_kk <> '' and v_row_kk = lower(trim(v_user_kk)))
+              or (v_nik <> '' and v_row_nik = lower(trim(v_nik)));
+      v_rows := v_rows || public._decrypt_row(v_row, v_allow);
+    end if;
+  end loop;
+
+  -- Urutkan created_at terbaru dulu
+  select coalesce(jsonb_agg(x), '[]'::jsonb) into v_all
+    from (
+      select value as x from jsonb_array_elements(v_rows) v
+      order by (v.value->>'created_at')::timestamptz desc nulls last
+    ) s;
+
+  -- Pencarian (semua kolom teks, case-insensitive, wildcard di-escape)
+  v_needle := lower(trim(coalesce(p_search, '')));
+  v_needle := replace(replace(replace(v_needle, '\', '\\'), '%', '\%'), '_', '\_');
+  if v_needle <> '' then
+    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_all
+      from (
+        select value as x from jsonb_array_elements(v_all) v
+        where exists (
+          select 1 from jsonb_each_text(v.value) kv
+          where lower(coalesce(kv.value,'')) like '%' || v_needle || '%' escape '\'
+        )
+      ) s;
+  end if;
+
+  -- Filter status tinggal (dropdown RT)
+  v_status := upper(trim(coalesce(p_status, '')));
+  if v_status = 'TETAP' then
+    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_all
+      from (select value as x from jsonb_array_elements(v_all) v
+            where lower(coalesce(v.value->>'status_tinggal','')) like '%tetap%') s;
+  elsif v_status = 'DOMISILI' then
+    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_all
+      from (select value as x from jsonb_array_elements(v_all) v
+            where lower(coalesce(v.value->>'status_tinggal','')) like '%domisili%'
+               or lower(coalesce(v.value->>'status_tinggal','')) like '%kontrak%') s;
+  end if;
+
+  if v_mode = 'rumah' then
+    -- GRUP per alamat (normalisasi lowercase+trim, konsisten dgn klien)
+    v_map := '{}'::jsonb;
+    for v_item in select value from jsonb_array_elements(v_all) loop
+      v_key := lower(trim(coalesce(v_item->>'alamat','')));
+      if v_key = '' then v_key := 'alamat belum terdata'; end if;
+      v_g := v_map->v_key;
+      if v_g is null then
+        v_g := jsonb_build_object('alamat', coalesce(v_item->>'alamat','-'), 'jumlah_penghuni', 0, 'nama_pratinjau', jsonb_build_array());
+      end if;
+      v_g := jsonb_set(v_g, '{jumlah_penghuni}', to_jsonb(coalesce((v_g->>'jumlah_penghuni')::int, 0) + 1));
+      if jsonb_array_length(v_g->'nama_pratinjau') < 3 then
+        v_g := jsonb_set(v_g, '{nama_pratinjau}', (v_g->'nama_pratinjau') || to_jsonb(coalesce(v_item->>'nama_lengkap','-')));
+      end if;
+      v_map := jsonb_set(v_map, array[v_key], v_g);
+    end loop;
+    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_groups
+      from (
+        select value as x from jsonb_array_elements(
+          (select coalesce(jsonb_agg(value), '[]'::jsonb) from jsonb_each(v_map))
+        ) order by lower(coalesce(value->>'alamat',''))
+      ) s;
+    v_total := jsonb_array_length(v_groups);
+    v_start := (v_page - 1) * v_page_size;
+    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_page_rows
+      from (select value as x from jsonb_array_elements(v_groups) v limit v_page_size offset v_start) s;
+    return jsonb_build_object('status','success','mode','rumah','data', v_page_rows,
+                              'total', v_total, 'page', v_page, 'page_size', v_page_size);
+  end if;
+
+  -- Mode tabel
+  v_total := jsonb_array_length(v_all);
+  v_start := (v_page - 1) * v_page_size;
+  select coalesce(jsonb_agg(x), '[]'::jsonb) into v_page_rows
+    from (select value as x from jsonb_array_elements(v_all) v limit v_page_size offset v_start) s;
+  return jsonb_build_object('status','success','mode','tabel','data', v_page_rows,
+                            'total', v_total, 'page', v_page, 'page_size', v_page_size);
+end $$;
+
+
+ALTER FUNCTION public.get_warga_page_secured(p_token text, p_mode text, p_page integer, p_page_size integer, p_search text, p_status text) OWNER TO postgres;
+
+--
+-- Name: get_warga_rumah_detail_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_warga_rumah_detail_secured(p_token text, p_alamat text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_role      text := public.auth_role(p_token);
+  v_nik       text := '';
+  v_user_kk   text := '';
+  v_rows      jsonb := '[]'::jsonb;
+  v_row       jsonb;
+  v_row_kk    text;
+  v_row_nik   text;
+  v_allow     boolean;
+  v_needle    text := lower(trim(coalesce(p_alamat,'')));
+begin
+  if v_role is null then
+    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
+  end if;
+
+  select coalesce(public._dec_data(nik),'') into v_nik
+    from public."Sessions" where token = trim(p_token) limit 1;
+
+  if v_nik <> '' then
+    select coalesce(public._dec_data(no_kk),'') into v_user_kk
+      from public."Warga" where nik_sha = public._sha(v_nik) limit 1;
+  end if;
+
+  for v_row in execute 'select to_jsonb(t) from public."Warga" t' loop
+    if lower(trim(coalesce(public._dec_data(v_row->>'alamat'),''))) <> v_needle then
+      continue;
+    end if;
+    -- kecualikan warga meninggal (nik_sha / NIK terdekripsi)
+    if exists (
+      select 1 from public."Kematian" km
+      where (coalesce(v_row->>'nik_sha','') <> '' and km.nik_sha is not null and v_row->>'nik_sha' = km.nik_sha)
+         or (coalesce(lower(trim(public._dec_data(km.nik))),'') <> ''
+             and coalesce(lower(trim(public._dec_data(km.nik))),'') = lower(trim(coalesce(public._dec_data(v_row->>'nik'),''))))
+    ) then
+      continue;
+    end if;
+    if v_role = 'RT' then
+      v_rows := v_rows || public._decrypt_row(v_row, true);
+    else
+      v_row_kk  := lower(trim(coalesce(public._dec_data(v_row->>'no_kk'),'')));
+      v_row_nik := lower(trim(coalesce(public._dec_data(v_row->>'nik'),'')));
+      v_allow := (v_user_kk <> '' and v_row_kk <> '' and v_row_kk = lower(trim(v_user_kk)))
+              or (v_nik <> '' and v_row_nik = lower(trim(v_nik)));
+      v_rows := v_rows || public._decrypt_row(v_row, v_allow);
+    end if;
+  end loop;
+
+  return jsonb_build_object('status','success','data', v_rows);
+end $$;
+
+
+ALTER FUNCTION public.get_warga_rumah_detail_secured(p_token text, p_alamat text) OWNER TO postgres;
+
+--
+-- Name: get_warga_secured(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.get_warga_secured(p_token text) RETURNS TABLE(id text, nama_lengkap text, nama_panggilan text, nik text, no_kk text, tempat_lahir text, tanggal_lahir text, jenis_kelamin text, alamat text, status_nikah text, status_tinggal text, pekerjaan text, no_hp text, foto_url text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+                                                        DECLARE
+                                                            v_role text := 'Warga';
+                                                                v_user_nik text := '';
+                                                                    v_user_kk text := '';
+                                                                    BEGIN
+                                                                        -- Validasi role & NIK berdasarkan token sesi aktif di tabel Sessions
+                                                                            SELECT s.role, s.nik INTO v_role, v_user_nik 
+                                                                                FROM public."Sessions" s 
+                                                                                    WHERE s.token = p_token 
+                                                                                        LIMIT 1;
+
+                                                                                            -- Ambil No KK milik pengguna yang sedang login
+                                                                                                IF v_user_nik IS NOT NULL AND v_user_nik != '' THEN
+                                                                                                        SELECT w.no_kk INTO v_user_kk FROM public."Warga" w WHERE w.nik = v_user_nik LIMIT 1;
+                                                                                                            END IF;
+
+                                                                                                                -- JIKA ROLE RT: Berikan data lengkap tanpa sensor
+                                                                                                                    IF UPPER(COALESCE(v_role, '')) = 'RT' THEN
+                                                                                                                            RETURN QUERY 
+                                                                                                                                    SELECT w.id, w.nama_lengkap, w.nama_panggilan, w.nik, w.no_kk, 
+                                                                                                                                                   w.tempat_lahir, w.tanggal_lahir, w.jenis_kelamin, w.alamat, 
+                                                                                                                                                                  w.status_nikah, w.status_tinggal, w.pekerjaan, w.no_hp, w.foto_url 
+                                                                                                                                                                          FROM public."Warga" w;
+                                                                                                                                                                              ELSE
+                                                                                                                                                                                      -- JIKA ROLE WARGA / ANONYMOUS:
+                                                                                                                                                                                              -- Data 1 KK ditampilkan lengkap, data warga KK lain disensor otomatis dari Server
+                                                                                                                                                                                                      RETURN QUERY 
+                                                                                                                                                                                                              SELECT 
+                                                                                                                                                                                                                          w.id,
+                                                                                                                                                                                                                                      w.nama_lengkap,
+                                                                                                                                                                                                                                                  w.nama_panggilan,
+                                                                                                                                                                                                                                                              CASE 
+                                                                                                                                                                                                                                                                              WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.nik
+                                                                                                                                                                                                                                                                                              ELSE '***'
+                                                                                                                                                                                                                                                                                                          END AS nik,
+                                                                                                                                                                                                                                                                                                                      CASE 
+                                                                                                                                                                                                                                                                                                                                      WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.no_kk
+                                                                                                                                                                                                                                                                                                                                                      ELSE '***'
+                                                                                                                                                                                                                                                                                                                                                                  END AS no_kk,
+                                                                                                                                                                                                                                                                                                                                                                              CASE 
+                                                                                                                                                                                                                                                                                                                                                                                              WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.tempat_lahir
+                                                                                                                                                                                                                                                                                                                                                                                                              ELSE '***'
+                                                                                                                                                                                                                                                                                                                                                                                                                          END AS tempat_lahir,
+                                                                                                                                                                                                                                                                                                                                                                                                                                      CASE 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                      WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.tanggal_lahir
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ELSE '***'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  END AS tanggal_lahir,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              w.jenis_kelamin,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          w.alamat,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      CASE 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.status_nikah
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ELSE '***'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  END AS status_nikah,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              w.status_tinggal,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          w.pekerjaan,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      CASE 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      WHEN (v_user_nik != '' AND w.nik = v_user_nik) OR (v_user_kk != '' AND w.no_kk = v_user_kk) THEN w.no_hp
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ELSE '****'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  END AS no_hp,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              w.foto_url
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      FROM public."Warga" w;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          END IF;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          END;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          $$;
+
+
+ALTER FUNCTION public.get_warga_secured(p_token text) OWNER TO postgres;
+
+--
+-- Name: is_rt(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.is_rt() RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN (
+      (auth.jwt() -> 'user_metadata' ->> 'role')::text = 'RT' OR
+          (auth.jwt() -> 'app_metadata' ->> 'role')::text = 'RT'
+            );
+            END;
+            $$;
+
+
+ALTER FUNCTION public.is_rt() OWNER TO postgres;
+
+--
+-- Name: is_valid_rt(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.is_valid_rt(p_token text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+                BEGIN
+                    RETURN EXISTS (
+                        SELECT 1 FROM public."Sessions"
+                        WHERE token = p_token AND role = 'RT'
+                    );
+                END;
+                $$;
+
+
+ALTER FUNCTION public.is_valid_rt(p_token text) OWNER TO postgres;
+
+--
+-- Name: login_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.login_secured(p_username text, p_password text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+declare
+  v_user public."Users"%rowtype;
+  v_u text := lower(trim(coalesce(p_username,'')));
+  v_p text := coalesce(p_password,'');
+  v_token text := 'SESS-' || replace(gen_random_uuid()::text, '-', '');
+  v_lock text;
+begin
+  if v_u = '' or v_p = '' then
+    return jsonb_build_object('status','error','message','Username / NIK dan Password tidak boleh kosong!');
+  end if;
+
+  v_lock := public._login_lock_check(v_u);
+  if v_lock is not null then
+    return jsonb_build_object('status','error','message', v_lock);
+  end if;
+
+  select * into v_user from public."Users"
+    where lower(trim(coalesce(username,''))) = v_u
+       or nik_sha = public._sha(v_u)
+       or public._sha(coalesce(nik,'')) = public._sha(v_u)
+    limit 1;
+  if not found then
+    perform public._login_lock_fail(v_u);
+    return jsonb_build_object('status','error','message','Akun tidak ditemukan.');
+  end if;
+  if not public._bcrypt_check(v_p, v_user.password) then
+    perform public._login_lock_fail(v_u);
+    return jsonb_build_object('status','error','message','Password salah.');
+  end if;
+
+  perform public._login_lock_clear(v_u);
+  -- Bersihkan sesi lama user ini (maks 5 sesi aktif per akun)
+  delete from public."Sessions"
+   where nik_sha = public._sha(trim(coalesce(public._dec_data(v_user.nik),'')))
+     and token not in (
+       select token from public."Sessions"
+        where nik_sha = public._sha(trim(coalesce(public._dec_data(v_user.nik),'')))
+        order by created_at desc limit 4
+     );
+
+  insert into public."Sessions" (token, nik, nik_sha, role, createdat, created_at, expires_at)
+  values (v_token,
+          public._enc_data(trim(coalesce(public._dec_data(v_user.nik),''))),
+          public._sha(trim(coalesce(public._dec_data(v_user.nik),''))),
+          trim(coalesce(v_user.role,'Warga')),
+          to_char(now(), 'YYYY-MM-DD HH24:MI:SS'), now(),
+          now() + interval '30 days')
+  on conflict (token) do nothing;
+
+  return jsonb_build_object(
+    'status','success',
+    'token', v_token,
+    'expires_at', (now() + interval '30 days')::text,
+    'username', v_user.username,
+    'role', v_user.role,
+    'nik', public._dec_data(v_user.nik),
+    'nama', v_user.nama
+  );
+end $$;
+
+
+ALTER FUNCTION public.login_secured(p_username text, p_password text) OWNER TO postgres;
+
+--
+-- Name: save_session_secured(text, text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.save_session_secured(p_token text, p_nik text, p_role text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+begin
+  if p_token is null or trim(p_token) = '' then
+    return jsonb_build_object('status','error','message','Token kosong.');
+  end if;
+  insert into public."Sessions" (token, nik, nik_sha, role, createdat, created_at, expires_at)
+  values (trim(p_token),
+          public._enc_data(trim(coalesce(p_nik,''))),
+          public._sha(trim(coalesce(p_nik,''))),
+          trim(coalesce(p_role,'Warga')),
+          to_char(now(), 'YYYY-MM-DD HH24:MI:SS'), now(),
+          now() + interval '30 days')
+  on conflict (token) do update
+    set nik = excluded.nik, nik_sha = excluded.nik_sha, role = excluded.role,
+        createdat = excluded.createdat, created_at = excluded.created_at,
+        expires_at = excluded.expires_at;
+  return jsonb_build_object('status','success');
+end $$;
+
+
+ALTER FUNCTION public.save_session_secured(p_token text, p_nik text, p_role text) OWNER TO postgres;
+
+--
+-- Name: save_user_secured(text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.save_user_secured(p_token text, p_data jsonb) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+                                                                                                                                                                                                                                                                                                                                                                                        DECLARE
+                                                                                                                                                                                                                                                                                                                                                                                            v_role text := 'Warga';
+                                                                                                                                                                                                                                                                                                                                                                                            BEGIN
+                                                                                                                                                                                                                                                                                                                                                                                                SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
+                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                        IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
+                                                                                                                                                                                                                                                                                                                                                                                                                RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan menambah user baru.');
+                                                                                                                                                                                                                                                                                                                                                                                                                    END IF;
+
+                                                                                                                                                                                                                                                                                                                                                                                                                        INSERT INTO public."Users" (id, username, password, role, nama, nik)
+                                                                                                                                                                                                                                                                                                                                                                                                                            VALUES (
+                                                                                                                                                                                                                                                                                                                                                                                                                                    COALESCE((p_data->>'id')::bigint, (extract(epoch from now())*1000)::bigint),
+                                                                                                                                                                                                                                                                                                                                                                                                                                            p_data->>'username',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                    p_data->>'password',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                            COALESCE(p_data->>'role', 'Warga'),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                    p_data->>'nama',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                            p_data->>'nik'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                );
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    RETURN json_build_object('status', 'success', 'message', 'Akun User berhasil didaftarkan!');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    EXCEPTION WHEN OTHERS THEN
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        RETURN json_build_object('status', 'error', 'message', SQLERRM);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        END;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        $$;
+
+
+ALTER FUNCTION public.save_user_secured(p_token text, p_data jsonb) OWNER TO postgres;
+
+--
+-- Name: save_warga_secured(text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.save_warga_secured(p_token text, p_data jsonb) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    v_role text := 'Warga';
+    BEGIN
+        SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
+            
+                IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
+                        RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan menambah warga.');
+                            END IF;
+
+                                INSERT INTO public."Warga" (
+                                        id, nama_lengkap, nama_panggilan, nik, no_kk, tempat_lahir, 
+                                                tanggal_lahir, jenis_kelamin, alamat, status_nikah, status_tinggal, 
+                                                        pekerjaan, no_hp, foto_url
+                                                            ) VALUES (
+                                                                    COALESCE(p_data->>'id', 'WAR-' || floor(random()*9000 + 1000)::text),
+                                                                            p_data->>'nama_lengkap',
+                                                                                    p_data->>'nama_panggilan',
+                                                                                            p_data->>'nik',
+                                                                                                    p_data->>'no_kk',
+                                                                                                            p_data->>'tempat_lahir',
+                                                                                                                    p_data->>'tanggal_lahir',
+                                                                                                                            p_data->>'jenis_kelamin',
+                                                                                                                                    p_data->>'alamat',
+                                                                                                                                            p_data->>'status_nikah',
+                                                                                                                                                    p_data->>'status_tinggal',
+                                                                                                                                                            p_data->>'pekerjaan',
+                                                                                                                                                                    p_data->>'no_hp',
+                                                                                                                                                                            p_data->>'foto_url'
+                                                                                                                                                                                );
+
+                                                                                                                                                                                    RETURN json_build_object('status', 'success', 'message', 'Data Warga berhasil disimpan!');
+                                                                                                                                                                                    EXCEPTION WHEN OTHERS THEN
+                                                                                                                                                                                        RETURN json_build_object('status', 'error', 'message', SQLERRM);
+                                                                                                                                                                                        END;
+                                                                                                                                                                                        $$;
+
+
+ALTER FUNCTION public.save_warga_secured(p_token text, p_data jsonb) OWNER TO postgres;
+
+--
+-- Name: storage_api_delete(text[]); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.storage_api_delete(p_paths text[]) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    SET statement_timeout TO '0'
+    AS $$
+DECLARE
+  v_paths text[] := ARRAY[]::text[];
+  v_p     text;
+  v_key   text;
+  v_iss   text;
+  v_url   text;
+  v_req   bigint;
+BEGIN
+  -- Filter path kosong
+  FOREACH v_p IN ARRAY coalesce(p_paths, ARRAY[]::text[]) LOOP
+    IF coalesce(trim(v_p),'') <> '' THEN
+      v_paths := v_paths || trim(v_p);
+    END IF;
+  END LOOP;
+  IF array_length(v_paths, 1) IS NULL THEN
+    RETURN jsonb_build_object('status','success','message','Tidak ada file untuk dihapus.','queued',0,'request_id',NULL::bigint);
+  END IF;
+
+  -- 1) Ambil service_role key dari Vault
+  BEGIN
+    SELECT decrypted_secret INTO v_key FROM vault.decrypted_secrets
+      WHERE name = 'storage_service_role' LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('status','error','message',
+      'Vault belum siap: ' || SQLERRM || '. Aktifkan: create extension if not exists supabase_vault; lalu simpan key: select vault.create_secret(''<service_role_key>'', ''storage_service_role'');');
+  END;
+  IF coalesce(v_key,'') = '' THEN
+    RETURN jsonb_build_object('status','error','message',
+      'Service role key belum disimpan di Vault. Jalankan: select vault.create_secret(''<service_role_key>'', ''storage_service_role'');');
+  END IF;
+
+  -- 2) Tentukan URL project: prioritas dari Vault (storage_project_url),
+  --    fallback dari klaim JWT request (iss = https://<ref>.supabase.co/auth/v1)
+  BEGIN
+    SELECT decrypted_secret INTO v_url FROM vault.decrypted_secrets
+      WHERE name = 'storage_project_url' LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN v_url := NULL; END;
+  IF coalesce(v_url,'') = '' OR position('http' IN v_url) <> 1 THEN
+    v_iss := NULLIF(current_setting('request.jwt.claims', true), '');
+    IF v_iss IS NOT NULL THEN
+      BEGIN
+        v_url := NULLIF(v_iss::jsonb ->> 'iss', '');
+        IF v_url IS NOT NULL THEN v_url := replace(v_url, '/auth/v1', ''); END IF;
+      EXCEPTION WHEN OTHERS THEN v_url := NULL; END;
+    END IF;
+  END IF;
+  IF coalesce(v_url,'') <> '' THEN v_url := rtrim(v_url, '/'); END IF;
+  IF coalesce(v_url,'') = '' OR position('http' IN v_url) <> 1 THEN
+    RETURN jsonb_build_object('status','error','message',
+      'URL project belum disimpan. Jalankan sekali di SQL Editor: select vault.create_secret(''https://<REF>.supabase.co'', ''storage_project_url'');');
+  END IF;
+
+  -- 3) Antrekan permintaan hapus massal ke Storage API via pg_net
+  --    (request baru benar-benar dikirim setelah transaksi ini commit)
+  BEGIN
+    v_req := net.http_post(
+      url := v_url || '/storage/v1/object/rt-media',
+      body := jsonb_build_object('prefixes', v_paths),
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
         'apikey', v_key,
         'Authorization', 'Bearer ' || v_key
       ),
@@ -74,927 +798,3 @@ ALTER FUNCTION public.storage_get_delete_result(p_request_id bigint) OWNER TO po
 
 --
 -- Name: trg_users_hash_password(); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.trg_users_hash_password() RETURNS trigger
-    LANGUAGE plpgsql
-    SET search_path TO 'public', 'pg_temp'
-    AS $_$
-begin
-  if new.password is not null and new.password <> '' and new.password not like '$2%' then
-    new.password := public._bcrypt_hash(new.password);
-  end if;
-  return new;
-end $_$;
-
-
-ALTER FUNCTION public.trg_users_hash_password() OWNER TO postgres;
-
---
--- Name: truncate_table_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.truncate_table_secured(p_table_name text, p_token text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-    DECLARE
-      v_role text;
-        v_lower text;
-        BEGIN
-          -- Cek Role di Sessions
-            SELECT role INTO v_role FROM public."Sessions" WHERE token = p_token OR nik = p_token LIMIT 1;
-              
-                -- Fallback Cek Role di Users
-                  IF v_role IS NULL THEN
-                      SELECT role INTO v_role FROM public."Users" WHERE username = p_token OR nik = p_token LIMIT 1;
-                        END IF;
-
-                          v_lower := LOWER(TRIM(p_table_name));
-
-                            -- PROTEKSI KETAT: Dilarang hapus Warga, Users, Sessions, Pengaturan
-                              IF v_lower LIKE '%warga%' OR v_lower LIKE '%user%' OR v_lower LIKE '%session%' OR v_lower LIKE '%pengaturan%' THEN
-                                  RETURN jsonb_build_object('status', 'error', 'message', 'SECURITY ALERT: Tabel vital dilindungi dan tidak boleh dihapus!');
-                                    END IF;
-
-                                      -- EKSEKUSI HAPUS ISI TABEL TRANSAKSI (Gunakan WHERE true agar Lolos dari Klausa Postgres)
-                                        IF v_lower LIKE '%iuran%' THEN 
-                                            DELETE FROM public."Iuran" WHERE true;
-                                              ELSIF v_lower LIKE '%keuangan%' OR v_lower LIKE '%kas%' THEN 
-                                                  DELETE FROM public."Keuangan" WHERE true;
-                                                    ELSIF v_lower LIKE '%aduan%' OR v_lower LIKE '%pengaduan%' THEN 
-                                                        DELETE FROM public."Pengaduan" WHERE true;
-                                                          ELSIF v_lower LIKE '%surat%' THEN 
-                                                              DELETE FROM public."SuratPengantar" WHERE true;
-                                                                ELSIF v_lower LIKE '%sumbangan%' THEN 
-                                                                    DELETE FROM public."Sumbangan" WHERE true;
-                                                                      ELSIF v_lower LIKE '%aset%' THEN 
-                                                                          DELETE FROM public."Aset" WHERE true;
-                                                                            ELSIF v_lower LIKE '%peminjaman%' OR v_lower LIKE '%pinjam%' THEN 
-                                                                                DELETE FROM public."Peminjaman" WHERE true;
-                                                                                  ELSIF v_lower LIKE '%aspirasi%' THEN 
-                                                                                      DELETE FROM public."Aspirasi" WHERE true;
-                                                                                        ELSE
-                                                                                            RETURN jsonb_build_object('status', 'error', 'message', 'Tabel ' || p_table_name || ' tidak ditemukan.');
-                                                                                              END IF;
-
-                                                                                                RETURN jsonb_build_object('status', 'success', 'message', 'Tabel ' || p_table_name || ' berhasil dibersihkan!');
-                                                                                                END;
-                                                                                                $$;
-
-
-ALTER FUNCTION public.truncate_table_secured(p_table_name text, p_token text) OWNER TO postgres;
-
---
--- Name: update_user_secured(text, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.update_user_secured(p_token text, p_old_username text, p_data jsonb) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        DECLARE
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            v_role text := 'Warga';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            BEGIN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan mengedit user.');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    END IF;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        IF p_data->>'password' IS NOT NULL AND TRIM(p_data->>'password') != '' THEN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                UPDATE public."Users"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        SET 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    username = COALESCE(p_data->>'username', username),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                nik      = COALESCE(p_data->>'nik', nik),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            role     = COALESCE(p_data->>'role', role),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        password = p_data->>'password'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                WHERE LOWER(username) = LOWER(p_old_username);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ELSE
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            UPDATE public."Users"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SET 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                username = COALESCE(p_data->>'username', username),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            nik      = COALESCE(p_data->>'nik', nik),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        role     = COALESCE(p_data->>'role', role)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                WHERE LOWER(username) = LOWER(p_old_username);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    END IF;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        RETURN json_build_object('status', 'success', 'message', 'Akun User berhasil diperbarui!');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        EXCEPTION WHEN OTHERS THEN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            RETURN json_build_object('status', 'error', 'message', SQLERRM);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            END;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            $$;
-
-
-ALTER FUNCTION public.update_user_secured(p_token text, p_old_username text, p_data jsonb) OWNER TO postgres;
-
---
--- Name: update_warga_secured(text, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.update_warga_secured(p_token text, p_id text, p_data jsonb) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
-                                                                                                                                                                                        DECLARE
-                                                                                                                                                                                            v_role text := 'Warga';
-                                                                                                                                                                                            BEGIN
-                                                                                                                                                                                                SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
-                                                                                                                                                                                                    
-                                                                                                                                                                                                        IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
-                                                                                                                                                                                                                RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan mengubah data warga.');
-                                                                                                                                                                                                                    END IF;
-
-                                                                                                                                                                                                                        UPDATE public."Warga"
-                                                                                                                                                                                                                            SET 
-                                                                                                                                                                                                                                    nama_lengkap   = COALESCE(p_data->>'nama_lengkap', nama_lengkap),
-                                                                                                                                                                                                                                            nama_panggilan = COALESCE(p_data->>'nama_panggilan', nama_panggilan),
-                                                                                                                                                                                                                                                    nik            = COALESCE(p_data->>'nik', nik),
-                                                                                                                                                                                                                                                            no_kk          = COALESCE(p_data->>'no_kk', no_kk),
-                                                                                                                                                                                                                                                                    tempat_lahir   = COALESCE(p_data->>'tempat_lahir', tempat_lahir),
-                                                                                                                                                                                                                                                                            tanggal_lahir  = COALESCE(p_data->>'tanggal_lahir', tanggal_lahir),
-                                                                                                                                                                                                                                                                                    jenis_kelamin  = COALESCE(p_data->>'jenis_kelamin', jenis_kelamin),
-                                                                                                                                                                                                                                                                                            alamat         = COALESCE(p_data->>'alamat', alamat),
-                                                                                                                                                                                                                                                                                                    status_nikah   = COALESCE(p_data->>'status_nikah', status_nikah),
-                                                                                                                                                                                                                                                                                                            status_tinggal = COALESCE(p_data->>'status_tinggal', status_tinggal),
-                                                                                                                                                                                                                                                                                                                    pekerjaan      = COALESCE(p_data->>'pekerjaan', pekerjaan),
-                                                                                                                                                                                                                                                                                                                            no_hp          = COALESCE(p_data->>'no_hp', no_hp),
-                                                                                                                                                                                                                                                                                                                                    foto_url       = COALESCE(p_data->>'foto_url', foto_url)
-                                                                                                                                                                                                                                                                                                                                        WHERE id = p_id OR nik = p_id;
-
-                                                                                                                                                                                                                                                                                                                                            RETURN json_build_object('status', 'success', 'message', 'Data Warga berhasil diperbarui!');
-                                                                                                                                                                                                                                                                                                                                            EXCEPTION WHEN OTHERS THEN
-                                                                                                                                                                                                                                                                                                                                                RETURN json_build_object('status', 'error', 'message', SQLERRM);
-                                                                                                                                                                                                                                                                                                                                                END;
-                                                                                                                                                                                                                                                                                                                                                $$;
-
-
-ALTER FUNCTION public.update_warga_secured(p_token text, p_id text, p_data jsonb) OWNER TO postgres;
-
---
--- Name: upload_file_secured(text, text, text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text DEFAULT 'image/jpeg'::text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-declare
-  v_role text := public.auth_role(p_token);
-  v_b64  text := trim(coalesce(p_base64,''));
-  v_path text := lower(trim(coalesce(p_path,'')));
-begin
-  if v_role is null then
-    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
-  end if;
-  -- Terima "data:image/...;base64,...." atau base64 polos
-  if v_b64 like 'data:%' then
-    v_b64 := split_part(v_b64, ',', 2);
-  end if;
-  if v_b64 = '' or octet_length(v_b64) > 4000000 then
-    return jsonb_build_object('status','error','message','File kosong atau terlalu besar (maks ±3 MB).');
-  end if;
-  if not public._is_image_base64(v_b64) then
-    return jsonb_build_object('status','error','message','File bukan gambar asli (JPEG/PNG/WebP/GIF/BMP).');
-  end if;
-  -- Path aman: hanya huruf/angka/_/-// (cegah path traversal)
-  if v_path = '' or v_path ~ '[^a-z0-9_\-/]' or v_path like '../%' or v_path like '%..' or strpos(v_path, '..') > 0 then
-    return jsonb_build_object('status','error','message','Path file tidak valid.');
-  end if;
-  return jsonb_build_object('status','success','message','File valid & terverifikasi.');
-end $$;
-
-
-ALTER FUNCTION public.upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text) OWNER TO postgres;
-
---
--- Name: verify_user_login(text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.verify_user_login(p_username text, p_password text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-declare
-  v_user public."Users"%rowtype;
-  v_u text := lower(trim(coalesce(p_username,'')));
-  v_p text := coalesce(p_password,'');
-  v_lock text;
-begin
-  if v_u = '' or v_p = '' then
-    return jsonb_build_object('status','error','message','Username / NIK dan Password tidak boleh kosong!');
-  end if;
-  v_lock := public._login_lock_check(v_u);
-  if v_lock is not null then
-    return jsonb_build_object('status','error','message', v_lock);
-  end if;
-  select * into v_user from public."Users"
-    where lower(trim(coalesce(username,''))) = v_u
-       or nik_sha = public._sha(v_u)
-       or public._sha(coalesce(nik,'')) = public._sha(v_u)
-    limit 1;
-  if not found then
-    perform public._login_lock_fail(v_u);
-    return jsonb_build_object('status','error','message','Akun tidak ditemukan.');
-  end if;
-  if not public._bcrypt_check(v_p, v_user.password) then
-    perform public._login_lock_fail(v_u);
-    return jsonb_build_object('status','error','message','Password salah.');
-  end if;
-  perform public._login_lock_clear(v_u);
-  return jsonb_build_object(
-    'status','success',
-    'username', v_user.username,
-    'role', v_user.role,
-    'nik', public._dec_data(v_user.nik),
-    'nama', v_user.nama
-  );
-end $$;
-
-
-ALTER FUNCTION public.verify_user_login(p_username text, p_password text) OWNER TO postgres;
-
---
--- Name: apply_rls(jsonb, integer); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer DEFAULT (1024 * 1024)) RETURNS SETOF realtime.wal_rls
-    LANGUAGE plpgsql
-    AS $$
-declare
-    -- Regclass of the table e.g. public.notes
-    entity_ regclass = (quote_ident(wal ->> 'schema') || '.' || quote_ident(wal ->> 'table'))::regclass;
-
-    -- I, U, D, T: insert, update ...
-    action realtime.action = (
-        case wal ->> 'action'
-            when 'I' then 'INSERT'
-            when 'U' then 'UPDATE'
-            when 'D' then 'DELETE'
-            else 'ERROR'
-        end
-    );
-
-    -- Is row level security enabled for the table
-    is_rls_enabled bool = relrowsecurity from pg_class where oid = entity_;
-
-    subscriptions realtime.subscription[] = array_agg(subs)
-        from
-            realtime.subscription subs
-        where
-            subs.entity = entity_
-            -- Filter by action early - only get subscriptions interested in this action
-            -- action_filter column can be: '*' (all), 'INSERT', 'UPDATE', or 'DELETE'
-            and (subs.action_filter = '*' or subs.action_filter = action::text);
-
-    -- Subscription vars
-    working_role regrole;
-    working_selected_columns text[];
-    claimed_role regrole;
-    claims jsonb;
-
-    subscription_id uuid;
-    subscription_has_access bool;
-    visible_to_subscription_ids uuid[] = '{}';
-
-    -- structured info for wal's columns
-    columns realtime.wal_column[];
-    -- previous identity values for update/delete
-    old_columns realtime.wal_column[];
-
-    error_record_exceeds_max_size boolean = octet_length(wal::text) > max_record_bytes;
-
-    -- Primary jsonb output for record
-    output jsonb;
-
-    -- Loop record for iterating unique roles (outer loop)
-    role_record record;
-    -- Loop record for iterating unique selected_columns within a role (inner loop)
-    cols_record record;
-    -- Subscription ids visible at the role level (before fanning out by selected_columns)
-    visible_role_sub_ids uuid[] = '{}';
-
-begin
-    perform set_config('role', null, true);
-
-    columns =
-        array_agg(
-            (
-                x->>'name',
-                x->>'type',
-                x->>'typeoid',
-                realtime.cast(
-                    (x->'value') #>> '{}',
-                    coalesce(
-                        (x->>'typeoid')::regtype, -- null when wal2json version <= 2.4
-                        (x->>'type')::regtype
-                    )
-                ),
-                (pks ->> 'name') is not null,
-                true
-            )::realtime.wal_column
-        )
-        from
-            jsonb_array_elements(wal -> 'columns') x
-            left join jsonb_array_elements(wal -> 'pk') pks
-                on (x ->> 'name') = (pks ->> 'name');
-
-    old_columns =
-        array_agg(
-            (
-                x->>'name',
-                x->>'type',
-                x->>'typeoid',
-                realtime.cast(
-                    (x->'value') #>> '{}',
-                    coalesce(
-                        (x->>'typeoid')::regtype, -- null when wal2json version <= 2.4
-                        (x->>'type')::regtype
-                    )
-                ),
-                (pks ->> 'name') is not null,
-                true
-            )::realtime.wal_column
-        )
-        from
-            jsonb_array_elements(wal -> 'identity') x
-            left join jsonb_array_elements(wal -> 'pk') pks
-                on (x ->> 'name') = (pks ->> 'name');
-
-    for role_record in
-        select claims_role
-        from (select distinct claims_role from unnest(subscriptions)) t
-        order by claims_role::text
-    loop
-        working_role := role_record.claims_role;
-
-        -- Update `is_selectable` for columns and old_columns (once per role)
-        columns =
-            array_agg(
-                (
-                    c.name,
-                    c.type_name,
-                    c.type_oid,
-                    c.value,
-                    c.is_pkey,
-                    pg_catalog.has_column_privilege(working_role, entity_, c.name, 'SELECT')
-                )::realtime.wal_column
-            )
-            from
-                unnest(columns) c;
-
-        old_columns =
-                array_agg(
-                    (
-                        c.name,
-                        c.type_name,
-                        c.type_oid,
-                        c.value,
-                        c.is_pkey,
-                        pg_catalog.has_column_privilege(working_role, entity_, c.name, 'SELECT')
-                    )::realtime.wal_column
-                )
-                from
-                    unnest(old_columns) c;
-
-        if action <> 'DELETE' and count(1) = 0 from unnest(columns) c where c.is_pkey then
-            -- Fan out 400 error per distinct selected_columns for this role
-            for cols_record in
-                select selected_columns
-                from (select distinct selected_columns from unnest(subscriptions) s where s.claims_role = working_role) t
-                order by coalesce(array_to_string(selected_columns, ','), '')
-            loop
-                working_selected_columns := cols_record.selected_columns;
-                return next (
-                    jsonb_build_object(
-                        'schema', wal ->> 'schema',
-                        'table', wal ->> 'table',
-                        'type', action
-                    ),
-                    is_rls_enabled,
-                    (select array_agg(s.subscription_id) from unnest(subscriptions) as s where s.claims_role = working_role and (s.selected_columns is not distinct from working_selected_columns)),
-                    array['Error 400: Bad Request, no primary key']
-                )::realtime.wal_rls;
-            end loop;
-
-        -- The claims role does not have SELECT permission to the primary key of entity
-        elsif action <> 'DELETE' and sum(c.is_selectable::int) <> count(1) from unnest(columns) c where c.is_pkey then
-            -- Fan out 401 error per distinct selected_columns for this role
-            for cols_record in
-                select selected_columns
-                from (select distinct selected_columns from unnest(subscriptions) s where s.claims_role = working_role) t
-                order by coalesce(array_to_string(selected_columns, ','), '')
-            loop
-                working_selected_columns := cols_record.selected_columns;
-                return next (
-                    jsonb_build_object(
-                        'schema', wal ->> 'schema',
-                        'table', wal ->> 'table',
-                        'type', action
-                    ),
-                    is_rls_enabled,
-                    (select array_agg(s.subscription_id) from unnest(subscriptions) as s where s.claims_role = working_role and (s.selected_columns is not distinct from working_selected_columns)),
-                    array['Error 401: Unauthorized']
-                )::realtime.wal_rls;
-            end loop;
-
-        else
-            -- Create the prepared statement (once per role)
-            if is_rls_enabled and action <> 'DELETE' then
-                if (select 1 from pg_prepared_statements where name = 'walrus_rls_stmt' limit 1) > 0 then
-                    deallocate walrus_rls_stmt;
-                end if;
-                execute realtime.build_prepared_statement_sql('walrus_rls_stmt', entity_, columns);
-            end if;
-
-            -- Collect all visible subscription IDs for this role (filter check + RLS check)
-            visible_role_sub_ids = '{}';
-
-            for subscription_id, claims in (
-                    select
-                        subs.subscription_id,
-                        subs.claims
-                    from
-                        unnest(subscriptions) subs
-                    where
-                        subs.entity = entity_
-                        and subs.claims_role = working_role
-                        and (
-                            realtime.is_visible_through_filters(columns, subs.filters)
-                            or (
-                              action = 'DELETE'
-                              and realtime.is_visible_through_filters(old_columns, subs.filters)
-                            )
-                        )
-            ) loop
-
-                if not is_rls_enabled or action = 'DELETE' then
-                    visible_role_sub_ids = visible_role_sub_ids || subscription_id;
-                else
-                    -- Check if RLS allows the role to see the record
-                    perform
-                        -- Trim leading and trailing quotes from working_role because set_config
-                        -- doesn't recognize the role as valid if they are included
-                        set_config('role', trim(both '"' from working_role::text), true),
-                        set_config('request.jwt.claims', claims::text, true);
-
-                    execute 'execute walrus_rls_stmt' into subscription_has_access;
-
-                    -- Reset the role on every FOR..LOOP batch execution.
-                    -- The first batch of 10 rows is pre-fetched using the current connection role (PG internal behaviour)
-                    -- then we have to reset it again otherwise it would use the role defined in the `set_config` above
-                    -- to fetch the remaining rows when rows>10, which could be a user-defined role that lacks execution grants.
-                    -- The flow is:
-                    --   1. run batch with conn role
-                    --   2. set_config working_role
-                    --   3. execute walrus
-                    --   4. reset role (revert)
-                    --   5. repeat
-                    perform set_config('role', null, true);
-
-                    if subscription_has_access then
-                        visible_role_sub_ids = visible_role_sub_ids || subscription_id;
-                    end if;
-                end if;
-            end loop;
-
-            perform set_config('role', null, true);
-
-            -- Inner loop: per distinct selected_columns for this role
-            for cols_record in
-                select selected_columns
-                from (select distinct selected_columns from unnest(subscriptions) s where s.claims_role = working_role) t
-                order by coalesce(array_to_string(selected_columns, ','), '')
-            loop
-                working_selected_columns := cols_record.selected_columns;
-
-                output = jsonb_build_object(
-                    'schema', wal ->> 'schema',
-                    'table', wal ->> 'table',
-                    'type', action,
-                    'commit_timestamp', to_char(
-                        ((wal ->> 'timestamp')::timestamptz at time zone 'utc'),
-                        'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
-                    ),
-                    'columns', (
-                        select
-                            jsonb_agg(
-                                jsonb_build_object(
-                                    'name', pa.attname,
-                                    'type', pt.typname
-                                )
-                                order by pa.attnum asc
-                            )
-                        from
-                            pg_attribute pa
-                            join pg_type pt
-                                on pa.atttypid = pt.oid
-                            left join (
-                                select unnest(conkey) as pkey_attnum
-                                from pg_constraint
-                                where conrelid = entity_ and contype = 'p'
-                            ) pk on pk.pkey_attnum = pa.attnum
-                        where
-                            attrelid = entity_
-                            and attnum > 0
-                            and pg_catalog.has_column_privilege(working_role, entity_, pa.attname, 'SELECT')
-                            and (working_selected_columns is null or pa.attname = any(working_selected_columns) or pk.pkey_attnum is not null)
-                    )
-                )
-                -- Add "record" key for insert and update
-                || case
-                    when action in ('INSERT', 'UPDATE') then
-                        jsonb_build_object(
-                            'record',
-                            (
-                                select
-                                    jsonb_object_agg(
-                                        -- if unchanged toast, get column name and value from old record
-                                        coalesce((c).name, (oc).name),
-                                        case
-                                            when (c).name is null then (oc).value
-                                            else (c).value
-                                        end
-                                    )
-                                from
-                                    unnest(columns) c
-                                    full outer join unnest(old_columns) oc
-                                        on (c).name = (oc).name
-                                where
-                                    coalesce((c).is_selectable, (oc).is_selectable)
-                                    and (working_selected_columns is null or coalesce((c).name, (oc).name) = any(working_selected_columns) or coalesce((c).is_pkey, (oc).is_pkey))
-                                    and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                            )
-                        )
-                    else '{}'::jsonb
-                end
-                -- Add "old_record" key for update and delete
-                || case
-                    when action = 'UPDATE' then
-                        jsonb_build_object(
-                                'old_record',
-                                (
-                                    select jsonb_object_agg((c).name, (c).value)
-                                    from unnest(old_columns) c
-                                    where
-                                        (c).is_selectable
-                                        and (working_selected_columns is null or (c).name = any(working_selected_columns) or (c).is_pkey)
-                                        and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                                )
-                            )
-                    when action = 'DELETE' then
-                        jsonb_build_object(
-                            'old_record',
-                            (
-                                select jsonb_object_agg((c).name, (c).value)
-                                from unnest(old_columns) c
-                                where
-                                    (c).is_selectable
-                                    and (working_selected_columns is null or (c).name = any(working_selected_columns) or (c).is_pkey)
-                                    and ( not error_record_exceeds_max_size or (octet_length((c).value::text) <= 64))
-                                    and ( not is_rls_enabled or (c).is_pkey ) -- if RLS enabled, we can't secure deletes so filter to pkey
-                            )
-                        )
-                    else '{}'::jsonb
-                end;
-
-                -- Filter visible_role_sub_ids to those matching the current selected_columns group
-                visible_to_subscription_ids = coalesce(
-                    (
-                        select array_agg(s.subscription_id)
-                        from unnest(subscriptions) s
-                        where s.claims_role = working_role
-                          and (s.selected_columns is not distinct from working_selected_columns)
-                          and s.subscription_id = any(visible_role_sub_ids)
-                    ),
-                    '{}'::uuid[]
-                );
-
-                return next (
-                    output,
-                    is_rls_enabled,
-                    visible_to_subscription_ids,
-                    case
-                        when error_record_exceeds_max_size then array['Error 413: Payload Too Large']
-                        else '{}'
-                    end
-                )::realtime.wal_rls;
-            end loop;
-
-        end if;
-    end loop;
-
-    perform set_config('role', null, true);
-end;
-$$;
-
-
-ALTER FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) OWNER TO supabase_realtime_admin;
-
---
--- Name: broadcast_changes(text, text, text, text, text, record, record, text); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text DEFAULT 'ROW'::text) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    -- Declare a variable to hold the JSONB representation of the row
-    row_data jsonb := '{}'::jsonb;
-BEGIN
-    IF level = 'STATEMENT' THEN
-        RAISE EXCEPTION 'function can only be triggered for each row, not for each statement';
-    END IF;
-    -- Check the operation type and handle accordingly
-    IF operation = 'INSERT' OR operation = 'UPDATE' OR operation = 'DELETE' THEN
-        row_data := jsonb_build_object('old_record', OLD, 'record', NEW, 'operation', operation, 'table', table_name, 'schema', table_schema);
-        PERFORM realtime.send (row_data, event_name, topic_name);
-    ELSE
-        RAISE EXCEPTION 'Unexpected operation type: %', operation;
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to process the row: %', SQLERRM;
-END;
-
-$$;
-
-
-ALTER FUNCTION realtime.broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text) OWNER TO supabase_realtime_admin;
-
---
--- Name: build_prepared_statement_sql(text, regclass, realtime.wal_column[]); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) RETURNS text
-    LANGUAGE sql
-    AS $$
-      /*
-      Builds a sql string that, if executed, creates a prepared statement to
-      tests retrive a row from *entity* by its primary key columns.
-      Example
-          select realtime.build_prepared_statement_sql('public.notes', '{"id"}'::text[], '{"bigint"}'::text[])
-      */
-          select
-      'prepare ' || prepared_statement_name || ' as
-          select
-              exists(
-                  select
-                      1
-                  from
-                      ' || entity || '
-                  where
-                      ' || string_agg(quote_ident(pkc.name) || '=' || quote_nullable(pkc.value #>> '{}') , ' and ') || '
-              )'
-          from
-              unnest(columns) pkc
-          where
-              pkc.is_pkey
-          group by
-              entity
-      $$;
-
-
-ALTER FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) OWNER TO supabase_realtime_admin;
-
---
--- Name: cast(text, regtype); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime."cast"(val text, type_ regtype) RETURNS jsonb
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-declare
-  res jsonb;
-begin
-  if type_::text = 'bytea' then
-    return to_jsonb(val);
-  end if;
-  execute format('select to_jsonb(%L::'|| type_::text || ')', val) into res;
-  return res;
-end
-$$;
-
-
-ALTER FUNCTION realtime."cast"(val text, type_ regtype) OWNER TO supabase_realtime_admin;
-
---
--- Name: check_equality_op(realtime.equality_op, regtype, text, text); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) RETURNS boolean
-    LANGUAGE plpgsql IMMUTABLE
-    AS $$
-/*
-Casts *val_1* and *val_2* as type *type_* and check the *op* condition for truthiness
-*/
-declare
-    op_symbol text = (
-        case
-            when op = 'eq' then '='
-            when op = 'neq' then '!='
-            when op = 'lt' then '<'
-            when op = 'lte' then '<='
-            when op = 'gt' then '>'
-            when op = 'gte' then '>='
-            when op = 'in' then '= any'
-            else 'UNKNOWN OP'
-        end
-    );
-    res boolean;
-begin
-    execute format(
-        'select %L::'|| type_::text || ' ' || op_symbol
-        || ' ( %L::'
-        || (
-            case
-                when op = 'in' then type_::text || '[]'
-                else type_::text end
-        )
-        || ')', val_1, val_2) into res;
-    return res;
-end;
-$$;
-
-
-ALTER FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) OWNER TO supabase_realtime_admin;
-
---
--- Name: check_equality_op(realtime.equality_op, regtype, text, text, boolean); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) RETURNS boolean
-    LANGUAGE plpgsql STABLE
-    AS $$
-declare
-    op_symbol text;
-    res boolean;
-begin
-    -- IS DISTINCT FROM / IS NOT DISTINCT FROM: infix, both sides typed literals
-    if op = 'isdistinct' then
-        execute format(
-            'select %L::%s %s %L::%s',
-            val_1,
-            type_::text,
-            case when negate then 'IS NOT DISTINCT FROM' else 'IS DISTINCT FROM' end,
-            val_2,
-            type_::text
-        ) into res;
-        return res;
-    end if;
-
-    -- IS requires a keyword RHS (NULL, TRUE, FALSE, UNKNOWN), not a typed literal
-    if op = 'is' then
-        if val_2 not in ('null', 'true', 'false', 'unknown') then
-            raise exception 'invalid value for is filter: must be null, true, false, or unknown';
-        end if;
-        execute format(
-            'select %L::%s %s %s',
-            val_1,
-            type_::text,
-            case when negate then 'IS NOT' else 'IS' end,
-            upper(val_2)
-        ) into res;
-        return res;
-    end if;
-
-    op_symbol = case
-        when op = 'eq'    then '='
-        when op = 'neq'   then '!='
-        when op = 'lt'    then '<'
-        when op = 'lte'   then '<='
-        when op = 'gt'    then '>'
-        when op = 'gte'   then '>='
-        when op = 'in'    then '= any'
-        when op = 'like'   then 'LIKE'
-        when op = 'ilike'  then 'ILIKE'
-        when op = 'match'  then '~'
-        when op = 'imatch' then '~*'
-        else null
-    end;
-
-    if op_symbol is null then
-        raise exception 'unsupported equality operator: %', op::text;
-    end if;
-
-    execute format(
-        'select %L::%s %s (%L::%s)',
-        val_1,
-        type_::text,
-        op_symbol,
-        val_2,
-        case when op = 'in' then type_::text || '[]' else type_::text end
-    ) into res;
-
-    return case when negate then not res else res end;
-end;
-$$;
-
-
-ALTER FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) OWNER TO supabase_realtime_admin;
-
---
--- Name: is_visible_through_filters(realtime.wal_column[], realtime.user_defined_filter[]); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) RETURNS boolean
-    LANGUAGE sql STABLE
-    AS $$
-    select
-        filters is null
-        or array_length(filters, 1) is null
-        or coalesce(
-            count(col.name) = count(1)
-            and sum(
-                realtime.check_equality_op(
-                    op:=f.op,
-                    type_:=coalesce(col.type_oid::regtype, col.type_name::regtype),
-                    val_1:=col.value #>> '{}',
-                    val_2:=f.value,
-                    negate:=coalesce(f.negate, false)
-                )::int
-            ) filter (where col.name is not null) = count(col.name),
-            false
-        )
-    from
-        unnest(filters) f
-        left join unnest(columns) col
-            on f.column_name = col.name;
-$$;
-
-
-ALTER FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) OWNER TO supabase_realtime_admin;
-
---
--- Name: list_changes(name, name, integer, integer); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin
---
-
-CREATE FUNCTION realtime.list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) RETURNS TABLE(wal jsonb, is_rls_enabled boolean, subscription_ids uuid[], errors text[], slot_changes_count bigint)
-    LANGUAGE sql
-    SET log_min_messages TO 'fatal'
-    AS $$
-  WITH pub AS (
-    SELECT
-      concat_ws(
-        ',',
-        CASE WHEN bool_or(pubinsert) THEN 'insert' ELSE NULL END,
-        CASE WHEN bool_or(pubupdate) THEN 'update' ELSE NULL END,
-        CASE WHEN bool_or(pubdelete) THEN 'delete' ELSE NULL END
-      ) AS w2j_actions,
-      coalesce(
-        string_agg(
-          realtime.quote_wal2json(format('%I.%I', schemaname, tablename)::regclass),
-          ','
-        ) filter (WHERE ppt.tablename IS NOT NULL),
-        ''
-      ) AS w2j_add_tables
-    FROM pg_publication pp
-    LEFT JOIN pg_publication_tables ppt ON pp.pubname = ppt.pubname
-    WHERE pp.pubname = publication
-    GROUP BY pp.pubname
-    LIMIT 1
-  ),
-  -- MATERIALIZED ensures pg_logical_slot_get_changes is called exactly once
-  w2j AS MATERIALIZED (
-    SELECT x.*, pub.w2j_add_tables
-    FROM pub,
-         pg_logical_slot_get_changes(
-           slot_name, null, max_changes,
-           'include-pk', 'true',
-           'include-transaction', 'false',
-           'include-timestamp', 'true',
-           'include-type-oids', 'true',
-           'format-version', '2',
-           'actions', pub.w2j_actions,
-           'add-tables', pub.w2j_add_tables
-         ) x
-  ),
-  slot_count AS (
-    SELECT count(*)::bigint AS cnt
-    FROM w2j
-    WHERE w2j.w2j_add_tables <> ''
-  ),
-  rls_filtered AS (
-    SELECT xyz.wal, xyz.is_rls_enabled, xyz.subscription_ids, xyz.errors
-    FROM w2j,
-         realtime.apply_rls(
-           wal := w2j.data::jsonb,
-           max_record_bytes := max_record_bytes
-         ) xyz(wal, is_rls_enabled, subscription_ids, errors)
-    WHERE w2j.w2j_add_tables <> ''
-      AND xyz.subscription_ids[1] IS NOT NULL
-  )
-  SELECT rf.wal, rf.is_rls_enabled, rf.subscription_ids, rf.errors, sc.cnt
-  FROM rls_filtered rf, slot_count sc
-
-  UNION ALL
-
-  SELECT null, null, null, null, sc.cnt
-  FROM slot_count sc
-  WHERE NOT EXISTS (SELECT 1 FROM rls_filtered)
-$$;
-
-
-ALTER FUNCTION realtime.list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) OWNER TO supabase_realtime_admin;
-
---
--- Name: quote_wal2json(regclass); Type: FUNCTION; Schema: realtime; Owner: supabase_realtime_admin

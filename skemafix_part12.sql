@@ -1,1000 +1,800 @@
-GRANT ALL ON FUNCTION extensions.uuid_generate_v5(namespace uuid, name text) TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_generate_v5(namespace uuid, name text) TO dashboard_user;
-
-
---
--- Name: FUNCTION uuid_nil(); Type: ACL; Schema: extensions; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION extensions.uuid_nil() FROM postgres;
-GRANT ALL ON FUNCTION extensions.uuid_nil() TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_nil() TO dashboard_user;
-
-
---
--- Name: FUNCTION uuid_ns_dns(); Type: ACL; Schema: extensions; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION extensions.uuid_ns_dns() FROM postgres;
-GRANT ALL ON FUNCTION extensions.uuid_ns_dns() TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_ns_dns() TO dashboard_user;
-
-
---
--- Name: FUNCTION uuid_ns_oid(); Type: ACL; Schema: extensions; Owner: postgres
+-- Name: webauthn_credentials webauthn_credentials_pkey; Type: CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-REVOKE ALL ON FUNCTION extensions.uuid_ns_oid() FROM postgres;
-GRANT ALL ON FUNCTION extensions.uuid_ns_oid() TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_ns_oid() TO dashboard_user;
+ALTER TABLE ONLY auth.webauthn_credentials
+    ADD CONSTRAINT webauthn_credentials_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION uuid_ns_url(); Type: ACL; Schema: extensions; Owner: postgres
+-- Name: Aset Aset_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION extensions.uuid_ns_url() FROM postgres;
-GRANT ALL ON FUNCTION extensions.uuid_ns_url() TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_ns_url() TO dashboard_user;
+ALTER TABLE ONLY public."Aset"
+    ADD CONSTRAINT "Aset_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION uuid_ns_x500(); Type: ACL; Schema: extensions; Owner: postgres
+-- Name: Aspirasi Aspirasi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION extensions.uuid_ns_x500() FROM postgres;
-GRANT ALL ON FUNCTION extensions.uuid_ns_x500() TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION extensions.uuid_ns_x500() TO dashboard_user;
+ALTER TABLE ONLY public."Aspirasi"
+    ADD CONSTRAINT "Aspirasi_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION graphql("operationName" text, query text, variables jsonb, extensions jsonb); Type: ACL; Schema: graphql_public; Owner: supabase_admin
+-- Name: Bansos Bansos_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO postgres;
-GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO anon;
-GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO authenticated;
-GRANT ALL ON FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) TO service_role;
+ALTER TABLE ONLY public."Bansos"
+    ADD CONSTRAINT "Bansos_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION pg_reload_conf(); Type: ACL; Schema: pg_catalog; Owner: supabase_admin
+-- Name: Iuran Iuran_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION pg_catalog.pg_reload_conf() TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY public."Iuran"
+    ADD CONSTRAINT "Iuran_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION get_auth(p_usename text); Type: ACL; Schema: pgbouncer; Owner: supabase_admin
+-- Name: Kelahiran Kelahiran_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION pgbouncer.get_auth(p_usename text) FROM PUBLIC;
-GRANT ALL ON FUNCTION pgbouncer.get_auth(p_usename text) TO pgbouncer;
+ALTER TABLE ONLY public."Kelahiran"
+    ADD CONSTRAINT "Kelahiran_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _bansos_expired_ts(p_val text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Kematian Kematian_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._bansos_expired_ts(p_val text) TO anon;
-GRANT ALL ON FUNCTION public._bansos_expired_ts(p_val text) TO authenticated;
-GRANT ALL ON FUNCTION public._bansos_expired_ts(p_val text) TO service_role;
+ALTER TABLE ONLY public."Kematian"
+    ADD CONSTRAINT "Kematian_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _bcrypt_check(p_password text, p_hash text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Keuangan Keuangan_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._bcrypt_check(p_password text, p_hash text) TO anon;
-GRANT ALL ON FUNCTION public._bcrypt_check(p_password text, p_hash text) TO authenticated;
-GRANT ALL ON FUNCTION public._bcrypt_check(p_password text, p_hash text) TO service_role;
+ALTER TABLE ONLY public."Keuangan"
+    ADD CONSTRAINT "Keuangan_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _bcrypt_hash(p_password text); Type: ACL; Schema: public; Owner: postgres
+-- Name: LoginAttempts LoginAttempts_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._bcrypt_hash(p_password text) TO anon;
-GRANT ALL ON FUNCTION public._bcrypt_hash(p_password text) TO authenticated;
-GRANT ALL ON FUNCTION public._bcrypt_hash(p_password text) TO service_role;
+ALTER TABLE ONLY public."LoginAttempts"
+    ADD CONSTRAINT "LoginAttempts_pkey" PRIMARY KEY (username);
 
 
 --
--- Name: FUNCTION _bcrypt_limit(p_password text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Notifikasi Notifikasi_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._bcrypt_limit(p_password text) TO anon;
-GRANT ALL ON FUNCTION public._bcrypt_limit(p_password text) TO authenticated;
-GRANT ALL ON FUNCTION public._bcrypt_limit(p_password text) TO service_role;
+ALTER TABLE ONLY public."Notifikasi"
+    ADD CONSTRAINT "Notifikasi_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _col_exists(p_qname text, p_col text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Peminjaman Peminjaman_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._col_exists(p_qname text, p_col text) TO anon;
-GRANT ALL ON FUNCTION public._col_exists(p_qname text, p_col text) TO authenticated;
-GRANT ALL ON FUNCTION public._col_exists(p_qname text, p_col text) TO service_role;
+ALTER TABLE ONLY public."Peminjaman"
+    ADD CONSTRAINT "Peminjaman_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _dec_data(p_cipher text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Pengaduan Pengaduan_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._dec_data(p_cipher text) TO anon;
-GRANT ALL ON FUNCTION public._dec_data(p_cipher text) TO authenticated;
-GRANT ALL ON FUNCTION public._dec_data(p_cipher text) TO service_role;
+ALTER TABLE ONLY public."Pengaduan"
+    ADD CONSTRAINT "Pengaduan_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _decrypt_row(p_row jsonb, p_allowed boolean); Type: ACL; Schema: public; Owner: postgres
+-- Name: Pengaturan Pengaturan_kunci_key; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._decrypt_row(p_row jsonb, p_allowed boolean) TO anon;
-GRANT ALL ON FUNCTION public._decrypt_row(p_row jsonb, p_allowed boolean) TO authenticated;
-GRANT ALL ON FUNCTION public._decrypt_row(p_row jsonb, p_allowed boolean) TO service_role;
+ALTER TABLE ONLY public."Pengaturan"
+    ADD CONSTRAINT "Pengaturan_kunci_key" UNIQUE (kunci);
 
 
 --
--- Name: FUNCTION _enc_data(p_plain text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Pengaturan Pengaturan_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._enc_data(p_plain text) TO anon;
-GRANT ALL ON FUNCTION public._enc_data(p_plain text) TO authenticated;
-GRANT ALL ON FUNCTION public._enc_data(p_plain text) TO service_role;
+ALTER TABLE ONLY public."Pengaturan"
+    ADD CONSTRAINT "Pengaturan_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _encrypt_row(p_row jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: PindahKeluar PindahKeluar_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._encrypt_row(p_row jsonb) TO anon;
-GRANT ALL ON FUNCTION public._encrypt_row(p_row jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public._encrypt_row(p_row jsonb) TO service_role;
+ALTER TABLE ONLY public."PindahKeluar"
+    ADD CONSTRAINT "PindahKeluar_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _is_enc(p_val text); Type: ACL; Schema: public; Owner: postgres
+-- Name: PindahMasuk PindahMasuk_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._is_enc(p_val text) TO anon;
-GRANT ALL ON FUNCTION public._is_enc(p_val text) TO authenticated;
-GRANT ALL ON FUNCTION public._is_enc(p_val text) TO service_role;
+ALTER TABLE ONLY public."PindahMasuk"
+    ADD CONSTRAINT "PindahMasuk_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _is_image_base64(p_b64 text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Sessions Sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._is_image_base64(p_b64 text) TO anon;
-GRANT ALL ON FUNCTION public._is_image_base64(p_b64 text) TO authenticated;
-GRANT ALL ON FUNCTION public._is_image_base64(p_b64 text) TO service_role;
+ALTER TABLE ONLY public."Sessions"
+    ADD CONSTRAINT "Sessions_pkey" PRIMARY KEY (token);
 
 
 --
--- Name: FUNCTION _keuangan_ts(p_tanggal text, p_created_at text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Sumbangan Sumbangan_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._keuangan_ts(p_tanggal text, p_created_at text) TO anon;
-GRANT ALL ON FUNCTION public._keuangan_ts(p_tanggal text, p_created_at text) TO authenticated;
-GRANT ALL ON FUNCTION public._keuangan_ts(p_tanggal text, p_created_at text) TO service_role;
+ALTER TABLE ONLY public."Sumbangan"
+    ADD CONSTRAINT "Sumbangan_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _login_lock_check(p_username text); Type: ACL; Schema: public; Owner: postgres
+-- Name: SuratPengantar SuratPengantar_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._login_lock_check(p_username text) TO anon;
-GRANT ALL ON FUNCTION public._login_lock_check(p_username text) TO authenticated;
-GRANT ALL ON FUNCTION public._login_lock_check(p_username text) TO service_role;
+ALTER TABLE ONLY public."SuratPengantar"
+    ADD CONSTRAINT "SuratPengantar_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _login_lock_clear(p_username text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Users Users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._login_lock_clear(p_username text) TO anon;
-GRANT ALL ON FUNCTION public._login_lock_clear(p_username text) TO authenticated;
-GRANT ALL ON FUNCTION public._login_lock_clear(p_username text) TO service_role;
+ALTER TABLE ONLY public."Users"
+    ADD CONSTRAINT "Users_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _login_lock_fail(p_username text); Type: ACL; Schema: public; Owner: postgres
+-- Name: Warga Warga_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON FUNCTION public._login_lock_fail(p_username text) TO anon;
-GRANT ALL ON FUNCTION public._login_lock_fail(p_username text) TO authenticated;
-GRANT ALL ON FUNCTION public._login_lock_fail(p_username text) TO service_role;
+ALTER TABLE ONLY public."Warga"
+    ADD CONSTRAINT "Warga_pkey" PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION _normalize_row(p_row jsonb, p_qname text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages messages_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public._normalize_row(p_row jsonb, p_qname text) TO anon;
-GRANT ALL ON FUNCTION public._normalize_row(p_row jsonb, p_qname text) TO authenticated;
-GRANT ALL ON FUNCTION public._normalize_row(p_row jsonb, p_qname text) TO service_role;
+ALTER TABLE ONLY realtime.messages
+    ADD CONSTRAINT messages_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION _qname(p_table text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_13 messages_2026_08_13_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public._qname(p_table text) TO anon;
-GRANT ALL ON FUNCTION public._qname(p_table text) TO authenticated;
-GRANT ALL ON FUNCTION public._qname(p_table text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_13
+    ADD CONSTRAINT messages_2026_08_13_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION _row_owner_match(p_row jsonb, p_nik text, p_nama text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_14 messages_2026_08_14_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public._row_owner_match(p_row jsonb, p_nik text, p_nama text) TO anon;
-GRANT ALL ON FUNCTION public._row_owner_match(p_row jsonb, p_nik text, p_nama text) TO authenticated;
-GRANT ALL ON FUNCTION public._row_owner_match(p_row jsonb, p_nik text, p_nama text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_14
+    ADD CONSTRAINT messages_2026_08_14_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION _sha(p_text text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_15 messages_2026_08_15_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public._sha(p_text text) TO anon;
-GRANT ALL ON FUNCTION public._sha(p_text text) TO authenticated;
-GRANT ALL ON FUNCTION public._sha(p_text text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_15
+    ADD CONSTRAINT messages_2026_08_15_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION auth_role(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_16 messages_2026_08_16_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.auth_role(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.auth_role(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.auth_role(p_token text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_16
+    ADD CONSTRAINT messages_2026_08_16_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION cek_bansos_public(p_token text, p_query text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_17 messages_2026_08_17_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.cek_bansos_public(p_token text, p_query text) TO anon;
-GRANT ALL ON FUNCTION public.cek_bansos_public(p_token text, p_query text) TO authenticated;
-GRANT ALL ON FUNCTION public.cek_bansos_public(p_token text, p_query text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_17
+    ADD CONSTRAINT messages_2026_08_17_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION cleanup_database_secured(p_token text, p_password text, p_table_name text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_18 messages_2026_08_18_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.cleanup_database_secured(p_token text, p_password text, p_table_name text) TO anon;
-GRANT ALL ON FUNCTION public.cleanup_database_secured(p_token text, p_password text, p_table_name text) TO authenticated;
-GRANT ALL ON FUNCTION public.cleanup_database_secured(p_token text, p_password text, p_table_name text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_18
+    ADD CONSTRAINT messages_2026_08_18_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION cleanup_orphan_storage_secured(p_token text, p_password text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_19 messages_2026_08_19_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.cleanup_orphan_storage_secured(p_token text, p_password text) TO anon;
-GRANT ALL ON FUNCTION public.cleanup_orphan_storage_secured(p_token text, p_password text) TO authenticated;
-GRANT ALL ON FUNCTION public.cleanup_orphan_storage_secured(p_token text, p_password text) TO service_role;
+ALTER TABLE ONLY realtime.messages_2026_08_19
+    ADD CONSTRAINT messages_2026_08_19_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
--- Name: FUNCTION delete_data_secured(p_table_name text, p_id_column text, p_id_value text, p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: messages messages_payload_exclusive; Type: CHECK CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.delete_data_secured(p_table_name text, p_id_column text, p_id_value text, p_token text) TO anon;
-GRANT ALL ON FUNCTION public.delete_data_secured(p_table_name text, p_id_column text, p_id_value text, p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.delete_data_secured(p_table_name text, p_id_column text, p_id_value text, p_token text) TO service_role;
+ALTER TABLE realtime.messages
+    ADD CONSTRAINT messages_payload_exclusive CHECK (((payload IS NULL) OR (binary_payload IS NULL))) NOT VALID;
 
 
 --
--- Name: FUNCTION delete_session_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: subscription pk_subscription; Type: CONSTRAINT; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON FUNCTION public.delete_session_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.delete_session_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.delete_session_secured(p_token text) TO service_role;
+ALTER TABLE ONLY realtime.subscription
+    ADD CONSTRAINT pk_subscription PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION delete_storage_files_secured(p_token text, p_password text, p_paths text[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: realtime; Owner: supabase_admin
 --
 
-GRANT ALL ON FUNCTION public.delete_storage_files_secured(p_token text, p_password text, p_paths text[]) TO anon;
-GRANT ALL ON FUNCTION public.delete_storage_files_secured(p_token text, p_password text, p_paths text[]) TO authenticated;
-GRANT ALL ON FUNCTION public.delete_storage_files_secured(p_token text, p_password text, p_paths text[]) TO service_role;
+ALTER TABLE ONLY realtime.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
 
 
 --
--- Name: FUNCTION delete_user_secured(p_token text, p_username text); Type: ACL; Schema: public; Owner: postgres
+-- Name: buckets_analytics buckets_analytics_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.delete_user_secured(p_token text, p_username text) TO anon;
-GRANT ALL ON FUNCTION public.delete_user_secured(p_token text, p_username text) TO authenticated;
-GRANT ALL ON FUNCTION public.delete_user_secured(p_token text, p_username text) TO service_role;
+ALTER TABLE ONLY storage.buckets_analytics
+    ADD CONSTRAINT buckets_analytics_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION delete_warga_secured(p_token text, p_id text); Type: ACL; Schema: public; Owner: postgres
+-- Name: buckets buckets_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.delete_warga_secured(p_token text, p_id text) TO anon;
-GRANT ALL ON FUNCTION public.delete_warga_secured(p_token text, p_id text) TO authenticated;
-GRANT ALL ON FUNCTION public.delete_warga_secured(p_token text, p_id text) TO service_role;
+ALTER TABLE ONLY storage.buckets
+    ADD CONSTRAINT buckets_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text); Type: ACL; Schema: public; Owner: postgres
+-- Name: buckets_vectors buckets_vectors_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text) TO anon;
-GRANT ALL ON FUNCTION public.generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text) TO authenticated;
-GRANT ALL ON FUNCTION public.generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text) TO service_role;
+ALTER TABLE ONLY storage.buckets_vectors
+    ADD CONSTRAINT buckets_vectors_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION generic_insert_secured(p_table text, p_token text, p_row jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: migrations migrations_name_key; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.generic_insert_secured(p_table text, p_token text, p_row jsonb) TO anon;
-GRANT ALL ON FUNCTION public.generic_insert_secured(p_table text, p_token text, p_row jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.generic_insert_secured(p_table text, p_token text, p_row jsonb) TO service_role;
+ALTER TABLE ONLY storage.migrations
+    ADD CONSTRAINT migrations_name_key UNIQUE (name);
 
 
 --
--- Name: FUNCTION generic_select_secured(p_table text, p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: migrations migrations_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.generic_select_secured(p_table text, p_token text) TO anon;
-GRANT ALL ON FUNCTION public.generic_select_secured(p_table text, p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.generic_select_secured(p_table text, p_token text) TO service_role;
+ALTER TABLE ONLY storage.migrations
+    ADD CONSTRAINT migrations_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: objects objects_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb) TO anon;
-GRANT ALL ON FUNCTION public.generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb) TO service_role;
+ALTER TABLE ONLY storage.objects
+    ADD CONSTRAINT objects_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION get_aset_page_secured(p_token text, p_tab text, p_page integer, p_page_size integer, p_search text); Type: ACL; Schema: public; Owner: postgres
+-- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.get_aset_page_secured(p_token text, p_tab text, p_page integer, p_page_size integer, p_search text) TO anon;
-GRANT ALL ON FUNCTION public.get_aset_page_secured(p_token text, p_tab text, p_page integer, p_page_size integer, p_search text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_aset_page_secured(p_token text, p_tab text, p_page integer, p_page_size integer, p_search text) TO service_role;
+ALTER TABLE ONLY storage.s3_multipart_uploads_parts
+    ADD CONSTRAINT s3_multipart_uploads_parts_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION get_auth_nik(); Type: ACL; Schema: public; Owner: postgres
+-- Name: s3_multipart_uploads s3_multipart_uploads_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.get_auth_nik() TO anon;
-GRANT ALL ON FUNCTION public.get_auth_nik() TO authenticated;
-GRANT ALL ON FUNCTION public.get_auth_nik() TO service_role;
+ALTER TABLE ONLY storage.s3_multipart_uploads
+    ADD CONSTRAINT s3_multipart_uploads_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION get_auth_role(); Type: ACL; Schema: public; Owner: postgres
+-- Name: vector_indexes vector_indexes_pkey; Type: CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON FUNCTION public.get_auth_role() TO anon;
-GRANT ALL ON FUNCTION public.get_auth_role() TO authenticated;
-GRANT ALL ON FUNCTION public.get_auth_role() TO service_role;
+ALTER TABLE ONLY storage.vector_indexes
+    ADD CONSTRAINT vector_indexes_pkey PRIMARY KEY (id);
 
 
 --
--- Name: FUNCTION get_bansos_page_secured(p_token text, p_page integer, p_page_size integer, p_search text); Type: ACL; Schema: public; Owner: postgres
+-- Name: audit_logs_instance_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_bansos_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO anon;
-GRANT ALL ON FUNCTION public.get_bansos_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_bansos_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO service_role;
+CREATE INDEX audit_logs_instance_id_idx ON auth.audit_log_entries USING btree (instance_id);
 
 
 --
--- Name: FUNCTION get_iuran_page_secured(p_token text, p_page integer, p_page_size integer, p_search text); Type: ACL; Schema: public; Owner: postgres
+-- Name: confirmation_token_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_iuran_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO anon;
-GRANT ALL ON FUNCTION public.get_iuran_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_iuran_page_secured(p_token text, p_page integer, p_page_size integer, p_search text) TO service_role;
+CREATE UNIQUE INDEX confirmation_token_idx ON auth.users USING btree (confirmation_token) WHERE ((confirmation_token)::text !~ '^[0-9 ]*$'::text);
 
 
 --
--- Name: FUNCTION get_keuangan_page_secured(p_token text, p_page integer, p_page_size integer, p_search text, p_periode text, p_date_from text, p_date_to text, p_order text); Type: ACL; Schema: public; Owner: postgres
+-- Name: custom_oauth_providers_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_keuangan_page_secured(p_token text, p_page integer, p_page_size integer, p_search text, p_periode text, p_date_from text, p_date_to text, p_order text) TO anon;
-GRANT ALL ON FUNCTION public.get_keuangan_page_secured(p_token text, p_page integer, p_page_size integer, p_search text, p_periode text, p_date_from text, p_date_to text, p_order text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_keuangan_page_secured(p_token text, p_page integer, p_page_size integer, p_search text, p_periode text, p_date_from text, p_date_to text, p_order text) TO service_role;
+CREATE INDEX custom_oauth_providers_created_at_idx ON auth.custom_oauth_providers USING btree (created_at);
 
 
 --
--- Name: FUNCTION get_keuangan_summary_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: custom_oauth_providers_enabled_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_keuangan_summary_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.get_keuangan_summary_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_keuangan_summary_secured(p_token text) TO service_role;
+CREATE INDEX custom_oauth_providers_enabled_idx ON auth.custom_oauth_providers USING btree (enabled);
 
 
 --
--- Name: FUNCTION get_notifications_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: custom_oauth_providers_identifier_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_notifications_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.get_notifications_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_notifications_secured(p_token text) TO service_role;
+CREATE INDEX custom_oauth_providers_identifier_idx ON auth.custom_oauth_providers USING btree (identifier);
 
 
 --
--- Name: FUNCTION get_real_database_stats(); Type: ACL; Schema: public; Owner: postgres
+-- Name: custom_oauth_providers_provider_type_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_real_database_stats() TO anon;
-GRANT ALL ON FUNCTION public.get_real_database_stats() TO authenticated;
-GRANT ALL ON FUNCTION public.get_real_database_stats() TO service_role;
+CREATE INDEX custom_oauth_providers_provider_type_idx ON auth.custom_oauth_providers USING btree (provider_type);
 
 
 --
--- Name: FUNCTION get_server_time(); Type: ACL; Schema: public; Owner: postgres
+-- Name: email_change_token_current_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_server_time() TO anon;
-GRANT ALL ON FUNCTION public.get_server_time() TO authenticated;
-GRANT ALL ON FUNCTION public.get_server_time() TO service_role;
+CREATE UNIQUE INDEX email_change_token_current_idx ON auth.users USING btree (email_change_token_current) WHERE ((email_change_token_current)::text !~ '^[0-9 ]*$'::text);
 
 
 --
--- Name: FUNCTION get_sessions_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: email_change_token_new_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_sessions_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.get_sessions_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_sessions_secured(p_token text) TO service_role;
+CREATE UNIQUE INDEX email_change_token_new_idx ON auth.users USING btree (email_change_token_new) WHERE ((email_change_token_new)::text !~ '^[0-9 ]*$'::text);
 
 
 --
--- Name: FUNCTION get_table_page_secured(p_token text, p_table text, p_page integer, p_page_size integer, p_search text, p_filter jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: factor_id_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_table_page_secured(p_token text, p_table text, p_page integer, p_page_size integer, p_search text, p_filter jsonb) TO anon;
-GRANT ALL ON FUNCTION public.get_table_page_secured(p_token text, p_table text, p_page integer, p_page_size integer, p_search text, p_filter jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.get_table_page_secured(p_token text, p_table text, p_page integer, p_page_size integer, p_search text, p_filter jsonb) TO service_role;
+CREATE INDEX factor_id_created_at_idx ON auth.mfa_factors USING btree (user_id, created_at);
 
 
 --
--- Name: FUNCTION get_usage_result(p_request_id bigint); Type: ACL; Schema: public; Owner: postgres
+-- Name: flow_state_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_usage_result(p_request_id bigint) TO anon;
-GRANT ALL ON FUNCTION public.get_usage_result(p_request_id bigint) TO authenticated;
-GRANT ALL ON FUNCTION public.get_usage_result(p_request_id bigint) TO service_role;
+CREATE INDEX flow_state_created_at_idx ON auth.flow_state USING btree (created_at DESC);
 
 
 --
--- Name: FUNCTION get_usage_secured(p_token text, p_org_slug text); Type: ACL; Schema: public; Owner: postgres
+-- Name: identities_email_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text) TO anon;
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text) TO service_role;
+CREATE INDEX identities_email_idx ON auth.identities USING btree (email text_pattern_ops);
 
 
 --
--- Name: FUNCTION get_usage_secured(p_token text, p_org_slug text, p_ref text); Type: ACL; Schema: public; Owner: postgres
+-- Name: INDEX identities_email_idx; Type: COMMENT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text, p_ref text) TO anon;
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text, p_ref text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_usage_secured(p_token text, p_org_slug text, p_ref text) TO service_role;
+COMMENT ON INDEX auth.identities_email_idx IS 'Auth: Ensures indexed queries on the email column';
 
 
 --
--- Name: FUNCTION get_users_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: identities_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_users_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.get_users_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_users_secured(p_token text) TO service_role;
+CREATE INDEX identities_user_id_idx ON auth.identities USING btree (user_id);
 
 
 --
--- Name: FUNCTION get_warga_page_secured(p_token text, p_mode text, p_page integer, p_page_size integer, p_search text, p_status text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_auth_code; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_warga_page_secured(p_token text, p_mode text, p_page integer, p_page_size integer, p_search text, p_status text) TO anon;
-GRANT ALL ON FUNCTION public.get_warga_page_secured(p_token text, p_mode text, p_page integer, p_page_size integer, p_search text, p_status text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_warga_page_secured(p_token text, p_mode text, p_page integer, p_page_size integer, p_search text, p_status text) TO service_role;
+CREATE INDEX idx_auth_code ON auth.flow_state USING btree (auth_code);
 
 
 --
--- Name: FUNCTION get_warga_rumah_detail_secured(p_token text, p_alamat text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_oauth_client_states_created_at; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_warga_rumah_detail_secured(p_token text, p_alamat text) TO anon;
-GRANT ALL ON FUNCTION public.get_warga_rumah_detail_secured(p_token text, p_alamat text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_warga_rumah_detail_secured(p_token text, p_alamat text) TO service_role;
+CREATE INDEX idx_oauth_client_states_created_at ON auth.oauth_client_states USING btree (created_at);
 
 
 --
--- Name: FUNCTION get_warga_secured(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_user_id_auth_method; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.get_warga_secured(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.get_warga_secured(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.get_warga_secured(p_token text) TO service_role;
+CREATE INDEX idx_user_id_auth_method ON auth.flow_state USING btree (user_id, authentication_method);
 
 
 --
--- Name: FUNCTION is_rt(); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_users_created_at_desc; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.is_rt() TO anon;
-GRANT ALL ON FUNCTION public.is_rt() TO authenticated;
-GRANT ALL ON FUNCTION public.is_rt() TO service_role;
+CREATE INDEX idx_users_created_at_desc ON auth.users USING btree (created_at DESC);
 
 
 --
--- Name: FUNCTION is_valid_rt(p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_users_email; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.is_valid_rt(p_token text) TO anon;
-GRANT ALL ON FUNCTION public.is_valid_rt(p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.is_valid_rt(p_token text) TO service_role;
+CREATE INDEX idx_users_email ON auth.users USING btree (email);
 
 
 --
--- Name: FUNCTION login_secured(p_username text, p_password text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_users_last_sign_in_at_desc; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.login_secured(p_username text, p_password text) TO anon;
-GRANT ALL ON FUNCTION public.login_secured(p_username text, p_password text) TO authenticated;
-GRANT ALL ON FUNCTION public.login_secured(p_username text, p_password text) TO service_role;
+CREATE INDEX idx_users_last_sign_in_at_desc ON auth.users USING btree (last_sign_in_at DESC);
 
 
 --
--- Name: FUNCTION save_session_secured(p_token text, p_nik text, p_role text); Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_users_name; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.save_session_secured(p_token text, p_nik text, p_role text) TO anon;
-GRANT ALL ON FUNCTION public.save_session_secured(p_token text, p_nik text, p_role text) TO authenticated;
-GRANT ALL ON FUNCTION public.save_session_secured(p_token text, p_nik text, p_role text) TO service_role;
+CREATE INDEX idx_users_name ON auth.users USING btree (((raw_user_meta_data ->> 'name'::text))) WHERE ((raw_user_meta_data ->> 'name'::text) IS NOT NULL);
 
 
 --
--- Name: FUNCTION save_user_secured(p_token text, p_data jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: mfa_challenge_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.save_user_secured(p_token text, p_data jsonb) TO anon;
-GRANT ALL ON FUNCTION public.save_user_secured(p_token text, p_data jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.save_user_secured(p_token text, p_data jsonb) TO service_role;
+CREATE INDEX mfa_challenge_created_at_idx ON auth.mfa_challenges USING btree (created_at DESC);
 
 
 --
--- Name: FUNCTION save_warga_secured(p_token text, p_data jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: mfa_factors_user_friendly_name_unique; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.save_warga_secured(p_token text, p_data jsonb) TO anon;
-GRANT ALL ON FUNCTION public.save_warga_secured(p_token text, p_data jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.save_warga_secured(p_token text, p_data jsonb) TO service_role;
+CREATE UNIQUE INDEX mfa_factors_user_friendly_name_unique ON auth.mfa_factors USING btree (friendly_name, user_id) WHERE (TRIM(BOTH FROM friendly_name) <> ''::text);
 
 
 --
--- Name: FUNCTION storage_api_delete(p_paths text[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: mfa_factors_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.storage_api_delete(p_paths text[]) TO anon;
-GRANT ALL ON FUNCTION public.storage_api_delete(p_paths text[]) TO authenticated;
-GRANT ALL ON FUNCTION public.storage_api_delete(p_paths text[]) TO service_role;
+CREATE INDEX mfa_factors_user_id_idx ON auth.mfa_factors USING btree (user_id);
 
 
 --
--- Name: FUNCTION storage_get_delete_result(p_request_id bigint); Type: ACL; Schema: public; Owner: postgres
+-- Name: oauth_auth_pending_exp_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.storage_get_delete_result(p_request_id bigint) TO anon;
-GRANT ALL ON FUNCTION public.storage_get_delete_result(p_request_id bigint) TO authenticated;
-GRANT ALL ON FUNCTION public.storage_get_delete_result(p_request_id bigint) TO service_role;
+CREATE INDEX oauth_auth_pending_exp_idx ON auth.oauth_authorizations USING btree (expires_at) WHERE (status = 'pending'::auth.oauth_authorization_status);
 
 
 --
--- Name: FUNCTION trg_users_hash_password(); Type: ACL; Schema: public; Owner: postgres
+-- Name: oauth_clients_deleted_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.trg_users_hash_password() TO anon;
-GRANT ALL ON FUNCTION public.trg_users_hash_password() TO authenticated;
-GRANT ALL ON FUNCTION public.trg_users_hash_password() TO service_role;
+CREATE INDEX oauth_clients_deleted_at_idx ON auth.oauth_clients USING btree (deleted_at);
 
 
 --
--- Name: FUNCTION truncate_table_secured(p_table_name text, p_token text); Type: ACL; Schema: public; Owner: postgres
+-- Name: oauth_consents_active_client_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.truncate_table_secured(p_table_name text, p_token text) TO anon;
-GRANT ALL ON FUNCTION public.truncate_table_secured(p_table_name text, p_token text) TO authenticated;
-GRANT ALL ON FUNCTION public.truncate_table_secured(p_table_name text, p_token text) TO service_role;
+CREATE INDEX oauth_consents_active_client_idx ON auth.oauth_consents USING btree (client_id) WHERE (revoked_at IS NULL);
 
 
 --
--- Name: FUNCTION update_user_secured(p_token text, p_old_username text, p_data jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: oauth_consents_active_user_client_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.update_user_secured(p_token text, p_old_username text, p_data jsonb) TO anon;
-GRANT ALL ON FUNCTION public.update_user_secured(p_token text, p_old_username text, p_data jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.update_user_secured(p_token text, p_old_username text, p_data jsonb) TO service_role;
+CREATE INDEX oauth_consents_active_user_client_idx ON auth.oauth_consents USING btree (user_id, client_id) WHERE (revoked_at IS NULL);
 
 
 --
--- Name: FUNCTION update_warga_secured(p_token text, p_id text, p_data jsonb); Type: ACL; Schema: public; Owner: postgres
+-- Name: oauth_consents_user_order_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.update_warga_secured(p_token text, p_id text, p_data jsonb) TO anon;
-GRANT ALL ON FUNCTION public.update_warga_secured(p_token text, p_id text, p_data jsonb) TO authenticated;
-GRANT ALL ON FUNCTION public.update_warga_secured(p_token text, p_id text, p_data jsonb) TO service_role;
+CREATE INDEX oauth_consents_user_order_idx ON auth.oauth_consents USING btree (user_id, granted_at DESC);
 
 
 --
--- Name: FUNCTION upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text); Type: ACL; Schema: public; Owner: postgres
+-- Name: one_time_tokens_relates_to_hash_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text) TO anon;
-GRANT ALL ON FUNCTION public.upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text) TO authenticated;
-GRANT ALL ON FUNCTION public.upload_file_secured(p_token text, p_path text, p_base64 text, p_content_type text) TO service_role;
+CREATE INDEX one_time_tokens_relates_to_hash_idx ON auth.one_time_tokens USING hash (relates_to);
 
 
 --
--- Name: FUNCTION verify_user_login(p_username text, p_password text); Type: ACL; Schema: public; Owner: postgres
+-- Name: one_time_tokens_token_hash_hash_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION public.verify_user_login(p_username text, p_password text) TO anon;
-GRANT ALL ON FUNCTION public.verify_user_login(p_username text, p_password text) TO authenticated;
-GRANT ALL ON FUNCTION public.verify_user_login(p_username text, p_password text) TO service_role;
+CREATE INDEX one_time_tokens_token_hash_hash_idx ON auth.one_time_tokens USING hash (token_hash);
 
 
 --
--- Name: FUNCTION apply_rls(wal jsonb, max_record_bytes integer); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: one_time_tokens_user_id_token_type_key; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO postgres;
-GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO anon;
-GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO authenticated;
-GRANT ALL ON FUNCTION realtime.apply_rls(wal jsonb, max_record_bytes integer) TO service_role;
+CREATE UNIQUE INDEX one_time_tokens_user_id_token_type_key ON auth.one_time_tokens USING btree (user_id, token_type);
 
 
 --
--- Name: FUNCTION broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: reauthentication_token_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text) TO postgres;
-GRANT ALL ON FUNCTION realtime.broadcast_changes(topic_name text, event_name text, operation text, table_name text, table_schema text, new record, old record, level text) TO dashboard_user;
+CREATE UNIQUE INDEX reauthentication_token_idx ON auth.users USING btree (reauthentication_token) WHERE ((reauthentication_token)::text !~ '^[0-9 ]*$'::text);
 
 
 --
--- Name: FUNCTION build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: recovery_token_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) TO postgres;
-GRANT ALL ON FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) TO anon;
-GRANT ALL ON FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) TO authenticated;
-GRANT ALL ON FUNCTION realtime.build_prepared_statement_sql(prepared_statement_name text, entity regclass, columns realtime.wal_column[]) TO service_role;
+CREATE UNIQUE INDEX recovery_token_idx ON auth.users USING btree (recovery_token) WHERE ((recovery_token)::text !~ '^[0-9 ]*$'::text);
 
 
 --
--- Name: FUNCTION "cast"(val text, type_ regtype); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: refresh_tokens_instance_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime."cast"(val text, type_ regtype) TO postgres;
-GRANT ALL ON FUNCTION realtime."cast"(val text, type_ regtype) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime."cast"(val text, type_ regtype) TO anon;
-GRANT ALL ON FUNCTION realtime."cast"(val text, type_ regtype) TO authenticated;
-GRANT ALL ON FUNCTION realtime."cast"(val text, type_ regtype) TO service_role;
+CREATE INDEX refresh_tokens_instance_id_idx ON auth.refresh_tokens USING btree (instance_id);
 
 
 --
--- Name: FUNCTION check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: refresh_tokens_instance_id_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) TO postgres;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) TO anon;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) TO authenticated;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text) TO service_role;
+CREATE INDEX refresh_tokens_instance_id_user_id_idx ON auth.refresh_tokens USING btree (instance_id, user_id);
 
 
 --
--- Name: FUNCTION check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: refresh_tokens_parent_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO postgres;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO anon;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO authenticated;
-GRANT ALL ON FUNCTION realtime.check_equality_op(op realtime.equality_op, type_ regtype, val_1 text, val_2 text, negate boolean) TO service_role;
+CREATE INDEX refresh_tokens_parent_idx ON auth.refresh_tokens USING btree (parent);
 
 
 --
--- Name: FUNCTION is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: refresh_tokens_session_id_revoked_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) TO postgres;
-GRANT ALL ON FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) TO anon;
-GRANT ALL ON FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) TO authenticated;
-GRANT ALL ON FUNCTION realtime.is_visible_through_filters(columns realtime.wal_column[], filters realtime.user_defined_filter[]) TO service_role;
+CREATE INDEX refresh_tokens_session_id_revoked_idx ON auth.refresh_tokens USING btree (session_id, revoked);
 
 
 --
--- Name: FUNCTION list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: refresh_tokens_updated_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) TO postgres;
-GRANT ALL ON FUNCTION realtime.list_changes(publication name, slot_name name, max_changes integer, max_record_bytes integer) TO dashboard_user;
+CREATE INDEX refresh_tokens_updated_at_idx ON auth.refresh_tokens USING btree (updated_at DESC);
 
 
 --
--- Name: FUNCTION quote_wal2json(entity regclass); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: saml_providers_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.quote_wal2json(entity regclass) TO postgres;
-GRANT ALL ON FUNCTION realtime.quote_wal2json(entity regclass) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.quote_wal2json(entity regclass) TO anon;
-GRANT ALL ON FUNCTION realtime.quote_wal2json(entity regclass) TO authenticated;
-GRANT ALL ON FUNCTION realtime.quote_wal2json(entity regclass) TO service_role;
+CREATE INDEX saml_providers_sso_provider_id_idx ON auth.saml_providers USING btree (sso_provider_id);
 
 
 --
--- Name: FUNCTION send(payload jsonb, event text, topic text, private boolean); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: saml_relay_states_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.send(payload jsonb, event text, topic text, private boolean) TO postgres;
-GRANT ALL ON FUNCTION realtime.send(payload jsonb, event text, topic text, private boolean) TO dashboard_user;
+CREATE INDEX saml_relay_states_created_at_idx ON auth.saml_relay_states USING btree (created_at DESC);
 
 
 --
--- Name: FUNCTION send_binary(payload bytea, event text, topic text, private boolean); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: saml_relay_states_for_email_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.send_binary(payload bytea, event text, topic text, private boolean) TO postgres;
-GRANT ALL ON FUNCTION realtime.send_binary(payload bytea, event text, topic text, private boolean) TO dashboard_user;
+CREATE INDEX saml_relay_states_for_email_idx ON auth.saml_relay_states USING btree (for_email);
 
 
 --
--- Name: FUNCTION subscription_check_filters(); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: saml_relay_states_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.subscription_check_filters() TO postgres;
-GRANT ALL ON FUNCTION realtime.subscription_check_filters() TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.subscription_check_filters() TO anon;
-GRANT ALL ON FUNCTION realtime.subscription_check_filters() TO authenticated;
-GRANT ALL ON FUNCTION realtime.subscription_check_filters() TO service_role;
+CREATE INDEX saml_relay_states_sso_provider_id_idx ON auth.saml_relay_states USING btree (sso_provider_id);
 
 
 --
--- Name: FUNCTION to_regrole(role_name text); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: sessions_not_after_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.to_regrole(role_name text) TO postgres;
-GRANT ALL ON FUNCTION realtime.to_regrole(role_name text) TO dashboard_user;
-GRANT ALL ON FUNCTION realtime.to_regrole(role_name text) TO anon;
-GRANT ALL ON FUNCTION realtime.to_regrole(role_name text) TO authenticated;
-GRANT ALL ON FUNCTION realtime.to_regrole(role_name text) TO service_role;
+CREATE INDEX sessions_not_after_idx ON auth.sessions USING btree (not_after DESC);
 
 
 --
--- Name: FUNCTION topic(); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: sessions_oauth_client_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.topic() TO postgres;
-GRANT ALL ON FUNCTION realtime.topic() TO dashboard_user;
+CREATE INDEX sessions_oauth_client_id_idx ON auth.sessions USING btree (oauth_client_id);
 
 
 --
--- Name: FUNCTION wal2json_escape_identifier(name text); Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: sessions_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION realtime.wal2json_escape_identifier(name text) TO postgres;
-GRANT ALL ON FUNCTION realtime.wal2json_escape_identifier(name text) TO dashboard_user;
+CREATE INDEX sessions_user_id_idx ON auth.sessions USING btree (user_id);
 
 
 --
--- Name: FUNCTION _crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea, nonce bytea); Type: ACL; Schema: vault; Owner: supabase_admin
+-- Name: sso_domains_domain_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea, nonce bytea) TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION vault._crypto_aead_det_decrypt(message bytea, additional bytea, key_id bigint, context bytea, nonce bytea) TO service_role;
+CREATE UNIQUE INDEX sso_domains_domain_idx ON auth.sso_domains USING btree (lower(domain));
 
 
 --
--- Name: FUNCTION create_secret(new_secret text, new_name text, new_description text, new_key_id uuid); Type: ACL; Schema: vault; Owner: supabase_admin
+-- Name: sso_domains_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION vault.create_secret(new_secret text, new_name text, new_description text, new_key_id uuid) TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION vault.create_secret(new_secret text, new_name text, new_description text, new_key_id uuid) TO service_role;
+CREATE INDEX sso_domains_sso_provider_id_idx ON auth.sso_domains USING btree (sso_provider_id);
 
 
 --
--- Name: FUNCTION update_secret(secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid); Type: ACL; Schema: vault; Owner: supabase_admin
+-- Name: sso_providers_resource_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON FUNCTION vault.update_secret(secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid) TO postgres WITH GRANT OPTION;
-GRANT ALL ON FUNCTION vault.update_secret(secret_id uuid, new_secret text, new_name text, new_description text, new_key_id uuid) TO service_role;
+CREATE UNIQUE INDEX sso_providers_resource_id_idx ON auth.sso_providers USING btree (lower(resource_id));
 
 
 --
--- Name: TABLE audit_log_entries; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: sso_providers_resource_id_pattern_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.audit_log_entries TO dashboard_user;
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.audit_log_entries TO postgres;
-GRANT SELECT ON TABLE auth.audit_log_entries TO postgres WITH GRANT OPTION;
+CREATE INDEX sso_providers_resource_id_pattern_idx ON auth.sso_providers USING btree (resource_id text_pattern_ops);
 
 
 --
--- Name: TABLE custom_oauth_providers; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: unique_phone_factor_per_user; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.custom_oauth_providers TO postgres;
-GRANT ALL ON TABLE auth.custom_oauth_providers TO dashboard_user;
+CREATE UNIQUE INDEX unique_phone_factor_per_user ON auth.mfa_factors USING btree (user_id, phone);
 
 
 --
--- Name: TABLE flow_state; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: user_id_created_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.flow_state TO postgres;
-GRANT SELECT ON TABLE auth.flow_state TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.flow_state TO dashboard_user;
+CREATE INDEX user_id_created_at_idx ON auth.sessions USING btree (user_id, created_at);
 
 
 --
--- Name: TABLE identities; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: users_email_partial_key; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.identities TO postgres;
-GRANT SELECT ON TABLE auth.identities TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.identities TO dashboard_user;
+CREATE UNIQUE INDEX users_email_partial_key ON auth.users USING btree (email) WHERE (is_sso_user = false);
 
 
 --
--- Name: TABLE instances; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: INDEX users_email_partial_key; Type: COMMENT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.instances TO dashboard_user;
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.instances TO postgres;
-GRANT SELECT ON TABLE auth.instances TO postgres WITH GRANT OPTION;
+COMMENT ON INDEX auth.users_email_partial_key IS 'Auth: A partial unique index that applies only when is_sso_user is false';
 
 
 --
--- Name: TABLE mfa_amr_claims; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: users_instance_id_email_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.mfa_amr_claims TO postgres;
-GRANT SELECT ON TABLE auth.mfa_amr_claims TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.mfa_amr_claims TO dashboard_user;
+CREATE INDEX users_instance_id_email_idx ON auth.users USING btree (instance_id, lower((email)::text));
 
 
 --
--- Name: TABLE mfa_challenges; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: users_instance_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.mfa_challenges TO postgres;
-GRANT SELECT ON TABLE auth.mfa_challenges TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.mfa_challenges TO dashboard_user;
+CREATE INDEX users_instance_id_idx ON auth.users USING btree (instance_id);
 
 
 --
--- Name: TABLE mfa_factors; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: users_is_anonymous_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.mfa_factors TO postgres;
-GRANT SELECT ON TABLE auth.mfa_factors TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.mfa_factors TO dashboard_user;
+CREATE INDEX users_is_anonymous_idx ON auth.users USING btree (is_anonymous);
 
 
 --
--- Name: TABLE oauth_authorizations; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_challenges_expires_at_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.oauth_authorizations TO postgres;
-GRANT ALL ON TABLE auth.oauth_authorizations TO dashboard_user;
+CREATE INDEX webauthn_challenges_expires_at_idx ON auth.webauthn_challenges USING btree (expires_at);
 
 
 --
--- Name: TABLE oauth_client_states; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_challenges_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.oauth_client_states TO postgres;
-GRANT ALL ON TABLE auth.oauth_client_states TO dashboard_user;
+CREATE INDEX webauthn_challenges_user_id_idx ON auth.webauthn_challenges USING btree (user_id);
 
 
 --
--- Name: TABLE oauth_clients; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_credentials_credential_id_key; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.oauth_clients TO postgres;
-GRANT ALL ON TABLE auth.oauth_clients TO dashboard_user;
+CREATE UNIQUE INDEX webauthn_credentials_credential_id_key ON auth.webauthn_credentials USING btree (credential_id);
 
 
 --
--- Name: TABLE oauth_consents; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_credentials_user_id_idx; Type: INDEX; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE auth.oauth_consents TO postgres;
-GRANT ALL ON TABLE auth.oauth_consents TO dashboard_user;
+CREATE INDEX webauthn_credentials_user_id_idx ON auth.webauthn_credentials USING btree (user_id);
 
 
 --
--- Name: TABLE one_time_tokens; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: idx_notifikasi_created_at; Type: INDEX; Schema: public; Owner: postgres
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.one_time_tokens TO postgres;
-GRANT SELECT ON TABLE auth.one_time_tokens TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.one_time_tokens TO dashboard_user;
+CREATE INDEX idx_notifikasi_created_at ON public."Notifikasi" USING btree (created_at DESC);
 
 
 --
--- Name: TABLE refresh_tokens; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: idx_notifikasi_nik_dibaca; Type: INDEX; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE auth.refresh_tokens TO dashboard_user;
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.refresh_tokens TO postgres;
-GRANT SELECT ON TABLE auth.refresh_tokens TO postgres WITH GRANT OPTION;
+CREATE INDEX idx_notifikasi_nik_dibaca ON public."Notifikasi" USING btree (nik, dibaca);
 
 
 --
--- Name: SEQUENCE refresh_tokens_id_seq; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: ix_realtime_subscription_entity; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO dashboard_user;
-GRANT ALL ON SEQUENCE auth.refresh_tokens_id_seq TO postgres;
+CREATE INDEX ix_realtime_subscription_entity ON realtime.subscription USING btree (entity);
 
 
 --
--- Name: TABLE saml_providers; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_inserted_at_topic_index; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.saml_providers TO postgres;
-GRANT SELECT ON TABLE auth.saml_providers TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.saml_providers TO dashboard_user;
+CREATE INDEX messages_inserted_at_topic_index ON ONLY realtime.messages USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE saml_relay_states; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_13_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.saml_relay_states TO postgres;
-GRANT SELECT ON TABLE auth.saml_relay_states TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.saml_relay_states TO dashboard_user;
+CREATE INDEX messages_2026_08_13_inserted_at_topic_idx ON realtime.messages_2026_08_13 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE schema_migrations; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_14_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT SELECT ON TABLE auth.schema_migrations TO postgres WITH GRANT OPTION;
+CREATE INDEX messages_2026_08_14_inserted_at_topic_idx ON realtime.messages_2026_08_14 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE sessions; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_15_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.sessions TO postgres;
-GRANT SELECT ON TABLE auth.sessions TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.sessions TO dashboard_user;
+CREATE INDEX messages_2026_08_15_inserted_at_topic_idx ON realtime.messages_2026_08_15 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE sso_domains; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_16_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.sso_domains TO postgres;
-GRANT SELECT ON TABLE auth.sso_domains TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.sso_domains TO dashboard_user;

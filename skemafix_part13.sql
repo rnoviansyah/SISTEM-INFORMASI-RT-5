@@ -1,680 +1,800 @@
+CREATE INDEX messages_2026_08_16_inserted_at_topic_idx ON realtime.messages_2026_08_16 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE sso_providers; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_17_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.sso_providers TO postgres;
-GRANT SELECT ON TABLE auth.sso_providers TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE auth.sso_providers TO dashboard_user;
+CREATE INDEX messages_2026_08_17_inserted_at_topic_idx ON realtime.messages_2026_08_17 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE users; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_18_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE auth.users TO dashboard_user;
-GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE auth.users TO postgres;
-GRANT SELECT ON TABLE auth.users TO postgres WITH GRANT OPTION;
+CREATE INDEX messages_2026_08_18_inserted_at_topic_idx ON realtime.messages_2026_08_18 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE webauthn_challenges; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: messages_2026_08_19_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE auth.webauthn_challenges TO postgres;
-GRANT ALL ON TABLE auth.webauthn_challenges TO dashboard_user;
+CREATE INDEX messages_2026_08_19_inserted_at_topic_idx ON realtime.messages_2026_08_19 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
--- Name: TABLE webauthn_credentials; Type: ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: subscription_subscription_id_entity_filters_action_filter_selec; Type: INDEX; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE auth.webauthn_credentials TO postgres;
-GRANT ALL ON TABLE auth.webauthn_credentials TO dashboard_user;
+CREATE UNIQUE INDEX subscription_subscription_id_entity_filters_action_filter_selec ON realtime.subscription USING btree (subscription_id, entity, filters, action_filter, COALESCE(selected_columns, '{}'::text[]));
 
 
 --
--- Name: TABLE pg_stat_statements; Type: ACL; Schema: extensions; Owner: postgres
+-- Name: bname; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-REVOKE ALL ON TABLE extensions.pg_stat_statements FROM postgres;
-GRANT ALL ON TABLE extensions.pg_stat_statements TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE extensions.pg_stat_statements TO dashboard_user;
+CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name);
 
 
 --
--- Name: TABLE pg_stat_statements_info; Type: ACL; Schema: extensions; Owner: postgres
+-- Name: bucketid_objname; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-REVOKE ALL ON TABLE extensions.pg_stat_statements_info FROM postgres;
-GRANT ALL ON TABLE extensions.pg_stat_statements_info TO postgres WITH GRANT OPTION;
-GRANT ALL ON TABLE extensions.pg_stat_statements_info TO dashboard_user;
+CREATE UNIQUE INDEX bucketid_objname ON storage.objects USING btree (bucket_id, name);
 
 
 --
--- Name: TABLE "Aset"; Type: ACL; Schema: public; Owner: postgres
+-- Name: buckets_analytics_unique_name_idx; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Aset" TO service_role;
+CREATE UNIQUE INDEX buckets_analytics_unique_name_idx ON storage.buckets_analytics USING btree (name) WHERE (deleted_at IS NULL);
 
 
 --
--- Name: TABLE "Aspirasi"; Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_multipart_uploads_list; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Aspirasi" TO service_role;
+CREATE INDEX idx_multipart_uploads_list ON storage.s3_multipart_uploads USING btree (bucket_id, key, created_at);
 
 
 --
--- Name: TABLE "Bansos"; Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_objects_bucket_id_name; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Bansos" TO anon;
-GRANT ALL ON TABLE public."Bansos" TO authenticated;
-GRANT ALL ON TABLE public."Bansos" TO service_role;
+CREATE INDEX idx_objects_bucket_id_name ON storage.objects USING btree (bucket_id, name COLLATE "C");
 
 
 --
--- Name: TABLE "Iuran"; Type: ACL; Schema: public; Owner: postgres
+-- Name: idx_objects_bucket_id_name_lower; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Iuran" TO service_role;
+CREATE INDEX idx_objects_bucket_id_name_lower ON storage.objects USING btree (bucket_id, lower(name) COLLATE "C");
 
 
 --
--- Name: TABLE "Kelahiran"; Type: ACL; Schema: public; Owner: postgres
+-- Name: name_prefix_search; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Kelahiran" TO service_role;
+CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
 
 
 --
--- Name: TABLE "Kematian"; Type: ACL; Schema: public; Owner: postgres
+-- Name: vector_indexes_name_bucket_id_idx; Type: INDEX; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE public."Kematian" TO service_role;
+CREATE UNIQUE INDEX vector_indexes_name_bucket_id_idx ON storage.vector_indexes USING btree (name, bucket_id);
 
 
 --
--- Name: TABLE "Keuangan"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_13_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Keuangan" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_13_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "LoginAttempts"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_13_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."LoginAttempts" TO anon;
-GRANT ALL ON TABLE public."LoginAttempts" TO authenticated;
-GRANT ALL ON TABLE public."LoginAttempts" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_13_pkey;
 
 
 --
--- Name: TABLE "Notifikasi"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_14_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Notifikasi" TO anon;
-GRANT ALL ON TABLE public."Notifikasi" TO authenticated;
-GRANT ALL ON TABLE public."Notifikasi" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_14_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "Peminjaman"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_14_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Peminjaman" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_14_pkey;
 
 
 --
--- Name: TABLE "Pengaduan"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_15_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Pengaduan" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_15_inserted_at_topic_idx;
 
 
 --
--- Name: SEQUENCE "Pengaturan_id_seq"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_15_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON SEQUENCE public."Pengaturan_id_seq" TO anon;
-GRANT ALL ON SEQUENCE public."Pengaturan_id_seq" TO authenticated;
-GRANT ALL ON SEQUENCE public."Pengaturan_id_seq" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_15_pkey;
 
 
 --
--- Name: TABLE "Pengaturan"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_16_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Pengaturan" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_16_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "PindahKeluar"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_16_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."PindahKeluar" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_16_pkey;
 
 
 --
--- Name: TABLE "PindahMasuk"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_17_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."PindahMasuk" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_17_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "Sessions"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_17_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Sessions" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_17_pkey;
 
 
 --
--- Name: TABLE "Sumbangan"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_18_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Sumbangan" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_18_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "SuratPengantar"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_18_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."SuratPengantar" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_18_pkey;
 
 
 --
--- Name: SEQUENCE "Users_id_seq"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_19_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON SEQUENCE public."Users_id_seq" TO anon;
-GRANT ALL ON SEQUENCE public."Users_id_seq" TO authenticated;
-GRANT ALL ON SEQUENCE public."Users_id_seq" TO service_role;
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_08_19_inserted_at_topic_idx;
 
 
 --
--- Name: TABLE "Users"; Type: ACL; Schema: public; Owner: postgres
+-- Name: messages_2026_08_19_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE public."Users" TO service_role;
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_08_19_pkey;
 
 
 --
--- Name: TABLE "Warga"; Type: ACL; Schema: public; Owner: postgres
+-- Name: Users trg_users_hash_password; Type: TRIGGER; Schema: public; Owner: postgres
 --
 
-GRANT ALL ON TABLE public."Warga" TO service_role;
+CREATE TRIGGER trg_users_hash_password BEFORE INSERT OR UPDATE OF password ON public."Users" FOR EACH ROW EXECUTE FUNCTION public.trg_users_hash_password();
 
 
 --
--- Name: TABLE messages; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: subscription tr_check_filters; Type: TRIGGER; Schema: realtime; Owner: supabase_realtime_admin
 --
 
-GRANT ALL ON TABLE realtime.messages TO postgres;
-GRANT ALL ON TABLE realtime.messages TO dashboard_user;
-GRANT SELECT,INSERT,UPDATE ON TABLE realtime.messages TO anon;
-GRANT SELECT,INSERT,UPDATE ON TABLE realtime.messages TO authenticated;
-GRANT SELECT,INSERT,UPDATE ON TABLE realtime.messages TO service_role;
+CREATE TRIGGER tr_check_filters BEFORE INSERT OR UPDATE ON realtime.subscription FOR EACH ROW EXECUTE FUNCTION realtime.subscription_check_filters();
 
 
 --
--- Name: TABLE messages_2026_08_13; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: buckets enforce_bucket_name_length_trigger; Type: TRIGGER; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_13 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_13 TO dashboard_user;
+CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF name ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_bucket_name_length();
 
 
 --
--- Name: TABLE messages_2026_08_14; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: buckets protect_buckets_delete; Type: TRIGGER; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_14 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_14 TO dashboard_user;
+CREATE TRIGGER protect_buckets_delete BEFORE DELETE ON storage.buckets FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
 
 
 --
--- Name: TABLE messages_2026_08_15; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: objects protect_objects_delete; Type: TRIGGER; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_15 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_15 TO dashboard_user;
+CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete();
 
 
 --
--- Name: TABLE messages_2026_08_16; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: objects update_objects_updated_at; Type: TRIGGER; Schema: storage; Owner: supabase_storage_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_16 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_16 TO dashboard_user;
+CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column();
 
 
 --
--- Name: TABLE messages_2026_08_17; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: identities identities_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_17 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_17 TO dashboard_user;
+ALTER TABLE ONLY auth.identities
+    ADD CONSTRAINT identities_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE messages_2026_08_18; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: mfa_amr_claims mfa_amr_claims_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_18 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_18 TO dashboard_user;
+ALTER TABLE ONLY auth.mfa_amr_claims
+    ADD CONSTRAINT mfa_amr_claims_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE messages_2026_08_19; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: mfa_challenges mfa_challenges_auth_factor_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE realtime.messages_2026_08_19 TO postgres;
-GRANT ALL ON TABLE realtime.messages_2026_08_19 TO dashboard_user;
+ALTER TABLE ONLY auth.mfa_challenges
+    ADD CONSTRAINT mfa_challenges_auth_factor_id_fkey FOREIGN KEY (factor_id) REFERENCES auth.mfa_factors(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE schema_migrations; Type: ACL; Schema: realtime; Owner: supabase_admin
+-- Name: mfa_factors mfa_factors_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE realtime.schema_migrations TO postgres;
-GRANT ALL ON TABLE realtime.schema_migrations TO dashboard_user;
+ALTER TABLE ONLY auth.mfa_factors
+    ADD CONSTRAINT mfa_factors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE subscription; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: oauth_authorizations oauth_authorizations_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE realtime.subscription TO postgres;
-GRANT ALL ON TABLE realtime.subscription TO dashboard_user;
-GRANT SELECT ON TABLE realtime.subscription TO anon;
-GRANT SELECT ON TABLE realtime.subscription TO authenticated;
-GRANT SELECT ON TABLE realtime.subscription TO service_role;
+ALTER TABLE ONLY auth.oauth_authorizations
+    ADD CONSTRAINT oauth_authorizations_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
 
 
 --
--- Name: SEQUENCE subscription_id_seq; Type: ACL; Schema: realtime; Owner: supabase_realtime_admin
+-- Name: oauth_authorizations oauth_authorizations_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON SEQUENCE realtime.subscription_id_seq TO postgres;
-GRANT ALL ON SEQUENCE realtime.subscription_id_seq TO dashboard_user;
-GRANT USAGE ON SEQUENCE realtime.subscription_id_seq TO anon;
-GRANT USAGE ON SEQUENCE realtime.subscription_id_seq TO authenticated;
-GRANT USAGE ON SEQUENCE realtime.subscription_id_seq TO service_role;
+ALTER TABLE ONLY auth.oauth_authorizations
+    ADD CONSTRAINT oauth_authorizations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE buckets; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: oauth_consents oauth_consents_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-REVOKE ALL ON TABLE storage.buckets FROM supabase_storage_admin;
-GRANT ALL ON TABLE storage.buckets TO supabase_storage_admin WITH GRANT OPTION;
-GRANT ALL ON TABLE storage.buckets TO service_role;
-GRANT ALL ON TABLE storage.buckets TO authenticated;
-GRANT ALL ON TABLE storage.buckets TO anon;
-GRANT ALL ON TABLE storage.buckets TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY auth.oauth_consents
+    ADD CONSTRAINT oauth_consents_client_id_fkey FOREIGN KEY (client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE buckets_analytics; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: oauth_consents oauth_consents_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE storage.buckets_analytics TO service_role;
-GRANT ALL ON TABLE storage.buckets_analytics TO authenticated;
-GRANT ALL ON TABLE storage.buckets_analytics TO anon;
+ALTER TABLE ONLY auth.oauth_consents
+    ADD CONSTRAINT oauth_consents_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE buckets_vectors; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: one_time_tokens one_time_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT SELECT ON TABLE storage.buckets_vectors TO service_role;
-GRANT SELECT ON TABLE storage.buckets_vectors TO authenticated;
-GRANT SELECT ON TABLE storage.buckets_vectors TO anon;
+ALTER TABLE ONLY auth.one_time_tokens
+    ADD CONSTRAINT one_time_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE objects; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: refresh_tokens refresh_tokens_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-REVOKE ALL ON TABLE storage.objects FROM supabase_storage_admin;
-GRANT ALL ON TABLE storage.objects TO supabase_storage_admin WITH GRANT OPTION;
-GRANT ALL ON TABLE storage.objects TO service_role;
-GRANT ALL ON TABLE storage.objects TO authenticated;
-GRANT ALL ON TABLE storage.objects TO anon;
-GRANT ALL ON TABLE storage.objects TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY auth.refresh_tokens
+    ADD CONSTRAINT refresh_tokens_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE s3_multipart_uploads; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: saml_providers saml_providers_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE storage.s3_multipart_uploads TO service_role;
-GRANT SELECT ON TABLE storage.s3_multipart_uploads TO authenticated;
-GRANT SELECT ON TABLE storage.s3_multipart_uploads TO anon;
+ALTER TABLE ONLY auth.saml_providers
+    ADD CONSTRAINT saml_providers_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE s3_multipart_uploads_parts; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: saml_relay_states saml_relay_states_flow_state_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT ALL ON TABLE storage.s3_multipart_uploads_parts TO service_role;
-GRANT SELECT ON TABLE storage.s3_multipart_uploads_parts TO authenticated;
-GRANT SELECT ON TABLE storage.s3_multipart_uploads_parts TO anon;
+ALTER TABLE ONLY auth.saml_relay_states
+    ADD CONSTRAINT saml_relay_states_flow_state_id_fkey FOREIGN KEY (flow_state_id) REFERENCES auth.flow_state(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE vector_indexes; Type: ACL; Schema: storage; Owner: supabase_storage_admin
+-- Name: saml_relay_states saml_relay_states_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT SELECT ON TABLE storage.vector_indexes TO service_role;
-GRANT SELECT ON TABLE storage.vector_indexes TO authenticated;
-GRANT SELECT ON TABLE storage.vector_indexes TO anon;
+ALTER TABLE ONLY auth.saml_relay_states
+    ADD CONSTRAINT saml_relay_states_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE secrets; Type: ACL; Schema: vault; Owner: supabase_admin
+-- Name: sessions sessions_oauth_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT SELECT,REFERENCES,DELETE,TRUNCATE ON TABLE vault.secrets TO postgres WITH GRANT OPTION;
-GRANT SELECT,DELETE ON TABLE vault.secrets TO service_role;
+ALTER TABLE ONLY auth.sessions
+    ADD CONSTRAINT sessions_oauth_client_id_fkey FOREIGN KEY (oauth_client_id) REFERENCES auth.oauth_clients(id) ON DELETE CASCADE;
 
 
 --
--- Name: TABLE decrypted_secrets; Type: ACL; Schema: vault; Owner: supabase_admin
+-- Name: sessions sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-GRANT SELECT,REFERENCES,DELETE,TRUNCATE ON TABLE vault.decrypted_secrets TO postgres WITH GRANT OPTION;
-GRANT SELECT,DELETE ON TABLE vault.decrypted_secrets TO service_role;
+ALTER TABLE ONLY auth.sessions
+    ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: sso_domains sso_domains_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON SEQUENCES TO dashboard_user;
+ALTER TABLE ONLY auth.sso_domains
+    ADD CONSTRAINT sso_domains_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_challenges webauthn_challenges_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON FUNCTIONS TO dashboard_user;
+ALTER TABLE ONLY auth.webauthn_challenges
+    ADD CONSTRAINT webauthn_challenges_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: auth; Owner: supabase_auth_admin
+-- Name: webauthn_credentials webauthn_credentials_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: supabase_auth_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_auth_admin IN SCHEMA auth GRANT ALL ON TABLES TO dashboard_user;
+ALTER TABLE ONLY auth.webauthn_credentials
+    ADD CONSTRAINT webauthn_credentials_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: extensions; Owner: supabase_admin
+-- Name: objects objects_bucketId_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA extensions GRANT ALL ON SEQUENCES TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY storage.objects
+    ADD CONSTRAINT "objects_bucketId_fkey" FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: extensions; Owner: supabase_admin
+-- Name: s3_multipart_uploads s3_multipart_uploads_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA extensions GRANT ALL ON FUNCTIONS TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY storage.s3_multipart_uploads
+    ADD CONSTRAINT s3_multipart_uploads_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: extensions; Owner: supabase_admin
+-- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA extensions GRANT ALL ON TABLES TO postgres WITH GRANT OPTION;
+ALTER TABLE ONLY storage.s3_multipart_uploads_parts
+    ADD CONSTRAINT s3_multipart_uploads_parts_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id);
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: graphql; Owner: supabase_admin
+-- Name: s3_multipart_uploads_parts s3_multipart_uploads_parts_upload_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON SEQUENCES TO service_role;
+ALTER TABLE ONLY storage.s3_multipart_uploads_parts
+    ADD CONSTRAINT s3_multipart_uploads_parts_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES storage.s3_multipart_uploads(id) ON DELETE CASCADE;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: graphql; Owner: supabase_admin
+-- Name: vector_indexes vector_indexes_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON FUNCTIONS TO service_role;
+ALTER TABLE ONLY storage.vector_indexes
+    ADD CONSTRAINT vector_indexes_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets_vectors(id);
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: graphql; Owner: supabase_admin
+-- Name: audit_log_entries; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql GRANT ALL ON TABLES TO service_role;
+ALTER TABLE auth.audit_log_entries ENABLE ROW LEVEL SECURITY;
 
+--
+-- Name: flow_state; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.flow_state ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: identities; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.identities ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: instances; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.instances ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: mfa_amr_claims; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.mfa_amr_claims ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: mfa_challenges; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.mfa_challenges ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: mfa_factors; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.mfa_factors ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: one_time_tokens; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.one_time_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: refresh_tokens; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.refresh_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: saml_providers; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.saml_providers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: saml_relay_states; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.saml_relay_states ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: schema_migrations; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.schema_migrations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sessions; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.sessions ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sso_domains; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.sso_domains ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sso_providers; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.sso_providers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: users; Type: ROW SECURITY; Schema: auth; Owner: supabase_auth_admin
+--
+
+ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: Aset; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public."Aset" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: Aspirasi; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public."Aspirasi" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: Bansos; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
+
+ALTER TABLE public."Bansos" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: Iuran; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Iuran" ENABLE ROW LEVEL SECURITY;
+
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: graphql_public; Owner: supabase_admin
+-- Name: Kelahiran; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
+
+ALTER TABLE public."Kelahiran" ENABLE ROW LEVEL SECURITY;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON SEQUENCES TO service_role;
+--
+-- Name: Kematian; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Kematian" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: graphql_public; Owner: supabase_admin
+-- Name: Keuangan; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON FUNCTIONS TO service_role;
+ALTER TABLE public."Keuangan" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: LoginAttempts; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."LoginAttempts" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: graphql_public; Owner: supabase_admin
+-- Name: Notifikasi; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
+
+ALTER TABLE public."Notifikasi" ENABLE ROW LEVEL SECURITY;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA graphql_public GRANT ALL ON TABLES TO service_role;
+--
+-- Name: Peminjaman; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Peminjaman" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: postgres
+-- Name: Pengaduan; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+ALTER TABLE public."Pengaduan" ENABLE ROW LEVEL SECURITY;
 
+--
+-- Name: Pengaturan; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Pengaturan" ENABLE ROW LEVEL SECURITY;
+
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: supabase_admin
+-- Name: PindahKeluar; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
+
+ALTER TABLE public."PindahKeluar" ENABLE ROW LEVEL SECURITY;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
+--
+-- Name: PindahMasuk; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."PindahMasuk" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: postgres
+-- Name: Notifikasi RT lihat semua notifikasi; Type: POLICY; Schema: public; Owner: postgres
 --
+
+CREATE POLICY "RT lihat semua notifikasi" ON public."Notifikasi" USING ((CURRENT_USER = 'adminrt'::name));
+
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
+--
+-- Name: Sessions; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Sessions" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: supabase_admin
+-- Name: Sumbangan; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
+ALTER TABLE public."Sumbangan" ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: SuratPengantar; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."SuratPengantar" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: postgres
+-- Name: Users; Type: ROW SECURITY; Schema: public; Owner: postgres
 --
+
+ALTER TABLE public."Users" ENABLE ROW LEVEL SECURITY;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+--
+-- Name: Warga; Type: ROW SECURITY; Schema: public; Owner: postgres
+--
 
+ALTER TABLE public."Warga" ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: supabase_admin
+-- Name: Notifikasi Warga insert notifikasi sendiri; Type: POLICY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO service_role;
+CREATE POLICY "Warga insert notifikasi sendiri" ON public."Notifikasi" FOR INSERT WITH CHECK ((CURRENT_USER = nik));
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: realtime; Owner: supabase_admin
+-- Name: Notifikasi Warga lihat notifikasi sendiri; Type: POLICY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON SEQUENCES TO dashboard_user;
+CREATE POLICY "Warga lihat notifikasi sendiri" ON public."Notifikasi" FOR SELECT USING ((CURRENT_USER = nik));
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: realtime; Owner: supabase_admin
+-- Name: Notifikasi Warga update notifikasi sendiri; Type: POLICY; Schema: public; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON FUNCTIONS TO dashboard_user;
+CREATE POLICY "Warga update notifikasi sendiri" ON public."Notifikasi" FOR UPDATE USING ((CURRENT_USER = nik));
+
+
+--
+-- Name: messages; Type: ROW SECURITY; Schema: realtime; Owner: supabase_realtime_admin
+--
 
+ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: realtime; Owner: supabase_admin
+-- Name: objects Public Access rt-media Insert; Type: POLICY; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON TABLES TO dashboard_user;
+CREATE POLICY "Public Access rt-media Insert" ON storage.objects FOR INSERT WITH CHECK ((bucket_id = 'rt-media'::text));
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: storage; Owner: postgres
+-- Name: buckets; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON SEQUENCES TO service_role;
+ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
 
+--
+-- Name: buckets_analytics; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
+--
 
+ALTER TABLE storage.buckets_analytics ENABLE ROW LEVEL SECURITY;
+
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: storage; Owner: postgres
+-- Name: buckets_vectors; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
 --
+
+ALTER TABLE storage.buckets_vectors ENABLE ROW LEVEL SECURITY;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON FUNCTIONS TO service_role;
+--
+-- Name: migrations; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
+--
 
+ALTER TABLE storage.migrations ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: storage; Owner: postgres
+-- Name: objects; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA storage GRANT ALL ON TABLES TO service_role;
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: s3_multipart_uploads; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
+--
 
+ALTER TABLE storage.s3_multipart_uploads ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: issue_graphql_placeholder; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: s3_multipart_uploads_parts; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
 --
 
-CREATE EVENT TRIGGER issue_graphql_placeholder ON sql_drop
-         WHEN TAG IN ('DROP EXTENSION')
-   EXECUTE FUNCTION extensions.set_graphql_placeholder();
+ALTER TABLE storage.s3_multipart_uploads_parts ENABLE ROW LEVEL SECURITY;
 
+--
+-- Name: vector_indexes; Type: ROW SECURITY; Schema: storage; Owner: supabase_storage_admin
+--
 
-ALTER EVENT TRIGGER issue_graphql_placeholder OWNER TO supabase_admin;
+ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: issue_pg_cron_access; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: supabase_realtime; Type: PUBLICATION; Schema: -; Owner: postgres
 --
 
-CREATE EVENT TRIGGER issue_pg_cron_access ON ddl_command_end
-         WHEN TAG IN ('CREATE EXTENSION')
-   EXECUTE FUNCTION extensions.grant_pg_cron_access();
+CREATE PUBLICATION supabase_realtime WITH (publish = 'insert, update, delete, truncate');
 
 
-ALTER EVENT TRIGGER issue_pg_cron_access OWNER TO supabase_admin;
+ALTER PUBLICATION supabase_realtime OWNER TO postgres;
 
 --
--- Name: issue_pg_graphql_access; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: supabase_realtime_messages_publication; Type: PUBLICATION; Schema: -; Owner: supabase_admin
 --
 
-CREATE EVENT TRIGGER issue_pg_graphql_access ON ddl_command_end
-         WHEN TAG IN ('CREATE EXTENSION')
-   EXECUTE FUNCTION extensions.grant_pg_graphql_access();
+CREATE PUBLICATION supabase_realtime_messages_publication WITH (publish = 'insert, update, delete, truncate');
 
 
-ALTER EVENT TRIGGER issue_pg_graphql_access OWNER TO supabase_admin;
+ALTER PUBLICATION supabase_realtime_messages_publication OWNER TO supabase_admin;
 
 --
--- Name: issue_pg_net_access; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: supabase_realtime_messages_publication messages; Type: PUBLICATION TABLE; Schema: realtime; Owner: supabase_admin
 --
+
+ALTER PUBLICATION supabase_realtime_messages_publication ADD TABLE ONLY realtime.messages;
 
-CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end
-         WHEN TAG IN ('CREATE EXTENSION')
-   EXECUTE FUNCTION extensions.grant_pg_net_access();
 
+--
+-- Name: SCHEMA auth; Type: ACL; Schema: -; Owner: supabase_admin
+--
 
-ALTER EVENT TRIGGER issue_pg_net_access OWNER TO supabase_admin;
+GRANT USAGE ON SCHEMA auth TO anon;
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT USAGE ON SCHEMA auth TO service_role;
+GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
+GRANT ALL ON SCHEMA auth TO dashboard_user;
+GRANT USAGE ON SCHEMA auth TO postgres;
 
+
 --
--- Name: pgrst_ddl_watch; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: SCHEMA extensions; Type: ACL; Schema: -; Owner: postgres
 --
+
+GRANT USAGE ON SCHEMA extensions TO anon;
+GRANT USAGE ON SCHEMA extensions TO authenticated;
+GRANT USAGE ON SCHEMA extensions TO service_role;
+GRANT ALL ON SCHEMA extensions TO dashboard_user;
 
-CREATE EVENT TRIGGER pgrst_ddl_watch ON ddl_command_end
-   EXECUTE FUNCTION extensions.pgrst_ddl_watch();
 
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
+--
 
-ALTER EVENT TRIGGER pgrst_ddl_watch OWNER TO supabase_admin;
+GRANT USAGE ON SCHEMA public TO postgres;
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT USAGE ON SCHEMA public TO service_role;
 
+
 --
--- Name: pgrst_drop_watch; Type: EVENT TRIGGER; Schema: -; Owner: supabase_admin
+-- Name: SCHEMA net; Type: ACL; Schema: -; Owner: supabase_admin
 --
+
+GRANT USAGE ON SCHEMA net TO supabase_functions_admin;
+GRANT USAGE ON SCHEMA net TO postgres;
+GRANT USAGE ON SCHEMA net TO anon;
+GRANT USAGE ON SCHEMA net TO authenticated;
+GRANT USAGE ON SCHEMA net TO service_role;
 
-CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
-   EXECUTE FUNCTION extensions.pgrst_drop_watch();
 
+--
+-- Name: SCHEMA realtime; Type: ACL; Schema: -; Owner: supabase_admin
+--
 
-ALTER EVENT TRIGGER pgrst_drop_watch OWNER TO supabase_admin;
+GRANT USAGE ON SCHEMA realtime TO postgres WITH GRANT OPTION;
+GRANT USAGE ON SCHEMA realtime TO anon;
+GRANT USAGE ON SCHEMA realtime TO service_role;
+GRANT ALL ON SCHEMA realtime TO supabase_realtime_admin WITH GRANT OPTION;
+GRANT USAGE ON SCHEMA realtime TO authenticated;
 
+
 --
--- PostgreSQL database dump complete
+-- Name: SCHEMA storage; Type: ACL; Schema: -; Owner: supabase_admin
 --
+
+GRANT USAGE ON SCHEMA storage TO postgres WITH GRANT OPTION;
+GRANT USAGE ON SCHEMA storage TO anon;
+GRANT USAGE ON SCHEMA storage TO authenticated;
+GRANT USAGE ON SCHEMA storage TO service_role;
+GRANT ALL ON SCHEMA storage TO supabase_storage_admin WITH GRANT OPTION;
+GRANT ALL ON SCHEMA storage TO dashboard_user;
 

@@ -1,3 +1,189 @@
+
+ALTER FUNCTION pgbouncer.get_auth(p_usename text) OWNER TO supabase_admin;
+
+--
+-- Name: _bansos_expired_ts(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._bansos_expired_ts(p_val text) RETURNS timestamp with time zone
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO 'public', 'pg_temp'
+    AS $_$
+begin
+  if p_val is null or trim(p_val) = '' or p_val = '-' then return null; end if;
+  if p_val ~ '^\d{4}-\d{2}-\d{2}$' then
+    return (p_val || ' 23:59:59')::timestamp at time zone 'Asia/Jakarta';
+  end if;
+  begin
+    return (replace(p_val, ' ', 'T'))::timestamp at time zone 'Asia/Jakarta';
+  exception when others then return null; end;
+end $_$;
+
+
+ALTER FUNCTION public._bansos_expired_ts(p_val text) OWNER TO postgres;
+
+--
+-- Name: _bcrypt_check(text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._bcrypt_check(p_password text, p_hash text) RETURNS boolean
+    LANGUAGE sql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
+  select p_hash is not null and p_hash <> '' and
+         crypt(public._bcrypt_limit(coalesce(p_password,'')), p_hash) = p_hash;
+$$;
+
+
+ALTER FUNCTION public._bcrypt_check(p_password text, p_hash text) OWNER TO postgres;
+
+--
+-- Name: _bcrypt_hash(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._bcrypt_hash(p_password text) RETURNS text
+    LANGUAGE sql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
+  select crypt(public._bcrypt_limit(p_password), gen_salt('bf', 10));
+$$;
+
+
+ALTER FUNCTION public._bcrypt_hash(p_password text) OWNER TO postgres;
+
+--
+-- Name: _bcrypt_limit(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._bcrypt_limit(p_password text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    AS $$
+  select case when octet_length(coalesce(p_password,'')) > 72
+    then convert_from(substring(convert_to(coalesce(p_password,''), 'UTF8') from 1 for 72), 'UTF8')
+    else coalesce(p_password,'') end;
+$$;
+
+
+ALTER FUNCTION public._bcrypt_limit(p_password text) OWNER TO postgres;
+
+--
+-- Name: _col_exists(text, text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._col_exists(p_qname text, p_col text) RETURNS boolean
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE v_tab text;
+BEGIN
+  v_tab := substring(p_qname from '"(.*)"');
+  PERFORM 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND lower(table_name) = lower(v_tab)
+      AND lower(column_name) = lower(p_col);
+  RETURN FOUND;
+END $$;
+
+
+ALTER FUNCTION public._col_exists(p_qname text, p_col text) OWNER TO postgres;
+
+--
+-- Name: _dec_data(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._dec_data(p_cipher text) RETURNS text
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
+declare v_key text; v_out text; v_bin bytea;
+begin
+  if p_cipher is null or p_cipher = '' then return p_cipher; end if;
+  -- bukan ciphertext pgp -> kembalikan apa adanya (plaintext lama / placeholder)
+  if not public._is_enc(p_cipher) then return p_cipher; end if;
+  select decrypted_secret into v_key
+    from vault.decrypted_secrets where name = 'data_enc_key' limit 1;
+  if v_key is null then return p_cipher; end if;
+  begin
+    if left(p_cipher, 2) = '\x' then
+      -- format hex bytea lama (bug rilis pertama): '\x...' -> decode ke bytea
+      v_bin := decode(substring(p_cipher from 3), 'hex');
+    else
+      -- format armor '-----BEGIN PGP MESSAGE-----'
+      v_bin := dearmor(p_cipher);
+    end if;
+    v_out := pgp_sym_decrypt(v_bin, v_key);
+    return v_out;
+  exception when others then
+    return p_cipher; -- gagal dekripsi: kembalikan mentah
+  end;
+end $$;
+
+
+ALTER FUNCTION public._dec_data(p_cipher text) OWNER TO postgres;
+
+--
+-- Name: _decrypt_row(jsonb, boolean); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._decrypt_row(p_row jsonb, p_allowed boolean) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
+declare v_out jsonb := p_row; k text; v_val text;
+begin
+  if p_row is null then return p_row; end if;
+  for k in select jsonb_object_keys(p_row) loop
+    if lower(k) in ('nik_sha','kk_sha') then
+      v_out := v_out - k;
+    elsif lower(k) in ('nik','no_kk','no_hp','tanggal_lahir','tempat_lahir')
+       and jsonb_typeof(p_row -> k) = 'string' then
+      v_val := p_row ->> k;
+      if p_allowed then
+        v_out := jsonb_set(v_out, array[k], to_jsonb(coalesce(public._dec_data(v_val), '')));
+      elsif public._is_enc(coalesce(v_val,'')) then
+        v_out := jsonb_set(v_out, array[k], '"***RAHASIA***"'::jsonb);
+      end if;
+    end if;
+  end loop;
+  return v_out;
+end $$;
+
+
+ALTER FUNCTION public._decrypt_row(p_row jsonb, p_allowed boolean) OWNER TO postgres;
+
+--
+-- Name: _enc_data(text); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._enc_data(p_plain text) RETURNS text
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
+declare v_key text;
+begin
+  if p_plain is null or p_plain = '' then return p_plain; end if;
+  -- jangan enkripsi ulang nilai yang sudah ciphertext / placeholder sensor
+  if public._is_enc(p_plain) or p_plain = '***RAHASIA***' then return p_plain; end if;
+  select decrypted_secret into v_key
+    from vault.decrypted_secrets where name = 'data_enc_key' limit 1;
+  if v_key is null then return p_plain; end if;
+  -- PENTING: pgp_sym_encrypt mengembalikan bytea. Tanpa armor(), bytea
+  -- yang di-cast ke text tersimpan sebagai hex '\x...' yang tidak bisa
+  -- didekripsi ulang. armor() membungkusnya jadi teks armor
+  -- '-----BEGIN PGP MESSAGE-----' (nama fungsi resmi pgcrypto: armor/dearmor,
+  -- BUKAN pgp_armor/pgp_dearmor).
+  return armor(pgp_sym_encrypt(p_plain::text, v_key));
+end $$;
+
+
+ALTER FUNCTION public._enc_data(p_plain text) OWNER TO postgres;
+
+--
+-- Name: _encrypt_row(jsonb); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public._encrypt_row(p_row jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO 'public', 'extensions', 'pg_temp'
+    AS $$
 declare
   v_out jsonb := p_row;
   v_nik text; v_kk text;
@@ -614,386 +800,3 @@ begin
     'Gagal hapus file storage: ' || coalesce(v_res ->> 'message',''));
 end $$;
 
-
-ALTER FUNCTION public.delete_storage_files_secured(p_token text, p_password text, p_paths text[]) OWNER TO postgres;
-
---
--- Name: delete_user_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.delete_user_secured(p_token text, p_username text) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            DECLARE
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                v_role text := 'Warga';
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                BEGIN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan menghapus user.');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        END IF;
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            DELETE FROM public."Users" WHERE LOWER(username) = LOWER(p_username);
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                RETURN json_build_object('status', 'success', 'message', 'Akun User berhasil dihapus!');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                EXCEPTION WHEN OTHERS THEN
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    RETURN json_build_object('status', 'error', 'message', SQLERRM);
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    END;
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    $$;
-
-
-ALTER FUNCTION public.delete_user_secured(p_token text, p_username text) OWNER TO postgres;
-
---
--- Name: delete_warga_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.delete_warga_secured(p_token text, p_id text) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
-                                                                                                                                                                                                                                                                                                                                                DECLARE
-                                                                                                                                                                                                                                                                                                                                                    v_role text := 'Warga';
-                                                                                                                                                                                                                                                                                                                                                    BEGIN
-                                                                                                                                                                                                                                                                                                                                                        SELECT s.role INTO v_role FROM public."Sessions" s WHERE TRIM(s.token) = TRIM(p_token) LIMIT 1;
-                                                                                                                                                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                                                                                                                                                IF UPPER(COALESCE(v_role, '')) != 'RT' THEN
-                                                                                                                                                                                                                                                                                                                                                                        RETURN json_build_object('status', 'error', 'message', 'Akses ditolak! Hanya RT yang diizinkan menghapus data warga.');
-                                                                                                                                                                                                                                                                                                                                                                            END IF;
-
-                                                                                                                                                                                                                                                                                                                                                                                DELETE FROM public."Warga" WHERE id = p_id OR nik = p_id;
-
-                                                                                                                                                                                                                                                                                                                                                                                    RETURN json_build_object('status', 'success', 'message', 'Data Warga berhasil dihapus!');
-                                                                                                                                                                                                                                                                                                                                                                                    EXCEPTION WHEN OTHERS THEN
-                                                                                                                                                                                                                                                                                                                                                                                        RETURN json_build_object('status', 'error', 'message', SQLERRM);
-                                                                                                                                                                                                                                                                                                                                                                                        END;
-                                                                                                                                                                                                                                                                                                                                                                                        $$;
-
-
-ALTER FUNCTION public.delete_warga_secured(p_token text, p_id text) OWNER TO postgres;
-
---
--- Name: generic_delete_secured(text, text, text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $_$
-declare v_qname text := public._qname(p_table);
-begin
-  if v_qname is null then
-    return jsonb_build_object('status','error','message','Tabel tidak diizinkan.');
-  end if;
-  if public.auth_role(p_token) <> 'RT' then
-    return jsonb_build_object('status','error','message','Akses ditolak: hanya RT yang boleh menghapus data.');
-  end if;
-  if lower(trim(p_id_col)) in ('nik','no_kk') then
-    execute 'DELETE FROM ' || v_qname || ' WHERE ' || quote_ident(lower(trim(p_id_col))||'_sha') || ' = $1'
-      using public._sha(p_id_val);
-  else
-    execute 'DELETE FROM ' || v_qname || ' WHERE ' || quote_ident(p_id_col) || ' = $1'
-      using p_id_val;
-  end if;
-  return jsonb_build_object('status','success','message','Data berhasil dihapus!');
-end $_$;
-
-
-ALTER FUNCTION public.generic_delete_secured(p_table text, p_token text, p_id_col text, p_id_val text) OWNER TO postgres;
-
---
--- Name: generic_insert_secured(text, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.generic_insert_secured(p_table text, p_token text, p_row jsonb) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $_$
-declare
-  v_table  text := lower(trim(p_table));
-  v_qname  text := public._qname(v_table);
-  v_role   text := public.auth_role(p_token);
-  v_nik    text := '';
-  v_nama   text := '';
-  v_clean  jsonb;
-  v_status text;
-  v_default_status text;
-  v_status_whitelist text[] := array['baru','menunggu verifikasi','diajukan','pending','belum di verifikasi','belum diverifikasi'];
-  v_allow_warga boolean;
-begin
-  if v_qname is null then
-    return jsonb_build_object('status','error','message','Tabel tidak diizinkan: '||v_table);
-  end if;
-  if v_role is null then
-    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
-  end if;
-  if v_table in ('users','sessions','warga','pengaturan','keuangan','aset','bansos') AND v_role <> 'RT' then
-    return jsonb_build_object('status','error','message','Akses ditolak: operasi ini hanya untuk RT.');
-  end if;
-
-  v_allow_warga := v_table in ('pengaduan','suratpengantar','peminjaman','sumbangan','iuran','aspirasi');
-
-  if v_role <> 'RT' then
-    if not v_allow_warga then
-      return jsonb_build_object('status','error','message','Akses ditolak: operasi ini hanya untuk RT.');
-    end if;
-    -- Nik diambil dari Sessions (pemilik sesi), nama dari Users — dikualifikasi
-    -- agar tidak ambigu: kedua tabel sama-sama punya kolom nik.
-    select coalesce(public._dec_data(s.nik),''), coalesce(public._dec_data(u.nama),'')
-      into v_nik, v_nama
-      from public."Sessions" s
-      left join public."Users" u on u.nik_sha = s.nik_sha
-      where s.token = trim(p_token) limit 1;
-  end if;
-
-  -- Buang kolom yang tidak boleh di-set klien; created_at dipaksa server
-  v_clean := public._normalize_row(p_row, v_qname);
-  v_clean := v_clean - 'created_at' - 'verified_at' - 'nik_sha' - 'kk_sha';
-
-  if v_role <> 'RT' then
-    -- Paksa kepemilikan: nik = nik sesi (Aspirasi anonim dikecualikan)
-    if v_table <> 'aspirasi' and public._col_exists(v_qname, 'nik') then
-      v_clean := v_clean || jsonb_build_object('nik', v_nik);
-    end if;
-    -- Paksa nama = nama sesi bila tersedia (cegah spoof nama orang lain)
-    if v_nama <> '' and public._col_exists(v_qname, 'nama') then
-      v_clean := v_clean || jsonb_build_object('nama', v_nama);
-    end if;
-    -- Paksa status awal (v13): "Belum di verifikasi" untuk menu aduan/surat/sumbangan
-    v_default_status := case v_table
-      when 'peminjaman' then 'Menunggu Verifikasi'
-      when 'iuran'      then 'Menunggu Verifikasi'
-      when 'aspirasi'   then 'Baru'
-      else 'Belum di verifikasi' end;
-    if public._col_exists(v_qname, 'status') then
-      v_status := lower(trim(coalesce(v_clean->>'status','')));
-      if v_status = '' or not (v_status = any(v_status_whitelist)) then
-        v_status := v_default_status;
-      else
-        -- Kanonik (bukan initcap yang jadi "Belum Di Verifikasi"):
-        -- semua sinonim pending diseragamkan menjadi "Belum di verifikasi"
-        -- (searched CASE + IN — PL/pgSQL tidak menerima daftar nilai di WHEN)
-        v_status := case
-          when v_status = 'menunggu verifikasi' then 'Menunggu Verifikasi'
-          when v_status in ('baru','belum di verifikasi','belum diverifikasi','diajukan','pending') then 'Belum di verifikasi'
-          else initcap(v_status) end;
-      end if;
-      v_clean := jsonb_set(v_clean, '{status}', to_jsonb(v_status));
-    end if;
-  end if;
-
-  v_clean := public._encrypt_row(v_clean);
-  v_clean := v_clean || jsonb_build_object('created_at', to_jsonb(now()));
-  execute 'INSERT INTO ' || v_qname || ' SELECT * FROM jsonb_populate_record(NULL::' || v_qname || ', $1)'
-    using v_clean;
-  return jsonb_build_object('status','success','message','Data berhasil disimpan!');
-end $_$;
-
-
-ALTER FUNCTION public.generic_insert_secured(p_table text, p_token text, p_row jsonb) OWNER TO postgres;
-
---
--- Name: generic_select_secured(text, text); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.generic_select_secured(p_table text, p_token text) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $$
-declare
-  v_table   text := lower(trim(p_table));
-  v_qname   text := public._qname(v_table);
-  v_role    text := public.auth_role(p_token);
-  v_nik     text := '';
-  v_user_kk text := '';
-  v_rows    jsonb := '[]'::jsonb;
-  v_row     jsonb;
-  v_private boolean;
-  v_row_kk  text;
-  v_row_nik text;
-  v_allow   boolean;
-begin
-  if v_qname is null then
-    return jsonb_build_object('status','error','message','Tabel tidak diizinkan: '||v_table);
-  end if;
-
-  if v_table = 'pengaturan' then
-    for v_row in execute 'select to_jsonb(t) from public."Pengaturan" t' loop
-      if (v_row->>'kunci') in ('gemini_api_key','password') then continue; end if;
-      v_rows := v_rows || v_row;
-    end loop;
-    return jsonb_build_object('status','success','data', v_rows);
-  end if;
-
-  if v_role is null then
-    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
-  end if;
-
-  select coalesce(public._dec_data(nik),'') into v_nik
-    from public."Sessions" where token = trim(p_token) limit 1;
-
-  if v_nik <> '' then
-    select coalesce(public._dec_data(no_kk),'') into v_user_kk
-      from public."Warga"
-     where nik_sha = public._sha(v_nik) limit 1;
-  end if;
-
-  -- Khusus tabel Warga: RT lihat full; Warga lihat semua warga tetapi disensor bila KK beda
-  if v_table = 'warga' then
-    for v_row in execute 'select to_jsonb(t) from public."Warga" t' loop
-      if v_role = 'RT' then
-        v_rows := v_rows || public._decrypt_row(v_row, true);
-      else
-        v_row_kk  := lower(trim(coalesce(public._dec_data(v_row->>'no_kk'),'')));
-        v_row_nik := lower(trim(coalesce(public._dec_data(v_row->>'nik'),'')));
-        v_allow := (v_user_kk <> '' and v_row_kk <> '' and v_row_kk = lower(trim(v_user_kk)))
-                or (v_nik <> '' and v_row_nik = lower(trim(v_nik)));
-        v_rows := v_rows || public._decrypt_row(v_row, v_allow);
-      end if;
-    end loop;
-    return jsonb_build_object('status','success','data', v_rows);
-  end if;
-
-  v_private := v_table in ('users','sessions','pengaduan','suratpengantar','peminjaman','sumbangan','iuran');
-
-  for v_row in execute 'select to_jsonb(t) from ' || v_qname || ' t' loop
-    if v_role = 'RT' then
-      v_rows := v_rows || public._decrypt_row(v_row, true);
-    elsif not v_private or public._row_owner_match(v_row, v_nik, '') then
-      v_allow := public._row_owner_match(v_row, v_nik, '')
-              or (v_user_kk <> '' and lower(trim(coalesce(public._dec_data(v_row->>'no_kk'),''))) = lower(trim(v_user_kk)));
-      v_rows := v_rows || public._decrypt_row(v_row, v_allow);
-    end if;
-  end loop;
-
-  if v_table = 'users' then
-    select coalesce(jsonb_agg(x), '[]'::jsonb) into v_rows
-      from (select v.value - 'password' as x from jsonb_array_elements(v_rows) v) s;
-  end if;
-
-  return jsonb_build_object('status','success','data', v_rows);
-end $$;
-
-
-ALTER FUNCTION public.generic_select_secured(p_table text, p_token text) OWNER TO postgres;
-
---
--- Name: generic_update_secured(text, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: postgres
---
-
-CREATE FUNCTION public.generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb) RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
-    AS $_$
-declare
-  v_table  text := lower(trim(p_table));
-  v_qname  text := public._qname(v_table);
-  v_role   text := public.auth_role(p_token);
-  v_nik    text := '';
-  v_clean  jsonb;
-  v_set    text := '';
-  v_k      text; v_v jsonb; v_val text;
-  v_row    jsonb;
-  v_where  text;
-  v_use_sha boolean;
-  v_status_whitelist text[] := array['baru','menunggu verifikasi','diajukan','pending','belum di verifikasi','belum diverifikasi'];
-begin
-  if v_qname is null then
-    return jsonb_build_object('status','error','message','Tabel tidak diizinkan: '||v_table);
-  end if;
-  if v_role is null then
-    return jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
-  end if;
-  if p_id_col is null or p_id_val is null then
-    return jsonb_build_object('status','error','message','Parameter id tidak lengkap.');
-  end if;
-
-  v_use_sha := lower(trim(p_id_col)) in ('nik','no_kk');
-  if v_use_sha then
-    v_where := quote_ident(lower(trim(p_id_col)) || '_sha') || ' = $1';
-  else
-    v_where := quote_ident(p_id_col) || ' = $1';
-  end if;
-
-  if v_role <> 'RT' then
-    if v_table in ('users','sessions','warga','pengaturan') then
-      return jsonb_build_object('status','error','message','Akses ditolak: operasi ini hanya untuk RT.');
-    elsif v_table in ('pengaduan','suratpengantar','peminjaman','sumbangan','iuran','aspirasi') then
-      select coalesce(public._dec_data(nik),'') into v_nik
-        from public."Sessions" where token = trim(p_token) limit 1;
-      execute 'select to_jsonb(t) from ' || v_qname || ' t where ' || v_where || ' limit 1'
-        into v_row
-        using case when v_use_sha then public._sha(p_id_val) else p_id_val end;
-      if not public._row_owner_match(v_row, v_nik, '') then
-        return jsonb_build_object('status','error','message','Akses ditolak: data bukan milik Anda.');
-      end if;
-    else
-      return jsonb_build_object('status','error','message','Akses ditolak: operasi ini hanya untuk RT.');
-    end if;
-  end if;
-
-  v_clean := public._normalize_row(p_row, v_qname);
-  for v_k, v_v in select lower(key), value from jsonb_each(v_clean) loop
-    if lower(v_k) = lower(trim(p_id_col)) then continue; end if;
-    if lower(v_k) in ('created_at','verified_at','nik_sha','kk_sha') then continue; end if;
-
-    -- Temuan audit #2: Warga tidak boleh mengubah kolom kepemilikan / status final
-    if v_role <> 'RT' then
-      if lower(v_k) in ('nik','no_kk') then
-        continue; -- kepemilikan tidak bisa dipindah
-      end if;
-      if lower(v_k) = 'status' then
-        v_val := lower(trim(coalesce(v_v#>>'{}','')));
-        if v_val = '' or not (v_val = any(v_status_whitelist)) then
-          return jsonb_build_object('status','error','message',
-            'Akses ditolak: perubahan status ke "' || coalesce(v_v#>>'{}','') || '" hanya bisa dilakukan RT.');
-        end if;
-      end if;
-    end if;
-
-    v_val := v_v#>>'{}';
-    if lower(v_k) in ('nik','no_kk','no_hp','tanggal_lahir','tempat_lahir') then
-      v_val := public._enc_data(v_val);
-    end if;
-    if v_set <> '' then v_set := v_set || ', '; end if;
-    v_set := v_set || quote_ident(v_k) || ' = ' || coalesce(quote_literal(v_val), 'NULL');
-    if lower(v_k) = 'nik' then
-      v_set := v_set || ', nik_sha = ' || quote_literal(public._sha(coalesce(v_v#>>'{}','')));
-    elsif lower(v_k) = 'no_kk' then
-      v_set := v_set || ', kk_sha = ' || quote_literal(public._sha(coalesce(v_v#>>'{}','')));
-    end if;
-  end loop;
-
-  -- Catat waktu verifikasi saat RT mengubah status record
-  if v_role = 'RT' and (p_row ? 'status' or p_row ? 'Status')
-     and public._col_exists(v_qname, 'verified_at') then
-    declare
-      v_old_status text;
-    begin
-      execute 'select coalesce(status::text,'''') from ' || v_qname
-              || ' where ' || v_where || ' limit 1'
-        into v_old_status
-        using case when v_use_sha then public._sha(p_id_val) else p_id_val end;
-      if lower(trim(coalesce(v_old_status, '')))
-         is distinct from lower(trim(coalesce(p_row->>'status', p_row->>'Status', ''))) then
-        if v_set <> '' then v_set := v_set || ', '; end if;
-        v_set := v_set || 'verified_at = now()';
-      end if;
-    end;
-  end if;
-
-  if v_set = '' then
-    return jsonb_build_object('status','error','message','Tidak ada kolom yang diubah.');
-  end if;
-  execute 'UPDATE ' || v_qname || ' SET ' || v_set || ' WHERE ' || v_where
-    using case when v_use_sha then public._sha(p_id_val) else p_id_val end;
-  return jsonb_build_object('status','success','message','Data berhasil diperbarui!');
-end $_$;
-
-
-ALTER FUNCTION public.generic_update_secured(p_table text, p_token text, p_id_col text, p_id_val text, p_row jsonb) OWNER TO postgres;
-
---
--- Name: get_aset_page_secured(text, text, integer, integer, text); Type: FUNCTION; Schema: public; Owner: postgres
---
