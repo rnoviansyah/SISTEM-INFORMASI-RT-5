@@ -4,6 +4,11 @@ let activeVerifikasiData = null;
 let activeKembaliData = null;
 let currentAsetTab = 'stok';
 let isEditModeAset = false;
+// PAGINATION SERVER-SIDE (patch v9): tab stok & riwayat hanya mengunduh 1 halaman
+// (25 baris) dari RPC get_aset_page_secured. Fallback otomatis ke mode lama.
+let asetServerMode = false;
+let asetStokTotal = 0;
+let asetRiwayatTotal = 0;
 function renderAsetCustom(data) {
   rawAsetData = data.rows || [];
   let isRt = session && session.role === 'RT';
@@ -49,6 +54,7 @@ function renderAsetCustom(data) {
             </thead>
             <tbody id="aset-table-body"></tbody>
           </table>
+          <div id="aset-stok-pagination" class="px-2 py-1"></div>
         </div>
       </div>
       <div id="tab-content-riwayat" class="${currentAsetTab === 'riwayat' ? 'block' : 'hidden'} bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-4">
@@ -63,7 +69,7 @@ function renderAsetCustom(data) {
                 <th class="p-3">NAMA PEMINJAM</th>
                 <th class="p-3">BARANG</th>
                 <th class="p-3 text-center">MINTA</th>
-                <th class="p-3 text-center">ACC RT</th>
+                <th class="p-3 text-center">DISETUJUI RT</th>
                 <th class="p-3">KET. WARGA</th>
                 <th class="p-3">CATATAN / LOKASI RT</th>
                 <th class="p-3 text-center">STATUS</th>
@@ -74,13 +80,14 @@ function renderAsetCustom(data) {
               <tr><td colspan="8" class="text-center p-4 text-gray-400">Memuat riwayat peminjaman...</td></tr>
             </tbody>
           </table>
+          <div id="aset-riwayat-pagination" class="px-2 py-1"></div>
         </div>
       </div>
     </div>
     <!-- MODAL KELOLA ASET RT -->
     <div id="modal-kelola-aset" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
-        <button onclick="tutupModalKelolaAset()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalKelolaAset()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm" id="modalKelolaTitle">Kelola Barang Aset</h3>
           <p class="text-[11px] text-gray-500">Tambah barang baru atau perbarui stok inventaris RT</p>
@@ -113,7 +120,7 @@ function renderAsetCustom(data) {
     <!-- MODAL FORM PEMINJAMAN WARGA -->
     <div id="modal-form-pinjam" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
-        <button onclick="tutupModalPinjam()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalPinjam()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm">Form Peminjaman Barang</h3>
           <p class="text-[11px] text-gray-500">Isi detail pengajuan peminjaman fasilitas/aset RT</p>
@@ -134,7 +141,7 @@ function renderAsetCustom(data) {
               <label class="block text-[11px] font-bold text-gray-600 uppercase">JUMLAH</label>
               <span id="stokInfoText" class="text-[10px] text-emerald-600 font-bold">Maksimal Stok: -</span>
             </div>
-            <input type="number" id="pinjamJumlah" min="1" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah yang mau dipinjam...">
+            <input type="number" id="pinjamJumlah" min="1" required class="w-full p-2 border border-gray-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Masukkan jumlah yang ingin dipinjam...">
           </div>
           <div>
             <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">KETERANGAN WARGA</label>
@@ -150,7 +157,7 @@ function renderAsetCustom(data) {
     <!-- MODAL VERIFIKASI RT -->
     <div id="modal-verifikasi-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
-        <button onclick="tutupModalVerifikasiRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalVerifikasiRT()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm">Verifikasi Peminjaman (RT)</h3>
           <p class="text-[11px] text-gray-500">Proses persetujuan peminjaman warga</p>
@@ -162,7 +169,7 @@ function renderAsetCustom(data) {
             <p><b>Jumlah Diminta:</b> <span id="verifJumlahMinta" class="font-bold text-blue-600">-</span></p>
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG DI-ACC RT</label>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG DISETUJUI RT</label>
             <input type="number" id="verifJumlahAcc" min="1" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
@@ -171,7 +178,7 @@ function renderAsetCustom(data) {
           </div>
           <div class="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onclick="kirimVerifikasiRT('Ditolak')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition">Tolak</button>
-            <button type="button" onclick="kirimVerifikasiRT('Disetujui')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Setujui (ACC)</button>
+            <button type="button" onclick="kirimVerifikasiRT('Disetujui')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition">Setujui</button>
           </div>
         </div>
       </div>
@@ -179,7 +186,7 @@ function renderAsetCustom(data) {
     <!-- MODAL PENGEMBALIAN BARANG RT -->
     <div id="modal-kembali-rt" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
-        <button onclick="tutupModalKembaliRT()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalKembaliRT()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm">Pengembalian Barang Aset</h3>
           <p class="text-[11px] text-gray-500">Catat jumlah barang yang dikembalikan warga</p>
@@ -188,10 +195,10 @@ function renderAsetCustom(data) {
           <div class="bg-gray-50 p-3 rounded-xl text-xs border space-y-1">
             <p><b>Peminjam:</b> <span id="kembaliNamaPeminjam">-</span></p>
             <p><b>Barang:</b> <span id="kembaliNamaBarang">-</span></p>
-            <p><b>Total Dipinjam (ACC):</b> <span id="kembaliTotalAcc" class="font-bold text-blue-600">-</span></p>
+            <p><b>Total Dipinjam (Disetujui):</b> <span id="kembaliTotalAcc" class="font-bold text-blue-600">-</span></p>
           </div>
           <div>
-            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG BENERAN DIKEMBALIKAN</label>
+            <label class="block text-[11px] font-bold text-gray-600 uppercase mb-1">JUMLAH YANG DIKEMBALIKAN</label>
             <input type="number" id="kembaliJumlahBalik" min="0" class="w-full p-2 border border-gray-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
@@ -246,8 +253,15 @@ function filterDataAset() {
   if (rawAsetData.length === 0) {
     let colSpan = isRt ? 6 : 5;
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center p-4 text-gray-400">Belum ada data barang aset.</td></tr>`;
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('aset-stok-pagination'), 'AsetStok', 0);
+    }
   } else {
-    rawAsetData.forEach((r, i) => {
+    // Pagination: render hanya baris halaman aktif (data asli tetap utuh di rawAsetData).
+    // Mode server-side (patch v9): rawAsetData = halaman dari server → render apa adanya.
+    let pageRows = asetServerMode ? rawAsetData : ((typeof Pagination !== 'undefined' && Pagination.slice) ? Pagination.slice('AsetStok', rawAsetData) : rawAsetData);
+    let pageStart = (typeof Pagination !== 'undefined') ? (Pagination.page('AsetStok') - 1) * Pagination.PAGE_SIZE : 0;
+    pageRows.forEach((r, i) => {
       let idVal = r[idIdx] || '';
       let namaVal = r[namaBarangIdx] || '-';
       let stokVal = stokIdx > -1 ? (parseInt(r[stokIdx]) || 0) : 0;
@@ -255,21 +269,26 @@ function filterDataAset() {
       let badgeColor = stokVal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
       let aksiRt = isRt ? `
         <td class="p-3 text-center">
-          <button onclick="bukaModalEditAset('${idVal}', '${namaVal.replace(/'/g, "\\'")}', ${stokVal}, '${statusVal}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg text-[10px] font-bold transition">
+          <button onclick="bukaModalEditAset('${escJsStr(idVal)}', '${escJsStr(namaVal)}', ${stokVal}, '${escJsStr(statusVal)}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-2 py-1 rounded-lg text-[10px] font-bold transition">
             ✏️ Edit / Tambah Stok
           </button>
         </td>
       ` : '';
       tbody.innerHTML += `
         <tr class="border-b hover:bg-gray-50/50 transition">
-          <td class="p-3 text-center text-gray-400">${i + 1}</td>
-          <td class="p-3 font-mono text-[10px] text-gray-600">${idVal || '-'}</td>
-          <td class="p-3 font-semibold text-gray-800">${namaVal}</td>
+          <td class="p-3 text-center text-gray-400">${pageStart + i + 1}</td>
+          <td class="p-3 font-mono text-[10px] text-gray-600">${escHtml(idVal || '-')}</td>
+          <td class="p-3 font-semibold text-gray-800">${escHtml(namaVal)}</td>
           <td class="p-3 font-bold text-blue-600">${stokVal}</td>
-          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${statusVal}</span></td>
+          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}">${escHtml(statusVal)}</span></td>
           ${aksiRt}
-        </tr>`;
+        </tr>      `;
     });
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('aset-stok-pagination'), 'AsetStok', asetServerMode ? asetStokTotal : rawAsetData.length, asetServerMode
+        ? function() { loadAsetStokPage(Pagination.page('AsetStok')); }
+        : function() { filterDataAset(); });
+    }
   }
 }
 function bukaModalTambahAset() {
@@ -315,7 +334,7 @@ async function submitKelolaAset(e) {
   btn.disabled = true;
   btn.innerText = 'Menyimpan...';
   if (isEditModeAset && id) {
-    const res = await callGASPost('updateDataDiSheet', {
+    const res = await callRpcPost('updateDataDiSheet', {
       sheetName: 'Aset',
       id: id,
       formData: payload
@@ -326,7 +345,7 @@ async function submitKelolaAset(e) {
     tutupModalKelolaAset();
     if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
   } else {
-    const res = await callGASPost('simpanDataKeSheet', {
+    const res = await callRpcPost('simpanDataKeSheet', {
       sheetName: 'Aset',
       formData: payload
     });
@@ -359,7 +378,7 @@ async function bukaModalPinjamBarang() {
   } catch(e) {}
   const elNama = document.getElementById('pinjamNama');
   if (elNama && namaPeminjam) elNama.value = namaPeminjam;
-  const res = await callGASGet('getDaftarBarangAset');
+  const res = await callRpcGet('getDaftarBarangAset');
   if (res && res.status === 'success') {
     listDaftarBarang = res.data || [];
     let select = document.getElementById('pinjamBarangSelect');
@@ -368,7 +387,7 @@ async function bukaModalPinjamBarang() {
       select.innerHTML = '<option value="">-- Stok Barang Sedang Kosong --</option>';
     } else {
       listDaftarBarang.forEach(item => {
-        select.innerHTML += `<option value="${item.id}" data-nama="${item.nama}" data-stok="${item.stok}">${item.nama} (Sisa Stok: ${item.stok})</option>`;
+        select.innerHTML += `<option value="${escHtmlAttr(item.id)}" data-nama="${escHtmlAttr(item.nama)}" data-stok="${escHtmlAttr(item.stok)}">${escHtml(item.nama)} (Sisa Stok: ${escHtml(item.stok)})</option>`;
       });
     }
   }
@@ -413,7 +432,7 @@ async function submitFormPinjam(e) {
   let btn = document.getElementById('btnSubmitPinjam');
   btn.disabled = true;
   btn.innerText = 'Mengirim...';
-  const res = await callGASPost('simpanPengajuanPeminjaman', { payload: payload });
+  const res = await callRpcPost('simpanPengajuanPeminjaman', { payload: payload });
   btn.disabled = false;
   btn.innerText = 'Kirim Pengajuan';
   alert(res ? res.message : 'Pengajuan dikirim');
@@ -421,13 +440,38 @@ async function submitFormPinjam(e) {
   loadTabelRiwayat();
   if (typeof window.loadMenu === 'function') window.loadMenu('Aset');
 }
+let rawRiwayatData = [];
 async function loadTabelRiwayat() {
-  const res = await callGASGet('getRiwayatPeminjaman');
+  // Mode server-side (patch v9): halaman 1 dari RPC get_aset_page_secured.
+  const res = await callRpcGet('getAsetPage', { tab: 'riwayat', page: 1 });
+  if (res && res.status === 'success' && res.tab === 'riwayat') {
+    asetServerMode = true;
+    asetRiwayatTotal = res.total || 0;
+    rawRiwayatData = res.data || [];
+    renderTabelRiwayat();
+    return;
+  }
+  // Fallback otomatis: RPC v9 belum terpasang → mode lama (fetch semua + slice klien)
+  const res2 = await callRpcGet('getRiwayatPeminjaman');
+  rawRiwayatData = (res2 && res2.status === 'success' && res2.data) ? res2.data : [];
+  renderTabelRiwayat();
+}
+function renderTabelRiwayat() {
   let tbody = document.getElementById('riwayat-table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-  if (res && res.status === 'success' && res.data && res.data.length > 0) {
-    res.data.forEach(item => {
+  if (rawRiwayatData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('aset-riwayat-pagination'), 'AsetRiwayat', 0);
+    }
+    return;
+  }
+  // Pagination: render hanya halaman aktif (data asli tetap utuh di rawRiwayatData).
+  // Mode server-side (patch v9): rawRiwayatData = halaman dari server → render apa adanya.
+  let pageRows = asetServerMode ? rawRiwayatData : ((typeof Pagination !== 'undefined' && Pagination.slice) ? Pagination.slice('AsetRiwayat', rawRiwayatData) : rawRiwayatData);
+  let pageStart = (typeof Pagination !== 'undefined') ? (Pagination.page('AsetRiwayat') - 1) * Pagination.PAGE_SIZE : 0;
+  pageRows.forEach((item, i) => {
       let statusText = item.status || 'Menunggu Verifikasi';
       let badgeClass = 'bg-amber-100 text-amber-700';
       if (statusText === 'Disetujui') badgeClass = 'bg-emerald-100 text-emerald-700';
@@ -437,33 +481,35 @@ async function loadTabelRiwayat() {
       if (session && session.role === 'RT') {
         if (statusText === 'Menunggu Verifikasi') {
           aksiHtml = `
-            <button onclick="bukaModalVerifikasiRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahMinta})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Verifikasi RT</button>
+            <button onclick="bukaModalVerifikasiRT('${escJsStr(item.idPinjam)}', '${escJsStr(item.namaPeminjam)}', '${escJsStr(item.namaBarang)}', ${item.jumlahMinta})" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Verifikasi RT</button>
           `;
         } else if (statusText === 'Disetujui') {
           aksiHtml = `
-            <button onclick="bukaModalKembaliRT('${item.idPinjam}', '${item.namaPeminjam}', '${item.namaBarang}', ${item.jumlahAcc})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Barang Kembali</button>
+            <button onclick="bukaModalKembaliRT('${escJsStr(item.idPinjam)}', '${escJsStr(item.namaPeminjam)}', '${escJsStr(item.namaBarang)}', ${item.jumlahAcc})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-bold shadow">Barang Kembali</button>
           `;
         }
       }
       let catatanRtDisplay = item.catatanRt && item.catatanRt !== '-' 
-        ? `<span class="text-blue-700 font-medium">${item.catatanRt}</span>` 
+        ? `<span class="text-blue-700 font-medium">${escHtml(item.catatanRt)}</span>` 
         : '<span class="text-gray-400">-</span>';
       tbody.innerHTML += `
         <tr class="border-b hover:bg-gray-50/50 transition">
-          <td class="p-3 font-bold text-gray-800">${item.namaPeminjam}</td>
-          <td class="p-3 text-gray-700">${item.namaBarang}</td>
+          <td class="p-3 font-bold text-gray-800">${escHtml(item.namaPeminjam)}</td>
+          <td class="p-3 text-gray-700">${escHtml(item.namaBarang)}</td>
           <td class="p-3 text-center font-bold text-gray-600">${item.jumlahMinta}</td>
           <td class="p-3 text-center font-extrabold text-blue-600">${item.jumlahAcc || 0}</td>
-          <td class="p-3 text-gray-500">${item.keterangan || '-'}</td>
+          <td class="p-3 text-gray-500">${escHtml(item.keterangan || '-')}</td>
           <td class="p-3">${catatanRtDisplay}</td>
-          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${statusText}</span></td>
+          <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${escHtml(statusText)}</span></td>
           <td class="p-3 text-center">${aksiHtml}</td>
         </tr>
       `;
     });
-  } else {
-    tbody.innerHTML = `<tr><td colspan="8" class="text-center p-4 text-gray-400">Belum ada riwayat peminjaman.</td></tr>`;
-  }
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('aset-riwayat-pagination'), 'AsetRiwayat', asetServerMode ? asetRiwayatTotal : rawRiwayatData.length, asetServerMode
+        ? function() { loadAsetRiwayatPage(Pagination.page('AsetRiwayat')); }
+        : function() { renderTabelRiwayat(); });
+    }
 }
 function bukaModalVerifikasiRT(idPinjam, namaPeminjam, namaBarang, jumlahMinta) {
   activeVerifikasiData = { idPinjam, jumlahMinta };
@@ -483,10 +529,10 @@ async function kirimVerifikasiRT(status) {
   let qtyAcc = document.getElementById('verifJumlahAcc').value;
   let catatanRt = document.getElementById('verifCatatanRt').value;
   if (status === 'Disetujui' && (!qtyAcc || parseInt(qtyAcc) <= 0)) {
-    alert('Jumlah ACC harus lebih dari 0!');
+    alert('Jumlah yang disetujui harus lebih dari 0!');
     return;
   }
-  const res = await callGASPost('verifikasiPeminjamanRT', {
+  const res = await callRpcPost('verifikasiPeminjamanRT', {
     idPinjam: activeVerifikasiData.idPinjam,
     status: status,
     qtyAcc: qtyAcc,
@@ -525,7 +571,7 @@ async function kirimPengembalianRT(e) {
     btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Memproses...`;
   }
   try {
-    const res = await callGASPost('prosesPengembalianAsetRT', {
+    const res = await callRpcPost('prosesPengembalianAsetRT', {
       idPinjam: activeKembaliData.idPinjam,
       qtyKembali: qtyKembali,
       catatanRt: catatanRt
@@ -543,17 +589,52 @@ async function kirimPengembalianRT(e) {
     }
   }
 }
+async function loadAsetStokPage(page) {
+  const res = await callRpcGet('getAsetPage', { tab: 'stok', page: page });
+  if (res && res.status === 'success' && res.tab === 'stok') {
+    asetStokTotal = res.total || 0;
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    rawAsetData = res.rows || [];
+    filterDataAset();
+  }
+}
+async function loadAsetRiwayatPage(page) {
+  const res = await callRpcGet('getAsetPage', { tab: 'riwayat', page: page });
+  if (res && res.status === 'success' && res.tab === 'riwayat') {
+    asetRiwayatTotal = res.total || 0;
+    rawRiwayatData = res.data || [];
+    renderTabelRiwayat();
+  }
+}
 async function loadAsetView() {
   currentActiveMenu = 'Aset';
   syncActiveNav('Aset');
   document.getElementById('page-title').innerText = 'Aset & Inventaris';
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data aset & peminjaman...</small></div>';
   document.getElementById('rek-info').style.display = 'none';
-  const res = await callGASGet('getTableData', { sheetName: 'Aset' });
-  if (res) {
+  if (typeof Pagination !== 'undefined') {
+    Pagination.reset('AsetStok');
+    Pagination.reset('AsetRiwayat');
+  }
+  // Mode server-side (patch v9): halaman 1 dari RPC get_aset_page_secured.
+  const res = await callRpcGet('getAsetPage', { tab: 'stok', page: 1 });
+  if (res && res.status === 'success' && res.tab === 'stok') {
+    asetServerMode = true;
+    asetStokTotal = res.total || 0;
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
-    renderAsetCustom(res);
+    renderAsetCustom({ headers: res.headers, rows: res.rows });
+    return;
+  }
+  // Fallback otomatis: RPC v9 belum terpasang → alur lama (fetch semua + slice klien)
+  asetServerMode = false;
+  asetStokTotal = 0;
+  const res2 = await callRpcGet('getTableData', { sheetName: 'Aset' });
+  if (res2) {
+    currentHeaders = res2.headers || [];
+    currentRows = res2.rows || [];
+    renderAsetCustom(res2);
   }
 }
 window.loadAsetView = loadAsetView;

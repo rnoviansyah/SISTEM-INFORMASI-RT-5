@@ -15,7 +15,7 @@ const MENU_BADGE_IDS = {
   'Aset':           ['badge-dmenu-Aset', 'badge-smenu-Aset'],
   'Aspirasi':       ['badge-dmenu-Aspirasi', 'badge-smenu-Aspirasi']
 };
-const SHEET_MENUS = ['Pengaduan', 'SuratPengantar', 'Keuangan', 'Sumbangan', 'Aset', 'Aspirasi', 'Kelahiran', 'Kematian', 'PindahMasuk', 'PindahKeluar', 'Pengaturan', 'Profil'];
+const SHEET_MENUS = ['Iuran', 'Pengaduan', 'SuratPengantar', 'Keuangan', 'Sumbangan', 'Aset', 'Aspirasi', 'Kelahiran', 'Kematian', 'PindahMasuk', 'PindahKeluar', 'Pengaturan', 'Profil'];
 let menuBadgeCache = null;
 let menuBadgeCacheTime = 0;
 const MENU_BADGE_TTL = 20000;
@@ -85,9 +85,20 @@ async function updateMenuBadges(force = false) {
     const aspirasi = aspRes.data || [];
 
     const counts = {};
+    // Nomor KK milik pengguna (dari baris warga sendiri) — dipakai agar tagihan
+    // iuran/bansos per keluarga (no_kk) ikut dihitung untuk seluruh anggota keluarga.
+    const userKk = (() => {
+      const myW = (warga || []).find(w => {
+        let wNik = cariNilaiKolom(w, ['nik', 'ktp']).trim();
+        return userNik && wNik && wNik === userNik;
+      });
+      return myW ? cariNilaiKolom(myW, ['no_kk', 'kk', 'nomor_kk']).trim() : '';
+    })();
     const matchOwn = (r) => {
       let rNik = cariNilaiKolom(r, ['nik', 'ktp']).trim();
       let rNama = cariNilaiKolom(r, ['nama', 'nama_lengkap']).toLowerCase().trim();
+      let rKk = cariNilaiKolom(r, ['no_kk', 'kk', 'nomor_kk']).trim();
+      if (userKk && rKk && rKk === userKk) return true;
       return (userNik && rNik && rNik === userNik) || (userNama && rNama && (rNama === userNama || rNama.includes(userNama) || userNama.includes(rNama)));
     };
     const isLunasStatus = (s) => { s = String(s).toLowerCase(); return s === 'lunas' || (s.includes('lunas') && !s.includes('belum')); };

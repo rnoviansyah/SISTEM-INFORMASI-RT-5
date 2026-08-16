@@ -27,7 +27,6 @@ async function mintaIzinNotifikasi() {
     if ('serviceWorker' in navigator) {
       try {
         const reg = await navigator.serviceWorker.register('./sw.js');
-        console.log('✅ Service Worker terdaftar:', reg);
         setTimeout(() => {
           reg.showNotification('✅ Notifikasi Aktif!', {
             body: 'Anda akan menerima notifikasi dari RT 5',
@@ -73,7 +72,6 @@ async function updateBadgeNotifikasi() {
 
     const userNik = window.session?.nik || localStorage.getItem('nik') || '';
     if (!userNik) {
-      console.log('Belum login, skip update badge');
       return;
     }
 
@@ -177,7 +175,6 @@ async function kirimNotifikasi(judul, pesan, url = './') {
       });
     }
 
-    console.log('✅ Notifikasi terkirim:', judul);
 
   } catch (error) {
     console.error('Gagal kirim notifikasi:', error);
@@ -269,5 +266,3 @@ window.fetchNotifikasi = async function(isRealtimeTrigger = false) {
   // Update badge
   setTimeout(updateBadgeNotifikasi, 500);
 };
-
-console.log('✅ Modul Notifikasi loaded!');

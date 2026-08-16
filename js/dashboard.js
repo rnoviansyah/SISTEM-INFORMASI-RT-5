@@ -1,18 +1,18 @@
 // ============================================================
 // Developed by Rizky Noviansyah
 // ============================================================
-const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri SISTEM INFORMASI RT 5. Melalui aplikasi ini kamu bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
+const defaultInfoText = "Halo <b>{NAMA}</b>, selamat datang di Portal Layanan Modern Mandiri SISTEM INFORMASI RT 5. Melalui aplikasi ini Anda bisa memantau kas warga, membuat pengaduan masalah lingkungan secara real-time, mengajukan surat pengantar digital secara instan, serta memverifikasi data sumbangan dengan aman.";
 let infoWargaTimer = null;
 let dashboardCache = null;
 function linkify(text) {
   if (!text) return '';
   let urlRegex = /(https?:\/\/[^\s]+)/g;
   return text.replace(urlRegex, function(url) {
-    return `<a href="${url}" target="_blank" class="text-blue-600 underline fw-bold" style="color: #2563eb; text-decoration: underline;" onclick="event.stopPropagation();">${url}</a>`;
+    return `<a href="${url}" target="_blank" class="text-blue-600 underline fw-bold" onclick="event.stopPropagation();">${url}</a>`;
   });
 }
 async function muatInfoWargaRealtime() {
-  const teks = await callGASGet('getInfoWarga');
+  const teks = await callRpcGet('getInfoWarga');
   let el = document.getElementById('infoWargaTextDisplay');
   if (el) {
     let rawText = (typeof teks === 'string') ? teks : (teks && teks.data ? teks.data : '');
@@ -27,7 +27,7 @@ async function simpanInfoWarga() {
   if (textBaru) {
     let btnSimpan = document.querySelector('#modalEditInfo .btn-primary');
     if (btnSimpan) setBtnLoading(btnSimpan, true, 'Menyimpan...');
-    const res = await callGASPost('simpanInfoWarga', { teksBaru: textBaru });
+    const res = await callRpcPost('simpanInfoWarga', { teksBaru: textBaru });
     if (btnSimpan) setBtnLoading(btnSimpan, false);
     if (res && res.status === 'success') {
       alert('Informasi Warga berhasil diperbarui!');
@@ -66,7 +66,7 @@ async function bukaModalEditInfo() {
   }
   modalInstance = new bootstrap.Modal(modalEl);
   modalInstance.show();
-  const teks = await callGASGet('getInfoWarga');
+  const teks = await callRpcGet('getInfoWarga');
   let rawText = (typeof teks === 'string') ? teks : (teks && teks.data ? teks.data : '');
   if (textarea) {
     textarea.value = (rawText && rawText.trim() !== '') ? rawText : defaultInfoText;
@@ -83,7 +83,7 @@ function toggleInfoWarga() {
 window.toggleInfoWarga = toggleInfoWarga;
 function applyDashboardBadges(counts) {
   if (!counts) return;
-  const map = { 'Warga':'Warga', 'Pengaduan':'Pengaduan', 'SuratPengantar':'SuratPengantar', 'Sumbangan':'Sumbangan', 'Aset':'Aset', 'Aspirasi':'Aspirasi', 'Bansos':'Bansos' };
+  const map = { 'Warga':'Warga', 'Iuran':'Iuran', 'Pengaduan':'Pengaduan', 'SuratPengantar':'SuratPengantar', 'Sumbangan':'Sumbangan', 'Aset':'Aset', 'Aspirasi':'Aspirasi', 'Bansos':'Bansos' };
   for (let menu in map) {
     const el = document.getElementById('qbadge-' + map[menu]);
     const c = counts[menu] || 0;
@@ -92,6 +92,13 @@ function applyDashboardBadges(counts) {
       else { el.style.display = 'none'; }
     }
   }
+  // Kartu "Tagihan Iuran" di dashboard warga — jumlah tagihan belum bayar milik
+  // warga (dihitung badges.js dari tabel Iuran; cache 20 detik).
+  const iuranC = counts['Iuran'] || 0;
+  const desk = document.getElementById('dash-iuran-card');
+  if (desk) desk.innerText = iuranC > 0 ? iuranC + ' Tagihan' : 'Tidak Ada';
+  const mob = document.getElementById('dash-iuran-mobile');
+  if (mob) mob.innerText = iuranC > 0 ? iuranC + ' Tagihan' : 'Lunas Semua';
 }
 window.applyDashboardBadges = applyDashboardBadges;
 async function loadDashboardView() {
@@ -112,7 +119,7 @@ async function loadDashboardView() {
 }
 async function fetchFreshDashboardData() {
   try {
-    const res = await callGASGet('getDashboardSummary');
+    const res = await callRpcGet('getDashboardSummary');
     if (res && res.status === 'success') {
       dashboardCache = res;
       renderDashboardLayout(res);
@@ -138,31 +145,32 @@ function renderDashboardLayout(res) {
     htmlLayout = `
       <div class="row text-center d-none d-md-flex g-4 mb-4">
         <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-people-fill text-primary me-2"></i>Total Warga</h5><h2 class="fw-bold text-primary mt-2">${res.warga || 0} Warga</h2></div></div>
-        <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Aduan Masuk</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
-        <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-cash-stack text-success me-2"></i>Data Transaksi</h5><h2 class="fw-bold text-success mt-2">${res.keuangan || 0} Laporan</h2></div></div>
+        <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Pengaduan Masuk</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
+        <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-cash-stack text-success me-2"></i>Data Transaksi</h5><h2 class="fw-bold text-success mt-2">${res.keuangan || 0} Data</h2></div></div>
       </div>
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
-          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
-          <div class="quick-action-item" onclick="loadMenu('Kelahiran')"><div class="quick-action-icon"><i class="bi bi-gender-ambiguous"></i></div>Kelahiran</div>
-          <div class="quick-action-item" onclick="loadMenu('Kematian')"><div class="quick-action-icon"><i class="bi bi-heartbreak-fill"></i></div>Kematian</div>
-          <div class="quick-action-item" onclick="loadMenu('PindahMasuk')"><div class="quick-action-icon"><i class="bi bi-box-arrow-in-right"></i></div>Pindah Masuk</div>
-          <div class="quick-action-item" onclick="loadMenu('PindahKeluar')"><div class="quick-action-icon"><i class="bi bi-box-arrow-left"></i></div>Pindah Keluar</div>
-          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Aduan</div>
-          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
-          <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
-          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
-          <div class="quick-action-item" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
-          <div class="quick-action-item" onclick="loadMenu('Pengaturan')"><div class="quick-action-icon"><i class="bi bi-gear-fill text-primary"></i></div>Pengaturan</div>
-          <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Iuran')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i><span class="qbadge" id="qbadge-Iuran"></span></div>Iuran</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Kelahiran')"><div class="quick-action-icon"><i class="bi bi-gender-ambiguous"></i></div>Kelahiran</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Kematian')"><div class="quick-action-icon"><i class="bi bi-heartbreak-fill"></i></div>Kematian</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('PindahMasuk')"><div class="quick-action-icon"><i class="bi bi-box-arrow-in-right"></i></div>Pindah Masuk</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('PindahKeluar')"><div class="quick-action-icon"><i class="bi bi-box-arrow-left"></i></div>Pindah Keluar</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Pengaduan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Pengaturan')"><div class="quick-action-icon"><i class="bi bi-gear-fill text-primary"></i></div>Pengaturan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
         </div>
         <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Ringkasan RT</p>
         <div class="mobile-stats-grid">
           <div class="m-stat-card blue-card"><span class="m-stat-title">Total Warga</span><span class="m-stat-value">${res.warga || 0} Orang</span></div>
-          <div class="m-stat-card teal-card"><span class="m-stat-title">Transaksi Beres</span><span class="m-stat-value">${res.keuangan || 0} Data</span></div>
-          <div class="m-stat-card orange-card"><span class="m-stat-title">Aduan Masuk</span><span class="m-stat-value">${res.aduan || 0} Kasus</span></div>
+          <div class="m-stat-card teal-card"><span class="m-stat-title">Transaksi Selesai</span><span class="m-stat-value">${res.keuangan || 0} Data</span></div>
+          <div class="m-stat-card orange-card"><span class="m-stat-title">Pengaduan Masuk</span><span class="m-stat-value">${res.aduan || 0} Kasus</span></div>
           <div class="m-stat-card slate-card"><span class="m-stat-title">Status Sistem</span><span class="m-stat-value">Aktif RT</span></div>
         </div>
       </div>
@@ -170,28 +178,30 @@ function renderDashboardLayout(res) {
   } else {
     htmlLayout = `
       <div class="row text-center d-none d-md-flex g-4 mb-4">
-        <div class="col-md-4"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-chat-left-dots-fill text-warning me-2"></i>Aduan Saya</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
-        <div class="col-md-4"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-file-earmark-text-fill text-primary me-2"></i>Surat Saya</h5><h2 class="fw-bold text-primary mt-2">${res.surat || 0} Pengajuan</h2></div></div>
-        <div class="col-md-4"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-gift-fill text-success me-2"></i>Sumbangan Saya</h5><h2 class="fw-bold text-success mt-2">${res.sumbangan || 0} Data</h2></div></div>
+        <div class="col-md-3"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-chat-left-dots-fill text-warning me-2"></i>Pengaduan Saya</h5><h2 class="fw-bold text-warning mt-2">${res.aduan || 0} Laporan</h2></div></div>
+        <div class="col-md-3"><div class="card card-custom border-start border-primary border-4"><h5><i class="bi bi-file-earmark-text-fill text-primary me-2"></i>Surat Saya</h5><h2 class="fw-bold text-primary mt-2">${res.surat || 0} Pengajuan</h2></div></div>
+        <div class="col-md-3"><div class="card card-custom border-start border-success border-4"><h5><i class="bi bi-gift-fill text-success me-2"></i>Sumbangan Saya</h5><h2 class="fw-bold text-success mt-2">${res.sumbangan || 0} Data</h2></div></div>
+        <div class="col-md-3"><div class="card card-custom border-start border-warning border-4"><h5><i class="bi bi-wallet2 text-warning me-2"></i>Tagihan Iuran</h5><h2 class="fw-bold text-warning mt-2" id="dash-iuran-card">0 Tagihan</h2></div></div>
       </div>
       <div class="d-block d-md-none">
         <div class="quick-actions-grid">
-          <div class="quick-action-item" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
-          <div class="quick-action-item" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Aduan</div>
-          <div class="quick-action-item" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
-          <div class="quick-action-item" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
-          <div class="quick-action-item" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
-          <div class="quick-action-item" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
-          <div class="quick-action-item" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
-          <div class="quick-action-item" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Warga')"><div class="quick-action-icon"><i class="bi bi-people-fill"></i><span class="qbadge" id="qbadge-Warga"></span></div>Warga</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Iuran')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i><span class="qbadge" id="qbadge-Iuran"></span></div>Iuran</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Pengaduan')"><div class="quick-action-icon"><i class="bi bi-chat-square-text-fill"></i><span class="qbadge" id="qbadge-Pengaduan"></span></div>Pengaduan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('SuratPengantar')"><div class="quick-action-icon"><i class="bi bi-file-earmark-text-fill"></i><span class="qbadge" id="qbadge-SuratPengantar"></span></div>Surat</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Keuangan')"><div class="quick-action-icon"><i class="bi bi-wallet2"></i></div>Keuangan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Sumbangan')"><div class="quick-action-icon"><i class="bi bi-gift-fill"></i><span class="qbadge" id="qbadge-Sumbangan"></span></div>Sumbangan</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Aset')"><div class="quick-action-icon"><i class="bi bi-tools"></i><span class="qbadge" id="qbadge-Aset"></span></div>Inventaris</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Aspirasi')"><div class="quick-action-icon"><i class="bi bi-chat-heart-fill"></i><span class="qbadge" id="qbadge-Aspirasi"></span></div>Aspirasi</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Bansos')"><div class="quick-action-icon"><i class="bi bi-box-seam-fill"></i><span class="qbadge" id="qbadge-Bansos"></span></div>Bansos</div>
+          <div class="quick-action-item" role="button" tabindex="0" onclick="loadMenu('Profil')"><div class="quick-action-icon"><i class="bi bi-person-vcard text-primary"></i></div>Profil Saya</div>
         </div>
         <p class="fw-bold text-secondary mb-2" style="font-size:0.85rem;"><i class="bi bi-graph-up me-1"></i> Rekap Laporan Saya</p>
         <div class="mobile-stats-grid">
-          <div class="m-stat-card orange-card"><span class="m-stat-title">Aduan Saya</span><span class="m-stat-value">${res.aduan || 0} Laporan</span></div>
+          <div class="m-stat-card orange-card"><span class="m-stat-title">Pengaduan Saya</span><span class="m-stat-value">${res.aduan || 0} Laporan</span></div>
           <div class="m-stat-card blue-card"><span class="m-stat-title">Surat Saya</span><span class="m-stat-value">${res.surat || 0} Berkas</span></div>
           <div class="m-stat-card teal-card"><span class="m-stat-title">Sumbangan Saya</span><span class="m-stat-value">${res.sumbangan || 0} Data</span></div>
-          <div class="m-stat-card slate-card"><span class="m-stat-title">Status Akun</span><span class="m-stat-value">Terverifikasi</span></div>
+          <div class="m-stat-card slate-card"><span class="m-stat-title">Tagihan Iuran</span><span class="m-stat-value" id="dash-iuran-mobile">0 Tagihan</span></div>
         </div>
       </div>
     `;

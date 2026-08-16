@@ -12,6 +12,7 @@ let rawBansosData = [];
 let kkHintBansos = ''; // No. KK milik warga yang login -> bansos satu keluarga (KK sama) ikut tampil
 let serverNowMs = 0;        // waktu server (epoch ms) — sumber waktu utama
 let serverNowFetchedAt = 0; // cache: kapan terakhir ambil waktu server
+let lastBansosSearchKey = '';
 
 // Ambil waktu server Supabase (fungsi RPC get_server_time). Fallback: jam perangkat.
 async function ambilWaktuServer(force) {
@@ -62,7 +63,7 @@ async function ambilWargaBansosCache() {
   if (wargaCacheBansos) return wargaCacheBansos;
   let raw = [];
   try {
-    const gas = await callGASGet('getDaftarWargaUntukIuran');
+    const gas = await callRpcGet('getDaftarWargaUntukIuran');
     if (gas && gas.status === 'success' && gas.data && gas.data.length) raw = gas.data;
   } catch (e) {}
   if (!raw.length) {
@@ -102,11 +103,51 @@ function opsiKeluargaBansosHTML() {
   return opts;
 }
 
-async function loadBansosView() {
+// PAGINATION SERVER-SIDE (patch v9, khusus view RT): hanya halaman aktif yang diunduh,
+// auto-kedaluwarsa dijalankan DI SERVER, dan hitungan status header ikut dari RPC.
+// Bila RPC belum terpasang, fallback otomatis ke mode lama. View warga tidak berubah.
+let bansosServerMode = false;
+let bansosTotal = 0;
+let bansosCounts = null;
+let bansosSearch = '';
+let bansosSearchTimer = null;
+
+async function loadBansosView(page, search) {
   document.getElementById('main-content').innerHTML =
     '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data bansos...</small></div>';
-  const res = await safeSupabaseSelect('Bansos');
   await ambilWaktuServer(); // pastikan kedaluwarsa dihitung pakai jam server
+
+  // Mode server-side HANYA untuk RT (view RT yang datanya besar; warga memakai cek NIK terpisah)
+  if (isBansosRT()) {
+    let pageNum = Math.max(1, parseInt(page, 10) || 1);
+    if (typeof search === 'string') {
+      if (search !== bansosSearch) {
+        bansosSearch = search;
+        if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('BansosRT');
+      }
+    } else {
+      let inputVal = document.getElementById('searchInput') ? String(document.getElementById('searchInput').value || '') : '';
+      if (inputVal !== bansosSearch) {
+        bansosSearch = inputVal;
+        if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('BansosRT');
+      }
+    }
+    const res = await callRpcGet('getBansosPage', { page: pageNum, search: bansosSearch });
+    if (res && res.status === 'success') {
+      bansosServerMode = true;
+      bansosTotal = res.total || 0;
+      bansosCounts = res.counts || null;
+      rawBansosData = res.rows || [];
+      renderBansosView();
+      return;
+    }
+    // RPC v9 belum terpasang (fallback) atau role bukan RT → alur lama di bawah
+  }
+
+  // Fallback otomatis: alur lama (fetch semua + auto-kedaluwarsa di klien)
+  bansosServerMode = false;
+  bansosCounts = null;
+  const res = await safeSupabaseSelect('Bansos');
   if (res && !res.error) {
     rawBansosData = res.data || [];
     // Otomatis ubah status -> "Kedaluwarsa" jika sudah melewati batas waktu pengambilan (RT yang menulis DB)
@@ -161,16 +202,17 @@ function formatTglBansos(iso) {
 }
 
 // '2026-08-17T08:30+07:00' / '2026-08-17T08:30' / '2026-08-17' -> '17/08/2026 08:30'
-// Yang membawa zona waktu dikonversi ke waktu lokal perangkat penampil.
+// Yang membawa zona waktu ditampilkan dalam zona WIB (Asia/Jakarta), 24 jam —
+// bukan zona perangkat (agar konsisten dengan seluruh timestamp aplikasi).
 function formatWaktuBansos(iso) {
   if (!iso || iso === '-') return '-';
   let s = String(iso).trim();
-  let pad = n => String(n).padStart(2, '0');
   if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(Z|[-+]\d{2}:\d{2})$/.test(s)) {
     let d = new Date(s.replace(' ', 'T'));
     if (!isNaN(d.getTime())) {
-      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() +
-        ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      let tglPart = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' });
+      let jamPart = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta', hour12: false }).replace('.', ':');
+      return tglPart + ' ' + jamPart;
     }
   }
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
@@ -251,7 +293,20 @@ function renderBansosView() {
   document.getElementById('main-content').innerHTML = html;
 
   if (isRT) {
-    renderTabelBansosRT(rows);
+    // Server mode: baris sudah = halaman aktif dari RPC — render langsung.
+    // (JANGAN panggil filterBansosRT() di sini: di server mode ia menjadwalkan
+    //  loadBansosView() → render → jadwal lagi → loop tak berujung / kedip-kedip.)
+    if (bansosServerMode) {
+      renderTabelBansosRT(rawBansosData);
+    } else {
+      filterBansosRT();
+    }
+    let searchInp = document.getElementById('searchInput');
+    if (searchInp) {
+      searchInp.onkeyup = function() {
+        filterBansosRT();
+      };
+    }
   } else {
     // Bantu warga: isi otomatis NIK sendiri + tampilkan bansos miliknya & satu keluarga (No. KK sama)
     let myNik = (session && session.nik) ? String(session.nik).replace(/\D/g, '') : '';
@@ -273,6 +328,15 @@ function renderBansosView() {
 
 // ---------------- VIEW RT ----------------
 function renderBansosHeaderRT(rows) {
+  // Mode server-side: hitungan status dikirim dari RPC (dihitung dari SEMUA baris).
+  if (bansosServerMode && bansosCounts) {
+    let c = bansosCounts;
+    let total = Number(c.total) || 0;
+    let belum = Number(c.belum) || 0;
+    let sudah = Number(c.sudah) || 0;
+    let kedaluwarsa = Number(c.kedaluwarsa) || 0;
+    return renderBansosHeaderCounts(total, belum, sudah, kedaluwarsa);
+  }
   let total = rows.length;
   let belum = rows.filter(r => String(r.status || '').toLowerCase().includes('belum') && !isBansosExpired(r)).length;
   let sudah = rows.filter(r => String(r.status || '').toLowerCase().includes('sudah')).length;
@@ -280,6 +344,9 @@ function renderBansosHeaderRT(rows) {
     let st = String(r.status || '').toLowerCase();
     return st.includes('kedaluwarsa') || (st.includes('belum') && isBansosExpired(r));
   }).length;
+  return renderBansosHeaderCounts(total, belum, sudah, kedaluwarsa);
+}
+function renderBansosHeaderCounts(total, belum, sudah, kedaluwarsa) {
   return `
     <div class="mb-4 flex justify-end">
       <button onclick="bukaModalTambahBansosRT()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow transition flex items-center gap-1">
@@ -315,11 +382,35 @@ function renderBansosHeaderRT(rows) {
     </div>`;
 }
 
+// Pencarian bansos (RT) — dipanggil dari kotak pencarian global
+function filterBansosRT() {
+  let searchVal = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
+  if (bansosServerMode) {
+    // Server-side: kata kunci dikirim ke RPC (dicari di SEMUA data), debounce.
+    clearTimeout(bansosSearchTimer);
+    bansosSearchTimer = setTimeout(function() { loadBansosView(1, searchVal); }, 350);
+    return;
+  }
+  let rows = rawBansosData || [];
+  let filtered = searchVal
+    ? rows.filter(r => r && Object.keys(r).some(k => String(r[k] === null || r[k] === undefined ? '' : r[k]).toLowerCase().includes(searchVal)))
+    : rows;
+  if (typeof Pagination !== 'undefined' && lastBansosSearchKey !== searchVal) {
+    lastBansosSearchKey = searchVal;
+    Pagination.reset('BansosRT');
+  }
+  renderTabelBansosRT(filtered);
+}
+window.filterBansosRT = filterBansosRT;
+
 function renderTabelBansosRT(rows) {
   let container = document.getElementById('tabel-bansos-rt');
   if (!container) return;
   if (rows.length === 0) {
     container.innerHTML = '<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center text-gray-400 text-xs">Belum ada penyaluran bansos tercatat. Klik <b>+ Tambah Penyaluran Bansos</b> untuk memulai.</div>';
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('bansos-rt-pagination'), 'BansosRT', rows.length, function() { filterBansosRT(); });
+    }
     return;
   }
   let thead = `
@@ -337,7 +428,10 @@ function renderTabelBansosRT(rows) {
         </tr>
       </thead>
       <tbody>`;
-  let tbody = rows.map((r, i) => {
+  // Server-side: baris sudah = halaman aktif dari RPC; fallback: slice di klien.
+  let pageRows = (!bansosServerMode && typeof Pagination !== 'undefined' && Pagination.slice) ? Pagination.slice('BansosRT', rows) : rows;
+  let pageStart = (typeof Pagination !== 'undefined') ? (Pagination.page('BansosRT') - 1) * Pagination.PAGE_SIZE : 0;
+  let tbody = pageRows.map((r, i) => {
     let id = String(r.id || '');
     let nama = escBansos(r.nama || '-');
     let nik = escBansos(r.nik || '-');
@@ -362,7 +456,7 @@ function renderTabelBansosRT(rows) {
     }
     return `
       <tr class="border-b border-gray-50 hover:bg-gray-50 transition align-top">
-        <td class="py-2.5 px-2 text-gray-400">${i + 1}</td>
+        <td class="py-2.5 px-2 text-gray-400">${pageStart + i + 1}</td>
         <td class="py-2.5 px-2 font-bold text-gray-800">${nama}</td>
         <td class="py-2.5 px-2 font-mono text-gray-500">${nik}</td>
         <td class="py-2.5 px-2 text-gray-600">${jenis}</td>
@@ -376,12 +470,23 @@ function renderTabelBansosRT(rows) {
     <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 p-3">
       <div class="flex justify-between items-center mb-3 px-1">
         <h3 class="font-bold text-xs text-gray-500 uppercase">Daftar Penerima Bansos</h3>
-        <span class="text-[10px] text-gray-400">${rows.length} penerima</span>
+        <span class="text-[10px] text-gray-400">${bansosServerMode ? bansosTotal : rows.length} penerima</span>
       </div>
       <div class="overflow-x-auto">
         ${thead + tbody + '</tbody></table>'}
       </div>
+      <div id="bansos-rt-pagination" class="px-2 py-1"></div>
     </div>`;
+  if (typeof Pagination !== 'undefined' && Pagination.render) {
+    let totalCount = bansosServerMode ? bansosTotal : rows.length;
+    Pagination.render(document.getElementById('bansos-rt-pagination'), 'BansosRT', totalCount, function() {
+      if (bansosServerMode) {
+        loadBansosView(Pagination.page('BansosRT'), bansosSearch);
+      } else {
+        filterBansosRT();
+      }
+    });
+  }
 }
 
 // ---------------- VIEW WARGA ----------------
@@ -407,12 +512,86 @@ function renderBansosHeaderWarga() {
     </div>`;
 }
 
+function renderHasilCariBansos(box, matches) {
+  if (!box) return;
+  if (!matches || matches.length === 0) {
+    box.innerHTML = '<div class="bg-white border border-gray-100 rounded-xl p-4 text-center text-xs text-gray-500"><i class="bi bi-search me-1"></i> Data <b>tidak ditemukan</b> — NIK/No. KK tersebut tidak terdaftar sebagai penerima bansos saat ini.</div>';
+    return;
+  }
+  box.innerHTML = matches.map(r => {
+    let sudah = String(r.status || '').toLowerCase().includes('sudah');
+    let expired = !sudah && isBansosExpired(r);
+    let jenis = escBansos(r.jenis_bansos || 'Bansos');
+    let periode = formatWaktuBansos(r.tanggal_mulai) + ' – ' + formatWaktuBansos(r.tanggal_selesai);
+    let ket = escBansos(r.keterangan || '');
+    let keluargaBadge = r._keluarga
+      ? '<span class="inline-block bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-[10px] font-bold ms-1"><i class="bi bi-people-fill me-1"></i>Anggota keluarga (KK sama)</span>'
+      : '';
+    let statusNote = sudah
+      ? '<p class="text-[10px] text-emerald-600 font-bold mt-1"><i class="bi bi-check-circle-fill me-1"></i>Bansos sudah diambil' + (r.diambil_pada && r.diambil_pada !== '-' ? ' pada ' + escBansos(r.diambil_pada) : '') + '.</p>'
+      : expired
+        ? '<p class="text-[10px] text-rose-600 font-bold mt-1"><i class="bi bi-clock-history me-1"></i>Batas waktu pengambilan sudah lewat — bansos akan diserahkan kepada warga lain.</p>'
+        : '<p class="text-[10px] text-amber-600 font-bold mt-1"><i class="bi bi-clock-history me-1"></i>Segera ambil bansos sebelum batas waktu pengambilan (tanggal & jam) berakhir.</p>';
+    return `
+      <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+        <div class="flex justify-between items-start gap-2 flex-wrap">
+          <div>
+            <p class="font-bold text-gray-800 text-sm">${escBansos(r.nama || 'Penerima')}${keluargaBadge}</p>
+            <p class="text-[10px] text-gray-400 font-mono">NIK: ••••••••••• (disembunyikan)</p>
+          </div>
+          ${badgeStatusBansos(r, false)}
+        </div>
+        <div class="mt-3 space-y-1 text-xs text-gray-700">
+          <p><span class="font-bold text-gray-500 uppercase text-[10px]">Jenis Bansos : </span>${jenis}</p>
+          <p><span class="font-bold text-gray-500 uppercase text-[10px]">Periode Ambil : </span>${periode}</p>
+          ${ket ? '<p class="bg-amber-50 border border-amber-100 text-amber-900 rounded-xl p-2.5 mt-2"><i class="bi bi-info-circle me-1"></i>' + ket + '</p>' : ''}
+          ${statusNote}
+        </div>
+      </div>`;
+  }).join('');
+}
+
 function cariBansosByNik(qOverride) {
   let inp = document.getElementById('bansos-cari-nik');
   let box = document.getElementById('bansos-hasil-cari');
   if (!inp || !box) return;
   let q = (typeof qOverride === 'string' && String(qOverride).trim() !== '')
     ? String(qOverride).replace(/\D/g, '')
+    : String(inp.value || '').replace(/\D/g, '');
+  if (!q) {
+    box.innerHTML = '<div class="bg-amber-50 border border-amber-100 text-amber-800 rounded-xl p-3 text-xs"><i class="bi bi-exclamation-circle me-1"></i> Masukkan NIK atau No. KK terlebih dahulu.</div>';
+    return;
+  }
+  // Enkripsi at-rest (patch v7): data Warga/Bansos yang diterima warga sudah
+  // disensor, jadi pencarian dicocokkan di SERVER lewat RPC cek_bansos_public
+  // (nik_sha/kk_sha). Hasil untuk pengguna tetap sama: NIK tidak pernah ditampilkan.
+  if (typeof db !== 'undefined' && db && session && session.token) {
+    box.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-rose-600" role="status"></div><small class="text-gray-400 block mt-1">Memeriksa bansos...</small></div>';
+    db.rpc('cek_bansos_public', { p_token: String(session.token).trim(), p_query: q })
+      .then(function(res) {
+        if (res && !res.error && res.data && res.data.status === 'success') {
+          renderHasilCariBansos(box, res.data.data || []);
+        } else if (res && res.data && res.data.status === 'error' && res.data.message) {
+          box.innerHTML = '<div class="bg-amber-50 border border-amber-100 text-amber-800 rounded-xl p-3 text-xs"><i class="bi bi-exclamation-circle me-1"></i> ' + escBansos(res.data.message) + '</div>';
+        } else {
+          // RPC belum tersedia (patch v7 belum dijalankan) -> fallback pencarian lama
+          cariBansosByNikFallback(box, q);
+        }
+      })
+      .catch(function() { cariBansosByNikFallback(box, q); });
+    return;
+  }
+  cariBansosByNikFallback(box, q);
+}
+window.cariBansosByNik = cariBansosByNik;
+
+// Fallback pencarian client-side (dipakai bila RPC cek_bansos_public belum tersedia)
+function cariBansosByNikFallback(boxArg, qArg) {
+  let box = boxArg || document.getElementById('bansos-hasil-cari');
+  let inp = document.getElementById('bansos-cari-nik');
+  if (!inp || !box) return;
+  let q = (qArg !== undefined && String(qArg).trim() !== '')
+    ? String(qArg).replace(/\D/g, '')
     : String(inp.value || '').replace(/\D/g, '');
   if (!q) {
     box.innerHTML = '<div class="bg-amber-50 border border-amber-100 text-amber-800 rounded-xl p-3 text-xs"><i class="bi bi-exclamation-circle me-1"></i> Masukkan NIK atau No. KK terlebih dahulu.</div>';
@@ -454,43 +633,8 @@ function cariBansosByNik(qOverride) {
       matches.push(Object.assign({}, r, { _keluarga: isFamily && !isDirect }));
     }
   });
-  if (matches.length === 0) {
-    box.innerHTML = '<div class="bg-white border border-gray-100 rounded-xl p-4 text-center text-xs text-gray-500"><i class="bi bi-search me-1"></i> Data <b>tidak ditemukan</b> — NIK/No. KK tersebut tidak terdaftar sebagai penerima bansos saat ini.</div>';
-    return;
-  }
-  box.innerHTML = matches.map(r => {
-    let sudah = String(r.status || '').toLowerCase().includes('sudah');
-    let expired = !sudah && isBansosExpired(r);
-    let jenis = escBansos(r.jenis_bansos || 'Bansos');
-    let periode = formatWaktuBansos(r.tanggal_mulai) + ' – ' + formatWaktuBansos(r.tanggal_selesai);
-    let ket = escBansos(r.keterangan || '');
-    let keluargaBadge = r._keluarga
-      ? '<span class="inline-block bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full text-[10px] font-bold ms-1"><i class="bi bi-people-fill me-1"></i>Anggota keluarga (KK sama)</span>'
-      : '';
-    let statusNote = sudah
-      ? '<p class="text-[10px] text-emerald-600 font-bold mt-1"><i class="bi bi-check-circle-fill me-1"></i>Bansos sudah diambil' + (r.diambil_pada && r.diambil_pada !== '-' ? ' pada ' + escBansos(r.diambil_pada) : '') + '.</p>'
-      : expired
-        ? '<p class="text-[10px] text-rose-600 font-bold mt-1"><i class="bi bi-clock-history me-1"></i>Batas waktu pengambilan sudah lewat — bansos akan diserahkan kepada warga lain.</p>'
-        : '<p class="text-[10px] text-amber-600 font-bold mt-1"><i class="bi bi-clock-history me-1"></i>Segera ambil bansos sebelum batas waktu pengambilan (tanggal & jam) berakhir.</p>';
-    return `
-      <div class="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
-        <div class="flex justify-between items-start gap-2 flex-wrap">
-          <div>
-            <p class="font-bold text-gray-800 text-sm">${escBansos(r.nama || 'Penerima')}${keluargaBadge}</p>
-            <p class="text-[10px] text-gray-400 font-mono">NIK: ••••••••••• (disembunyikan)</p>
-          </div>
-          ${badgeStatusBansos(r, false)}
-        </div>
-        <div class="mt-3 space-y-1 text-xs text-gray-700">
-          <p><span class="font-bold text-gray-500 uppercase text-[10px]">Jenis Bansos : </span>${jenis}</p>
-          <p><span class="font-bold text-gray-500 uppercase text-[10px]">Periode Ambil : </span>${periode}</p>
-          ${ket ? '<p class="bg-amber-50 border border-amber-100 text-amber-900 rounded-xl p-2.5 mt-2"><i class="bi bi-info-circle me-1"></i>' + ket + '</p>' : ''}
-          ${statusNote}
-        </div>
-      </div>`;
-  }).join('');
+  renderHasilCariBansos(box, matches);
 }
-window.cariBansosByNik = cariBansosByNik;
 
 // ---------------- FORM TAMBAH / EDIT (RT) ----------------
 // (data Warga & helper ambilDaftarWargaBansos dipindah ke bagian atas file)
@@ -652,7 +796,7 @@ async function simpanBansosBaruRT(event) {
     return;
   }
   let row = {
-    id: 'BNS-' + Date.now(),
+    id: generateSecureId('BNS'),
     nik: nik,
     nama: document.getElementById('bansos-input-nama').value.trim(),
     no_kk: document.getElementById('bansos-input-kk').value.trim(),
@@ -681,9 +825,7 @@ async function verifikasiBansosDiambilRT(id) {
   showUIConfirm('Verifikasi bahwa bansos ini SUDAH diambil oleh warga? Status akan berubah menjadi "Sudah Diambil".', async function() {
     let nowMs = await ambilWaktuServer(true);
     let nowD = new Date(nowMs);
-    let nowFormatted = nowD.toLocaleDateString('id-ID', {
-      day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta'
-    }) + ' ' + nowD.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).replace('.', ':') + ' WIB';
+    let nowFormatted = formatWIBDateTime(nowD);
     let res = await safeSupabaseUpdate('Bansos', {
       status: 'Sudah Diambil',
       diambil_pada: nowFormatted,
@@ -781,7 +923,7 @@ window.loadMenu = async function(menu) {
   if (menu === 'Bansos') {
     currentActiveMenu = menu;
     syncActiveNav(menu);
-    document.getElementById('page-title').innerText = 'Bansos';
+    document.getElementById('page-title').innerText = 'Data Bansos';
     document.getElementById('rek-info').style.display = 'none';
     await loadBansosView();
   } else {

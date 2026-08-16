@@ -5,7 +5,49 @@
 // scope dengan file JS lain. URUTAN LOAD di index.html WAJIB dijaga.
 // ============================================================
 
+// Saat RT memverifikasi data yang diajukan warga, isi datanya TIDAK boleh diubah —
+// hanya Status (dan kolom tindak lanjut RT seperti foto_penyelesaian /
+// keterangan_admin) yang tetap aktif. Kolom di bawah dikunci (disabled) di
+// modal Edit saat role RT membuka verifikasi.
+const RT_VERIFY_LOCKED_FIELDS = {
+  'Pengaduan':      ['nama', 'nik', 'no_hp', 'jenis_aduan', 'keterangan', 'tanggal', 'foto_url'],
+  'SuratPengantar': ['nama', 'nik', 'alamat', 'rt', 'jenis_surat', 'keterangan', 'ttd_pemohon'],
+  'Sumbangan':      ['nama', 'nik', 'tanggal', 'jenis_sumbangan', 'keterangan', 'nominal', 'bukti_transfer']
+};
+
+// Nama tampilan Indonesia per menu — dipakai di judul modal form/edit/verifikasi
+// (sebelumnya nama menu mentah seperti "SuratPengantar" tampil apa adanya).
+const MENU_DISPLAY_NAMES = {
+  'Dashboard': 'Dashboard Utama',
+  'Warga': 'Data Warga',
+  'Iuran': 'Tagihan Iuran',
+  'Keuangan': 'Transaksi Keuangan',
+  'Sumbangan': 'Data Sumbangan',
+  'Pengaduan': 'Pengaduan Warga',
+  'Surat': 'Surat Pengantar',
+  'SuratPengantar': 'Surat Pengantar',
+  'Aset': 'Aset & Inventaris',
+  'Inventaris': 'Aset & Inventaris',
+  'Aspirasi': 'Aspirasi',
+  'Kelahiran': 'Data Kelahiran',
+  'Kematian': 'Data Kematian',
+  'PindahMasuk': 'Pindah Masuk',
+  'PindahKeluar': 'Pindah Keluar',
+  'Bansos': 'Data Bansos',
+  'Profil': 'Profil Saya',
+  'Pengaturan': 'Pengaturan RT',
+  'PengaturanRT': 'Pengaturan RT'
+};
+function menuDisplayName(menu) { return MENU_DISPLAY_NAMES[menu] || menu; }
+
 async function loadMenu(menu) {
+  // Versi FREE: blokir menu premium (modul-nya memang tidak ada di bundle).
+  if (typeof isMenuAllowed === 'function' && !isMenuAllowed(menu)) {
+    if (typeof showUIToast === 'function') {
+      showUIToast('Fitur "' + menu + '" tersedia di versi Premium.', 'error');
+    }
+    return;
+  }
   if (session && session.token) {
     let isSessionValid = await verifySessionToken();
     if (!isSessionValid) return;
@@ -50,6 +92,14 @@ async function loadMenu(menu) {
       }
       return;
   }
+  // Menu generik TableRenderer: pakai pagination SERVER-SIDE (patch v8) — hanya
+  // halaman aktif yang diunduh. Bila RPC v8 belum ada, fallback ke alur lama di bawah.
+  if (typeof TableRenderer !== 'undefined' && GENERIC_RENDERER_MENUS.indexOf(menu) !== -1) {
+    document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
+    const usedServer = await loadGenericMenuServer(menu, 1, '');
+    if (usedServer) return;
+  }
+
   let cacheKey = menu;
   let cached = menuDataCache[cacheKey];
   let now = Date.now();
@@ -57,13 +107,13 @@ async function loadMenu(menu) {
     currentHeaders = cached.data.headers || [];
     currentRows    = cached.data.rows    || [];
     renderTable(cached.data, menu);
-    callGASGet('getTableData', { sheetName: menu }).then(res => {
+    callRpcGet('getTableData', { sheetName: menu }).then(res => {
       if (res && res.status === 'success') menuDataCache[cacheKey] = { data: res, timestamp: Date.now() };
     });
     return;
   }
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat data dari server...</small></div>';
-  const res = await callGASGet('getTableData', { sheetName: menu });
+  const res = await callRpcGet('getTableData', { sheetName: menu });
   if (res && res.status === 'success') {
     currentHeaders = res.headers || [];
     currentRows    = res.rows    || [];
@@ -74,16 +124,44 @@ async function loadMenu(menu) {
   }
 }
 
+// Menu yang dirender oleh TableRenderer (dipakai mode pagination server-side)
+const GENERIC_RENDERER_MENUS = ['Kelahiran','Kematian','PindahMasuk','PindahKeluar','Pengaduan','Sumbangan','Surat','SuratPengantar'];
+
+// PAGINATION SERVER-SIDE: ambil SATU halaman dari RPC get_table_page_secured (patch v8).
+// Hanya 25 baris per halaman yang diunduh — hemat bandwidth/memory di HP.
+// Bila RPC v8 belum terpasang, RPC mengembalikan 'fallback' -> false -> alur lama dipakai.
+async function loadGenericMenuServer(menu, page, search) {
+  try {
+    const res = await callRpcGet('getTablePage', {
+      sheetName: menu,
+      page: page || 1,
+      pageSize: (typeof Pagination !== 'undefined' && Pagination.PAGE_SIZE) ? Pagination.PAGE_SIZE : 25,
+      search: search || ''
+    });
+    if (!res || res.status !== 'success') return false;
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    if (typeof TableRenderer !== 'undefined' && TableRenderer.render) {
+      TableRenderer.render(menu, { headers: res.headers, rows: res.rows, total: res.total || res.rows.length }, { server: true, search: search || '' });
+    } else {
+      renderTable({ headers: res.headers, rows: res.rows }, menu);
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function renderTable(data, menu) {
+  // Menu dengan render GENERIK (TableRenderer) — renderXXXCustom duplikat sudah dihapus
+  if (GENERIC_RENDERER_MENUS.indexOf(menu) !== -1) {
+    if (typeof TableRenderer !== 'undefined' && TableRenderer.render(menu, data)) return;
+  }
   if (menu === 'Keuangan' && typeof renderKeuanganCustom === 'function') return renderKeuanganCustom(data);
   if (menu === 'Iuran' && typeof renderIuranCustom === 'function') return renderIuranCustom(data);
   if ((menu === 'Aset' || menu === 'Inventaris') && typeof renderAsetCustom === 'function') return renderAsetCustom(data);
   if (menu === 'Aspirasi' && typeof renderAspirasiView === 'function') return renderAspirasiView(data);
-  if (menu === 'Pengaduan' && typeof renderPengaduanCustom === 'function') return renderPengaduanCustom(data);
-  if ((menu === 'Surat' || menu === 'SuratPengantar') && typeof renderSuratPengantarCustom === 'function') return renderSuratPengantarCustom(data);
-  if (menu === 'Sumbangan' && typeof renderSumbanganCustom === 'function') return renderSumbanganCustom(data);
   if (menu === 'Warga' && typeof renderWargaCustom === 'function') return renderWargaCustom(data);
-  if (menu === 'Kelahiran' && typeof renderKelahiranCustom === 'function') return renderKelahiranCustom(data);
 
   let currentRole = await getValidUserRole();
   let html = '';
@@ -97,27 +175,41 @@ async function renderTable(data, menu) {
     document.getElementById('main-content').innerHTML = html;
     return;
   }
+  // Menu baru dimuat -> mulai dari halaman 1
+  if (typeof Pagination !== 'undefined' && _genericPageMenu !== menu) {
+    Pagination.reset(menu);
+    _genericPageMenu = menu;
+  }
+  // Pagination: render hanya baris halaman aktif
+  const pageRows = (typeof Pagination !== 'undefined' && Pagination.slice)
+    ? Pagination.slice(menu, data.rows)
+    : data.rows;
+  const pageStart = (typeof Pagination !== 'undefined') ? (Pagination.page(menu) - 1) * Pagination.PAGE_SIZE : 0;
   html += '<div class="card card-custom"><div class="table-responsive"><table class="table table-hover align-middle mb-0" id="dataTable">';
   html += '<thead class="table-light"><tr>';
-  data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size:0.85rem;">${h.toUpperCase()}</th>`);
+  data.headers.forEach(h => html += `<th class="py-3 text-secondary" style="font-size:0.85rem;">${escHtml(h).toUpperCase()}</th>`);
   html += '<th class="py-3 text-secondary text-center">AKSI</th></tr></thead><tbody>';
-  for (const row of data.rows) {
+  for (const row of pageRows) {
     html += '<tr>';
     row.forEach((val, idx) => {
       let headName = data.headers[idx].toLowerCase();
       if (headName.includes('foto') || headName.includes('bukti')) {
         let directUrl = convertToImageLink(val);
-        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${directUrl}" class="img-table" onclick="bukaPopUpFoto('${val}')">` : '-'}</td>`;
+        html += `<td>${val && val !== '***Rahasia***' ? `<img src="${escHtmlAttr(directUrl)}" class="img-table" onclick="bukaPopUpFoto('${escJsStr(val)}')">` : '-'}</td>`;
       } else {
-        html += `<td>${val}</td>`;
+        html += `<td>${escHtml(val)}</td>`;
       }
     });
     let btnAksi = await getTombolAksi(menu, row, data.headers);
     html += `<td class="text-center">${btnAksi}</td></tr>`;
   }
-  html += '</tbody></table></div></div>';
+  html += '</tbody></table></div><div id="generic-table-pagination" class="px-2 py-1"></div></div>';
   document.getElementById('main-content').innerHTML = html;
+  if (typeof Pagination !== 'undefined' && Pagination.render) {
+    Pagination.render(document.getElementById('generic-table-pagination'), menu, data.rows.length, function() { renderTable(data, menu); });
+  }
 }
+let _genericPageMenu = '';
 
 function bukaPopUpFoto(urlImg) {
   document.getElementById('modalPreviewImg').src = convertToImageLink(urlImg);
@@ -148,7 +240,7 @@ window.syncInfoWargaVisibility = syncInfoWargaVisibility;
 async function bukaModalForm() {
   editingId = null;
   editingNik = null;
-  document.getElementById('formModalTitle').innerText = "Form Input: " + currentActiveMenu;
+  document.getElementById('formModalTitle').innerText = "Form Input: " + menuDisplayName(currentActiveMenu);
   document.getElementById('btn-hapus-modal').style.display = 'none';
   await generateFormInputs(null);
   if (!bootstrapModalInstance) bootstrapModalInstance = new bootstrap.Modal(document.getElementById('formModal'));
@@ -162,7 +254,12 @@ async function bukaModalEdit(id) {
   editingId = id;
   editingNik = null;
   let currentRole = await getValidUserRole();
-  document.getElementById('formModalTitle').innerText = "Edit Data: " + currentActiveMenu;
+  // Saat RT membuka verifikasi (menu dengan kolom terkunci), judul modal
+  // menjelaskan bahwa ini proses VERIFIKASI — bukan edit bebas.
+  let isVerifyMenu = !!(RT_VERIFY_LOCKED_FIELDS[currentActiveMenu]);
+  document.getElementById('formModalTitle').innerText = (currentRole === 'RT' && isVerifyMenu)
+    ? "Verifikasi: " + menuDisplayName(currentActiveMenu)
+    : "Edit Data: " + menuDisplayName(currentActiveMenu);
   document.getElementById('btn-hapus-modal').style.display = currentRole === 'RT' ? 'inline-block' : 'none';
   let rowData = (currentRows || []).find(r => {
     if (!r) return false;
@@ -250,6 +347,10 @@ async function generateFormInputs(rowData) {
   let formBody = document.getElementById('dynamicForm');
   formBody.innerHTML = '';
   let currentRole = await getValidUserRole();
+  // Verifikasi RT: tampilkan catatan bahwa data warga terkunci
+  if (rowData && currentRole === 'RT' && RT_VERIFY_LOCKED_FIELDS[currentActiveMenu]) {
+    formBody.innerHTML = '<div class="alert alert-warning py-2 px-3 mb-3" style="font-size:11px;font-weight:600;"><i class="bi bi-lock-fill me-1"></i>Data yang diajukan warga terkunci saat verifikasi — hanya <u>Status</u> & tindak lanjut RT yang bisa diubah.</div>';
+  }
   if (currentRole === 'Warga' && !rowData && session.nik) {
     try {
       const { data: safeWarga } = await safeSupabaseSelect('Warga');
@@ -276,12 +377,42 @@ async function generateFormInputs(rowData) {
   let headersToUse = (currentHeaders && currentHeaders.length > 0) 
     ? currentHeaders 
     : (FALLBACK_HEADERS[currentActiveMenu] || FALLBACK_HEADERS['Warga']);
+
+  // FORM WARGA RINGKAS (v3.37): field dikelompokkan dalam <details> collapsible
+  // (Data Pribadi / Alamat & Keluarga / Kontak & Foto) agar modal tidak scroll panjang.
+  // v3.39: field dikumpulkan DULU per grup, baru dirender. Kolom Warga selang-seling
+  // (nama → pribadi, no_kk → keluarga, tempat_lahir → pribadi lagi, dst), jadi cara lama
+  // membuat grup berulang ("Data Pribadi" 4x) dengan isi cuma sisa field yang kebetulan
+  // berurutan. Kini tiap grup muncul SEKALI dengan semua field-nya, urut tetap:
+  // Data Pribadi → Alamat & Keluarga → Kontak & Foto. Grup pertama otomatis terbuka.
+  let isWargaForm = currentActiveMenu === 'Warga';
+  const wargaGroupOf = (nameLower) => {
+    if (nameLower.includes('foto') || nameLower.includes('bukti') || nameLower.includes('gambar')
+      || nameLower.includes('hp') || nameLower.includes('wa') || nameLower.includes('telp')
+      || nameLower.includes('email')) return 'Kontak & Foto';
+    if (nameLower.includes('kk') || nameLower.includes('alamat') || nameLower.includes('rt')
+      || nameLower.includes('rw') || nameLower.includes('status_tinggal') || nameLower.includes('status_huni')
+      || nameLower.includes('status_keluarga') || nameLower.includes('keluarga')
+      || nameLower.includes('kelurahan') || nameLower.includes('kecamatan') || nameLower.includes('kota')) return 'Alamat & Keluarga';
+    return 'Data Pribadi';
+  };
+  const wargaGroupOrder = ['Data Pribadi', 'Alamat & Keluarga', 'Kontak & Foto'];
+  let wargaGroupedFields = {}; // label grup -> array HTML field
+
   for (let idx = 0; idx < headersToUse.length; idx++) {
     let h = headersToUse[idx];
     let nameLower = h.toLowerCase().trim();
     // Kolom sistem (diisi otomatis server): jangan tampilkan sebagai input manual
-    if (['id','no','saldo','ttd_pemohon','tanda_tangan','created_at','verified_at'].includes(nameLower)) continue;
-    let labelText = h.replace(/_/g, ' ').toUpperCase();
+    if (['id','no','ttd_pemohon','tanda_tangan','created_at','verified_at'].includes(nameLower)) continue;
+    // Verifikasi RT: kolom data warga dikunci (disabled) — nilainya tetap terkirim saat submit
+    let isVerifyLocked = !!(rowData
+      && currentRole === 'RT'
+      && RT_VERIFY_LOCKED_FIELDS[currentActiveMenu]
+      && RT_VERIFY_LOCKED_FIELDS[currentActiveMenu].indexOf(nameLower) > -1);
+    // Warna readonly/locked lewat CSS variable (--locked-bg) agar ikut tema gelap
+    // (dulu inline #e2e8f0/#64748b — di dark mode tampil blok terang mencolok).
+    let lockAttr = isVerifyLocked ? ' disabled style="background-color:var(--locked-bg,#e2e8f0);color:var(--locked-color,#64748b);cursor:not-allowed;"' : '';
+    let labelText = escHtml(h.replace(/_/g, ' ').toUpperCase());
     let val = "";
     if (rowData) {
       if (Array.isArray(rowData)) {
@@ -307,23 +438,32 @@ async function generateFormInputs(rowData) {
       }
       val = rtVal;
     }
-    if (val && nameLower.includes('tanggal') && val.includes('/')) {
+    if (val && nameLower.includes('tanggal') && currentActiveMenu === 'Keuangan') {
+      // Keuangan: nilai tersimpan bisa "YYYY-MM-DD", "YYYY-MM-DD HH:mm",
+      // "14/08/2026 15:36 WIB", atau "14/08/2026" → bentuk input datetime-local.
+      val = keuanganTglToInput(val);
+    } else if (val && nameLower.includes('tanggal') && val.includes('/')) {
       let parts = val.split('/');
       if (parts.length === 3) val = parts[2] + '-' + parts[1] + '-' + parts[0];
     }
-    let safeVal = String(val || '').replace(/"/g, '&quot;');
+    let safeVal = escHtmlAttr(val);
     let inputHtml = '';
     if (nameLower === 'status' && ['Pengaduan','SuratPengantar','Sumbangan'].includes(currentActiveMenu)) {
+      // Nilai kanonik EYD: Selesai / Ditolak / Diterima / Sedang Ditindaklanjuti.
+      // Ejaan lama ("selesai", "di tolak", "sedang ditindak lanjuti", "baru" dll.)
+      // tetap dicocokkan saat edit agar data lama tidak terpilih salah.
+      let sNorm = String(val || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      let sel = (v) => sNorm === v ? ' selected' : '';
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
-        <option value="Belum di verifikasi" ${val==='Belum di verifikasi'?'selected':''}>Belum di verifikasi</option>
-        <option value="Sedang ditindak lanjuti" ${val==='Sedang ditindak lanjuti'?'selected':''}>Sedang ditindak lanjuti</option>
-        <option value="selesai" ${val==='selesai'?'selected':''}>selesai</option>
-        <option value="di tolak" ${val==='di tolak'?'selected':''}>di tolak</option>
-        <option value="diterima" ${val==='diterima'?'selected':''}>diterima</option>
+        <option value="Belum di verifikasi"${sel('belum di verifikasi') || (!sNorm || ['baru','belum diverifikasi','diajukan','pending'].includes(sNorm) ? ' selected' : '')}>Belum di verifikasi</option>
+        <option value="Sedang Ditindaklanjuti"${sel('sedang ditindaklanjuti') || sel('sedang ditindak lanjuti')}>Sedang Ditindaklanjuti</option>
+        <option value="Selesai"${sel('selesai')}>Selesai</option>
+        <option value="Ditolak"${sel('ditolak') || sel('di tolak')}>Ditolak</option>
+        <option value="Diterima"${sel('diterima')}>Diterima</option>
       </select>`;
     } else if (nameLower === 'jenis_aduan' || (currentActiveMenu === 'Pengaduan' && nameLower.includes('jenis'))) {
-      inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
-        <option value="">-- Pilih Jenis Aduan --</option>
+      inputHtml = `<select class="form-select dynamic-input" data-key="${h}"${lockAttr}>
+        <option value="">-- Pilih Jenis Pengaduan --</option>
         <option value="KEAMANAN" ${val.toUpperCase()==='KEAMANAN'?'selected':''}>KEAMANAN</option>
         <option value="KEBERSIHAN" ${val.toUpperCase()==='KEBERSIHAN'?'selected':''}>KEBERSIHAN</option>
         <option value="LAMPU JALAN" ${val.toUpperCase()==='LAMPU JALAN'?'selected':''}>LAMPU JALAN</option>
@@ -343,7 +483,7 @@ async function generateFormInputs(rowData) {
         { value: 'Surat Izin Keramaian', label: 'Surat Izin Keramaian/Acara' }
       ];
       let opts = optList.map(o => `<option value="${o.value}" ${rawJenisVal.toLowerCase()===o.value.toLowerCase().trim()?'selected':''}>${o.label}</option>`).join('');
-      inputHtml = `<select class="form-select dynamic-input" data-key="${h}" onchange="if(typeof renderExtraSuratFields==='function') renderExtraSuratFields(this.value);">
+      inputHtml = `<select class="form-select dynamic-input" data-key="${h}"${lockAttr} onchange="if(typeof renderExtraSuratFields==='function') renderExtraSuratFields(this.value);">
         <option value="">-- Pilih Jenis Surat Pengantar --</option>
         ${opts}
       </select>
@@ -353,7 +493,20 @@ async function generateFormInputs(rowData) {
     } else if (!rowData && currentActiveMenu === 'Kematian' && nameLower === 'nama') {
       inputHtml = await buildKematianNamaDropdown(val);
     } else if (nameLower.includes('tanggal')) {
-      inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${safeVal}">`;
+      if (currentActiveMenu === 'Keuangan') {
+        // Keuangan: input tanggal + JAM (datetime-local) — entri manual ikut
+        // tersimpan dengan jam, konsisten dengan entri Sumbangan/Iuran.
+        let dtVal = val || keuanganNowLocalInput();
+        inputHtml = `<input type="datetime-local" class="form-control dynamic-input" data-key="${h}" value="${escHtmlAttr(dtVal)}"${lockAttr}>`;
+      } else if (currentActiveMenu === 'Sumbangan' && !rowData) {
+        // Sumbangan (BARU): TANGGAL otomatis terisi tanggal + jam sekarang
+        // (waktu server bila tersedia) — kalau dibiarkan manual/kosong, di menu
+        // Keuangan barisnya jadi tanpa jam (tanggal saja).
+        let dtVal = val || await sumbanganNowInputValue();
+        inputHtml = `<input type="datetime-local" class="form-control dynamic-input" data-key="${h}" value="${escHtmlAttr(dtVal)}"${lockAttr}>`;
+      } else {
+        inputHtml = `<input type="date" class="form-control dynamic-input" data-key="${h}" value="${safeVal}"${lockAttr}>`;
+      }
     } else if (nameLower === 'jenis_kelamin') {
       inputHtml = `<select class="form-select dynamic-input" data-key="${h}">
         <option value="">-- Pilih Jenis Kelamin --</option>
@@ -372,27 +525,64 @@ async function generateFormInputs(rowData) {
         <option value="TETAP" ${val.toUpperCase()==='TETAP'?'selected':''}>TETAP</option>
         <option value="DOMISILI" ${['DOMISILI','KONTRAK'].includes(val.toUpperCase())?'selected':''}>DOMISILI</option>
       </select>`;
+    } else if (nameLower === 'status_keluarga') {
+      // Peran dalam keluarga: Kepala Keluarga / Anggota Keluarga (kolom baru patch v15)
+      inputHtml = `<select class="form-select dynamic-input" data-key="${h}"${lockAttr}>
+        <option value="">-- Pilih Status Keluarga --</option>
+        <option value="Kepala Keluarga" ${String(val).toLowerCase().includes('kepala')?'selected':''}>Kepala Keluarga</option>
+        <option value="Anggota Keluarga" ${!String(val).toLowerCase().includes('kepala') && val ? 'selected' : ''}>Anggota Keluarga</option>
+      </select>`;
     } else if (nameLower.includes('foto') || nameLower.includes('bukti') || nameLower.includes('gambar')) {
       let imgDirect = convertToImageLink(val);
       let isValidVal = val && val !== 'EMPTY' && val !== 'NULL' && val !== '-' && !val.includes('***');
-      inputHtml = `
-        ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"><small class="d-block text-muted text-[10px]">Foto saat ini</small></div>` : ''}
-        <div class="p-2 border rounded bg-white">
-          <label class="form-label text-xs font-bold text-gray-700 mb-1 block"><i class="bi bi-camera-fill me-1 text-primary"></i>Upload Foto (Galeri / Kamera HP):</label>
-          <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
+      if (isVerifyLocked) {
+        // Verifikasi RT: foto warga tidak bisa diganti — cukup tampilkan + kirim nilai lama
+        inputHtml = `
+          ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"><small class="d-block text-muted text-[10px]">Foto saat ini</small></div>` : '<small class="d-block text-muted text-[10px]">Tidak ada foto lampiran.</small>'}
           <input type="hidden" class="dynamic-input" data-key="${h}" value="${safeVal}">
-          <small class="text-muted text-[10px] d-block mt-1">*Pilih file foto dari HP/Kamera Anda.</small>
-        </div>`;
+          <small class="text-warning d-block text-[10px] fw-bold mt-1"><i class="bi bi-lock-fill me-1"></i>Foto tidak bisa diganti saat verifikasi.</small>`;
+      } else {
+        inputHtml = `
+          ${isValidVal ? `<div class="mb-2"><img src="${imgDirect}" class="rounded border shadow-sm mb-2" style="max-height:110px;object-fit:cover;" onclick="bukaPopUpFoto('${val}')"><small class="d-block text-muted text-[10px]">Foto saat ini</small></div>` : ''}
+          <div class="p-2 border rounded bg-white">
+            <label class="form-label text-xs font-bold text-gray-700 mb-1 block"><i class="bi bi-camera-fill me-1 text-primary"></i>Upload Foto (Galeri / Kamera HP):</label>
+            <input type="file" class="form-control form-control-sm dynamic-file-input" data-key="${h}" accept="image/*">
+            <input type="hidden" class="dynamic-input" data-key="${h}" value="${safeVal}">
+            <small class="text-muted text-[10px] d-block mt-1">*Pilih file foto dari HP/Kamera Anda.</small>
+          </div>`;
+      }
     } else {
       let isNameField = (nameLower === 'nama' || nameLower === 'nama_lengkap' || nameLower.includes('nama'));
-      let isReadonly = (currentRole === 'Warga' && !rowData && (nameLower === 'nik' || nameLower.includes('alamat') || (isNameField && currentActiveMenu !== 'Sumbangan'))) ? 'readonly style="background-color:#f1f5f9;cursor:not-allowed;"' : '';
-      let helpText = (currentActiveMenu === 'Sumbangan' && isNameField) ? `<small class="text-muted text-[10px] d-block mt-1 font-medium">*Bisa diubah jika ingin menggunakan nama <b>"Hamba Allah"</b>.</small>` : '';
+      let isReadonly = (currentRole === 'Warga' && !rowData && (nameLower === 'nik' || nameLower.includes('alamat') || (isNameField && currentActiveMenu !== 'Sumbangan'))) ? 'readonly style="background-color:var(--readonly-bg,#f1f5f9);cursor:not-allowed;"' : '';
+      // Verifikasi RT: kunci kolom data warga (nilai tetap terkirim via input disabled)
+      if (isVerifyLocked) isReadonly = lockAttr;
+      let helpText = (!isVerifyLocked && currentActiveMenu === 'Sumbangan' && isNameField) ? `<small class="text-muted text-[10px] d-block mt-1 font-medium">*Bisa diubah jika ingin menggunakan nama <b>"Hamba Allah"</b>.</small>` : '';
       inputHtml = `<input type="text" class="form-control dynamic-input" data-key="${h}" value="${safeVal}" placeholder="Masukkan ${labelText.toLowerCase()}..." ${isReadonly}>${helpText}`;
     }
+    // Kolom lebar (foto/textarea/field tambahan) direntang penuh; sisanya 2 kolom di desktop
+    const isWideField = nameLower.includes('foto') || nameLower.includes('bukti') || nameLower.includes('gambar')
+      || inputHtml.indexOf('<textarea') !== -1
+      || inputHtml.indexOf('extra-surat-fields-container') !== -1;
+    const fieldClass = isWideField ? 'col-full' : 'col-half';
+    let fieldHtml = `<div class="mb-3 ${fieldClass}"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
     if (currentActiveMenu === 'SuratPengantar' && nameLower === 'keterangan') {
       formBody.innerHTML += inputHtml;
+    } else if (isWargaForm) {
+      let g = wargaGroupOf(nameLower);
+      if (!wargaGroupedFields[g]) wargaGroupedFields[g] = [];
+      wargaGroupedFields[g].push(fieldHtml);
     } else {
-      formBody.innerHTML += `<div class="mb-3"><label class="form-label small text-secondary fw-bold">${labelText}</label>${inputHtml}</div>`;
+      formBody.innerHTML += fieldHtml;
+    }
+  }
+  if (isWargaForm) {
+    let firstGroupRendered = false;
+    for (let gi = 0; gi < wargaGroupOrder.length; gi++) {
+      let g = wargaGroupOrder[gi];
+      let groupFields = wargaGroupedFields[g];
+      if (!groupFields || groupFields.length === 0) continue;
+      formBody.innerHTML += `<details class="warga-form-group" ${firstGroupRendered ? '' : 'open'}><summary>${g}</summary><div class="warga-form-grid">${groupFields.join('')}</div></details>`;
+      firstGroupRendered = true;
     }
   }
 
@@ -457,6 +647,23 @@ async function generateFormInputs(rowData) {
 
 function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75) {
   return new Promise((resolve, reject) => {
+    // Validasi isi file via magic bytes (v3.38): PDF/doc yang di-rename jadi
+    // .jpg/.png TIDAK lolos — hanya file gambar asli yang diproses.
+    if (typeof isValidImageFile === 'function') {
+      isValidImageFile(file).then(function(ok) {
+        if (!ok) {
+          reject(new Error('File bukan gambar (PDF/doc tidak diizinkan). Pilih file JPG/PNG/WebP/GIF.'));
+          return;
+        }
+        compressImageFileInner(file, maxWidth, maxHeight, quality, resolve, reject);
+      });
+      return;
+    }
+    compressImageFileInner(file, maxWidth, maxHeight, quality, resolve, reject);
+  });
+}
+
+function compressImageFileInner(file, maxWidth, maxHeight, quality, resolve, reject) {
     let reader = new FileReader();
     reader.onload = function(e) {
       let img = new Image();
@@ -481,12 +688,11 @@ function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.75
         ctx.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
-      img.onerror = () => resolve(e.target.result);
+      img.onerror = () => resolve(e.target.result); // file lolos magic-byte tapi tak bisa dirender → simpan apa adanya (perilaku lama)
       img.src = e.target.result;
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
-  });
 }
 
 async function validateDynamicForm(menu, payload) {
@@ -677,6 +883,49 @@ async function validateDynamicForm(menu, payload) {
   return true;
 }
 
+// Keuangan: nilai tanggal tersimpan beragam format -> nilai input datetime-local
+// ("YYYY-MM-DDTHH:mm"). Tanggal saja -> tengah malam (00:00) agar tetap konsisten.
+function keuanganTglToInput(val) {
+  let s = String(val || '').trim();
+  if (!s || s === '-') return '';
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}T${String(m[4]).padStart(2, '0')}:${m[5]}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}T00:00`;
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}T${m[4] ? String(m[4]).padStart(2, '0') : '00'}:${m[5] || '00'}`;
+  return s.includes('T') ? s : '';
+}
+
+// Keuangan: "sekarang" dalam bentuk input datetime-local (waktu lokal perangkat)
+function keuanganNowLocalInput() {
+  let d = new Date();
+  let p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// Sumbangan: nilai default TANGGAL form baru = "sekarang" dalam bentuk input
+// datetime-local. Pakai WAKTU SERVER (get_server_time) bila tersedia — fallback
+// jam perangkat — lalu diformat WIB (Asia/Jakarta) agar jam konsisten di semua
+// perangkat dan di menu Keuangan muncul jam (standar entri Iuran/Keuangan).
+async function sumbanganNowInputValue() {
+  let ms = Date.now();
+  if (typeof ambilWaktuServer === 'function') {
+    try { ms = await ambilWaktuServer(true); } catch (e) {}
+  }
+  let d = new Date(ms);
+  if (isNaN(d.getTime())) d = new Date();
+  let parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(d);
+  let get = (t) => { let x = parts.find(p => p.type === t); return x ? x.value : '00'; };
+  let hh = get('hour');
+  if (hh === '24') hh = '00'; // engine tertentu menulis tengah malam sebagai 24:xx
+  return get('year') + '-' + get('month') + '-' + get('day') + 'T' + hh + ':' + get('minute');
+}
+
 async function submitFormBaru(e) {
   if (e) e.preventDefault();
   let payload = {};
@@ -685,6 +934,18 @@ async function submitFormBaru(e) {
     let key = inp.getAttribute('data-key');
     if (key) payload[key] = inp.value; 
   });
+
+  if (currentActiveMenu === 'Keuangan' || currentActiveMenu === 'Sumbangan') {
+    // Normalisasi tanggal: "YYYY-MM-DDTHH:mm" (dari datetime-local) ->
+    // "YYYY-MM-DD HH:mm" agar konsisten dgn Iuran & mudah di-sort server,
+    // dan di Keuangan baris Sumbangan ikut menampilkan jam.
+    Object.keys(payload).forEach(k => {
+      let kl = k.toLowerCase();
+      if ((kl.includes('tanggal') || kl.includes('tgl')) && payload[k] && payload[k].includes('T')) {
+        payload[k] = payload[k].replace('T', ' ');
+      }
+    });
+  }
 
   if (currentActiveMenu === 'SuratPengantar') {
     let extraObj = {};
@@ -716,8 +977,15 @@ async function submitFormBaru(e) {
     let key = fileInp.getAttribute('data-key');
     let file = fileInp.files[0];
     if (file && key) {
+      let compressedUrl;
+      try {
+        compressedUrl = await compressImageFile(file);
+      } catch (err) {
+        fileInp.value = '';
+        showUIToast((err && err.message) ? err.message : 'File foto tidak valid — pilih file gambar (JPG/PNG/WebP).', 'danger');
+        return;
+      }
       showUIToast('Mengompres & mengunggah foto ke server...', 'info');
-      let compressedUrl = await compressImageFile(file);
       let publicUrl = await uploadToSupabaseStorage(compressedUrl, currentActiveMenu.toLowerCase());
       payload[key] = publicUrl;
     }
@@ -739,7 +1007,7 @@ async function submitFormBaru(e) {
         }
       }
       delete menuDataCache[currentActiveMenu];
-      const res = await callGASPost('updateDataDiSheet', { sheetName: currentActiveMenu, id: targetId, formData: payload });
+      const res = await callRpcPost('updateDataDiSheet', { sheetName: currentActiveMenu, id: targetId, formData: payload });
       if (res && res.status === 'success') { 
         if (bootstrapModalInstance) bootstrapModalInstance.hide(); 
         showUIToast(res.message, 'success'); 
@@ -751,7 +1019,7 @@ async function submitFormBaru(e) {
       }
     } else {
       delete menuDataCache[currentActiveMenu];
-      const res = await callGASPost('simpanDataKeSheet', { sheetName: currentActiveMenu, formData: payload });
+      const res = await callRpcPost('simpanDataKeSheet', { sheetName: currentActiveMenu, formData: payload });
       if (res && res.status === 'success') {
         if (bootstrapModalInstance) bootstrapModalInstance.hide(); 
         showUIToast('Data Berhasil Disimpan!', 'success');
@@ -800,7 +1068,7 @@ async function hapusDataAktif() {
   showUIConfirm('Apakah Anda yakin ingin menghapus data ini secara permanen dari database?', async function() {
     document.getElementById('dynamicForm').innerHTML = '<div class="text-center p-4"><b class="text-danger">Menghapus data...</b></div>';
     delete menuDataCache[currentActiveMenu];
-    const res = await callGASPost('hapusDataDariSheet', { sheetName: currentActiveMenu, id: targetId });
+    const res = await callRpcPost('hapusDataDariSheet', { sheetName: currentActiveMenu, id: targetId });
     if (res && res.status === 'success') {
       // Hapus file foto terkait di storage (best-effort, tidak mengganggu alur utama)
       if (pathsToDelete.length > 0 && typeof db !== 'undefined' && db && session && session.token) {
@@ -827,15 +1095,15 @@ async function getTombolAksi(menu, row, headers) {
   
   let currentRole = await getValidUserRole();
   if (currentRole === 'RT') {
-    let btn = `<button class="btn btn-sm btn-outline-primary m-1 fw-bold" onclick="bukaModalEdit('${realId}')">Edit/Status</button>`;
-    if (['Pengaduan','SuratPengantar'].includes(menu)) btn += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="waKirimLaporanKeWarga('${realId}','${noHpWarga}')"><i class="bi bi-whatsapp me-1"></i>Laporan</button>`;
+    let btn = `<button class="btn btn-sm btn-outline-primary m-1 fw-bold" onclick="bukaModalEdit('${escJsStr(realId)}')">Edit/Status</button>`;
+    if (['Pengaduan','SuratPengantar'].includes(menu)) btn += `<button class="btn btn-sm btn-success m-1 fw-bold" onclick="waKirimLaporanKeWarga('${escJsStr(realId)}','${escJsStr(noHpWarga)}')"><i class="bi bi-whatsapp me-1"></i>Laporan</button>`;
     return btn;
   }
   if (currentRole === 'Warga') {
-    if (menu === 'Pengaduan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('aduan','${realId}')"><i class="bi bi-whatsapp me-1"></i>WA Lapor</button>`;
-    if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat','${realId}')"><i class="bi bi-whatsapp me-1"></i>WA Surat</button>`;
-    if (menu === 'Keuangan')       return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${realId}')">Laporkan</button>`;
-    if (menu === 'Sumbangan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${realId}')"><i class="bi bi-whatsapp me-1"></i>Verifikasi</button>`;
+    if (menu === 'Pengaduan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('aduan','${escJsStr(realId)}')"><i class="bi bi-whatsapp me-1"></i>WA Lapor</button>`;
+    if (menu === 'SuratPengantar') return `<button class="btn btn-sm btn-success fw-bold" onclick="waKirimLaporan('surat','${escJsStr(realId)}')"><i class="bi bi-whatsapp me-1"></i>WA Surat</button>`;
+    if (menu === 'Keuangan')       return `<button class="btn btn-sm btn-danger fw-bold" onclick="waLaporMasalahKeuangan('${escJsStr(realId)}')">Laporkan</button>`;
+    if (menu === 'Sumbangan')      return `<button class="btn btn-sm btn-success fw-bold" onclick="waVerifikasiSumbangan('${escJsStr(realId)}')"><i class="bi bi-whatsapp me-1"></i>Verifikasi</button>`;
   }
   return '-';
 }
@@ -848,24 +1116,22 @@ function filterTable() {
   let searchInput = document.getElementById("searchInput");
   if (!searchInput) return;
   let input = searchInput.value.toLowerCase().trim();
+  // Menu generik (TableRenderer) — filter dibantu renderer
+  if (typeof TableRenderer !== 'undefined' && ['Kelahiran','Kematian','PindahMasuk','PindahKeluar','Pengaduan','Sumbangan','Surat','SuratPengantar'].includes(currentActiveMenu)) {
+    TableRenderer.filter(currentActiveMenu);
+    return;
+  }
+  // Menu dengan render custom — filter diproses di modulnya masing-masing (ikut pagination)
   if (typeof filterDataWarga === 'function' && currentActiveMenu === 'Warga') { filterDataWarga(); return; }
-  if (typeof filterDataSumbangan === 'function' && currentActiveMenu === 'Sumbangan') { filterDataSumbangan(); return; }
-  if (typeof filterDataPengaduan === 'function' && currentActiveMenu === 'Pengaduan') { filterDataPengaduan(); return; }
-  if (typeof filterDataSurat === 'function' && currentActiveMenu === 'SuratPengantar') { filterDataSurat(); return; }
-  if (typeof filterTabelKas === 'function' && currentActiveMenu === 'Keuangan') { filterTabelKas(); return; }
-  if (typeof filterDataPindahMasuk === 'function' && currentActiveMenu === 'PindahMasuk') { filterDataPindahMasuk(); return; }
-  if (typeof filterDataPindahKeluar === 'function' && currentActiveMenu === 'PindahKeluar') { filterDataPindahKeluar(); return; }
-  if (typeof filterDataKelahiran === 'function' && currentActiveMenu === 'Kelahiran') { filterDataKelahiran(); return; }
-  if (typeof filterDataKematian === 'function' && currentActiveMenu === 'Kematian') { filterDataKematian(); return; }
+  if (typeof filterDataKeuangan === 'function' && currentActiveMenu === 'Keuangan') { filterDataKeuangan(); return; }
+  if (typeof filterIuran === 'function' && currentActiveMenu === 'Iuran') { filterIuran(); return; }
+  if (typeof filterBansosRT === 'function' && currentActiveMenu === 'Bansos') { filterBansosRT(); return; }
+  if (typeof filterAspirasi === 'function' && currentActiveMenu === 'Aspirasi') { filterAspirasi(); return; }
+  if (typeof filterDataAset === 'function' && (currentActiveMenu === 'Aset' || currentActiveMenu === 'Inventaris')) { filterDataAset(); return; }
   let rows = document.querySelectorAll("#main-content table tbody tr");
   rows.forEach(row => {
     let text = row.innerText.toLowerCase();
     row.style.display = text.includes(input) ? "" : "none";
-  });
-  let iuranItems = document.querySelectorAll("#list-bulan-iuran > div");
-  iuranItems.forEach(card => {
-    let text = card.innerText.toLowerCase();
-    card.style.display = text.includes(input) ? "" : "none";
   });
   document.querySelectorAll(".quick-action-item").forEach(item => {
     let text = item.innerText.toLowerCase();

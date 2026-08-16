@@ -131,13 +131,13 @@ function renderProfilCustom(res) {
     </div>
     <!-- MODAL DETAIL ANGGOTA KELUARGA -->
     <div id="modal-detail-keluarga" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans">
-        <button onclick="tutupDetailKeluarga()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
-        <div class="mb-3 border-b pb-2 pe-6">
-          <h3 class="font-bold text-gray-800 text-sm">Rincian Anggota Keluarga</h3>
+      <div class="bg-white p-5 rounded-2xl w-full max-w-sm shadow-2xl relative font-sans max-h-[85vh] flex flex-col">
+        <button onclick="tutupDetailKeluarga()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <div class="mb-3 border-b pb-2 pe-8 shrink-0">
+          <h3 class="font-bold text-gray-800 text-sm pe-6">Rincian Anggota Keluarga</h3>
         </div>
-        <div id="modal-detail-keluarga-body" class="mb-4 space-y-2 text-xs max-h-[60vh] overflow-y-auto pe-1"></div>
-        <button onclick="tutupDetailKeluarga()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition">Tutup</button>
+        <div id="modal-detail-keluarga-body" class="mb-4 space-y-2 text-xs overflow-y-auto pe-1 flex-1 min-h-0"></div>
+        <button onclick="tutupDetailKeluarga()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-xl text-xs font-bold transition shrink-0">Tutup</button>
       </div>
     </div>
   `;
@@ -185,7 +185,7 @@ function tutupDetailKeluarga() {
 }
 
 async function loadProfilView() {
-  const res = await callGASGet('getProfileData', { nik: session.nik });
+  const res = await callRpcGet('getProfileData', { nik: session.nik });
   if (!res) return;
   if (res.status === 'error') {
     document.getElementById('main-content').innerHTML = `<div class="alert alert-danger text-center my-3">${res.message}</div>`;

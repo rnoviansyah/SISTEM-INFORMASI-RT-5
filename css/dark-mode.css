@@ -1,0 +1,242 @@
+/* ============================================================
+   DARK MODE KONSISTEN (v3.37)
+   Aktif otomatis saat tema "dark" dipilih di Pengaturan
+   (applyTheme menambah class theme-dark pada <body>).
+
+   Utility Tailwind & komponen Bootstrap yang dipakai oleh
+   renderer custom (Warga, Iuran, Bansos, Keuangan, Aset,
+   tabel generik, modal, notifikasi) di-map ke palet gelap
+   slate agar seluruh aplikasi konsisten — bukan hanya shell.
+   ============================================================ */
+
+/* ---------- Input readonly / terkunci verifikasi ----------
+   Form Warga (readonly) & kolom yang dikunci saat RT verifikasi memakai
+   --readonly-bg/--locked-bg/--locked-color lewat inline style. Di sini
+   variabelnya ditimpa agar tidak tampil abu terang mencolok di tema gelap. */
+body.theme-dark {
+  --readonly-bg: #24304d;
+  --locked-bg: #24304d;
+  --locked-color: #94a3b8;
+}
+
+/* ---------- Permukaan (surface) ---------- */
+body.theme-dark .bg-gray-50,
+body.theme-dark .bg-gray-50\/80,
+body.theme-dark .bg-gray-100,
+body.theme-dark .bg-gray-100\/70,
+body.theme-dark .bg-slate-50,
+body.theme-dark .bg-slate-100,
+body.theme-dark .bg-light,
+body.theme-dark .table-light,
+body.theme-dark .card-header,
+body.theme-dark .card-footer {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .bg-gray-200,
+body.theme-dark .bg-gray-300,
+body.theme-dark .bg-slate-200 {
+  background-color: #24304d !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .quick-action-icon {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #93c5fd !important;
+}
+
+body.theme-dark .rekening-box {
+  background: #16213a !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .info-warga-header {
+  background: #16213a !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .info-warga-header:hover {
+  background: #1e293b !important;
+}
+
+/* ---------- Teks netral ---------- */
+body.theme-dark .text-gray-900,
+body.theme-dark .text-gray-800 { color: #e2e8f0 !important; }
+body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
+body.theme-dark .text-gray-600 { color: #94a3b8 !important; }
+body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+body.theme-dark .text-gray-400 { color: #64748b !important; }
+
+/* ---------- Border netral ---------- */
+body.theme-dark .border-gray-100,
+body.theme-dark .border-gray-200,
+body.theme-dark .border-gray-300 { border-color: #334155 !important; }
+
+/* ---------- Bootstrap: tabel, form, modal, dropdown, toast ---------- */
+body.theme-dark .table {
+  --bs-table-bg: transparent;
+  color: #e2e8f0 !important;
+}
+body.theme-dark .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(30, 41, 59, 0.55) !important;
+  color: #e2e8f0 !important;
+}
+body.theme-dark .table-hover > tbody > tr:hover > * {
+  background-color: #24304d !important;
+  color: #e2e8f0 !important;
+}
+
+body.theme-dark .form-control,
+body.theme-dark .form-select,
+body.theme-dark textarea.form-control,
+body.theme-dark input[type="text"],
+body.theme-dark input[type="date"],
+body.theme-dark input[type="number"],
+body.theme-dark input[type="password"],
+body.theme-dark input[type="search"] {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+body.theme-dark .form-control:focus,
+body.theme-dark .form-select:focus {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+body.theme-dark .form-control::placeholder { color: #64748b !important; }
+body.theme-dark .form-label,
+body.theme-dark label.form-label { color: #94a3b8 !important; }
+
+body.theme-dark .modal-content,
+body.theme-dark .dropdown-menu,
+body.theme-dark .toast {
+  background-color: #16213a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+body.theme-dark .modal-header,
+body.theme-dark .modal-footer {
+  border-color: #334155 !important;
+}
+body.theme-dark .dropdown-item {
+  color: #cbd5e1 !important;
+}
+body.theme-dark .dropdown-item:hover {
+  background-color: #24304d !important;
+  color: #ffffff !important;
+}
+body.theme-dark .list-group-item {
+  background-color: #16213a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+body.theme-dark .list-group-item-action:hover {
+  background-color: #1e293b !important;
+}
+
+body.theme-dark .alert-light,
+body.theme-dark .alert-secondary {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ---------- Pagination ---------- */
+body.theme-dark .page-link {
+  background-color: #16213a !important;
+  border-color: #334155 !important;
+  color: #93c5fd !important;
+}
+body.theme-dark .page-item.active .page-link {
+  background-color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* ---------- Hover state yang banyak dipakai renderer ---------- */
+body.theme-dark .hover\:bg-gray-50:hover,
+body.theme-dark .hover\:bg-gray-100:hover,
+body.theme-dark .hover\:bg-gray-50\/50:hover,
+body.theme-dark .hover\:bg-slate-50:hover,
+body.theme-dark .hover\:bg-blue-50\/50:hover {
+  background-color: #24304d !important;
+}
+
+/* ---------- Pre / kode / info ---------- */
+body.theme-dark pre,
+body.theme-dark code {
+  background-color: #0f172a !important;
+  color: #93c5fd !important;
+}
+
+/* ---------- Scrollbar (chrome) ---------- */
+body.theme-dark ::-webkit-scrollbar-track { background: #0f172a; }
+body.theme-dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+/* ---------- Shell mobile: navbar bawah & lembar "Lainnya" (polish v21) ----------
+   Sebelumnya bottom-nav & sheet menu tetap putih saat tema gelap — kini ikut
+   palet slate agar konsisten dengan permukaan lain. */
+body.theme-dark .bottom-nav { background: #1e293b !important; border-top-color: #334155 !important; }
+body.theme-dark .bottom-nav-item { color: #94a3b8 !important; }
+body.theme-dark .bottom-nav-item.active { color: #93c5fd !important; }
+body.theme-dark #menu-lainnya-sheet .bg-white { background: #1e293b !important; }
+body.theme-dark #menu-lainnya-sheet .bg-gray-300 { background: #475569 !important; }
+body.theme-dark #menu-lainnya-sheet h6 { color: #e2e8f0 !important; }
+body.theme-dark #menu-lainnya-sheet .sheet-menu-item p { color: #cbd5e1 !important; }
+body.theme-dark #menu-lainnya-sheet .btn-light { background: #24304d !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+
+/* ---------- Warna semantik pastel (polish v22) ----------
+   Kartu/badge berlatarbelakang pastel — kartu statistik Bansos (Total Penerima /
+   Belum Diambil / Sudah Diambil), chip Admin RT, badge KEDALUWARSA, catatan status
+   warga, kotak keterangan — sebelumnya TETAP TERANG saat tema gelap dengan teks
+   warna gelap sehingga tidak terbaca. Dipetakan ke versi gelap + teks terang. */
+body.theme-dark .bg-rose-50,
+body.theme-dark .bg-rose-100,
+body.theme-dark .bg-red-50,
+body.theme-dark .bg-red-100 { background-color: #3b1a22 !important; }
+body.theme-dark .bg-amber-50,
+body.theme-dark .bg-amber-100 { background-color: #33291a !important; }
+body.theme-dark .bg-emerald-50,
+body.theme-dark .bg-emerald-100 { background-color: #12352a !important; }
+body.theme-dark .bg-sky-50,
+body.theme-dark .bg-sky-100 { background-color: #0c2f45 !important; }
+body.theme-dark .bg-purple-50 { background-color: #2b1f3f !important; }
+
+body.theme-dark .border-rose-100,
+body.theme-dark .border-red-100 { border-color: #7f1d1d !important; }
+body.theme-dark .border-amber-100 { border-color: #78350f !important; }
+body.theme-dark .border-emerald-100 { border-color: #065f46 !important; }
+body.theme-dark .border-sky-100 { border-color: #155e75 !important; }
+body.theme-dark .border-purple-100 { border-color: #4c1d95 !important; }
+
+body.theme-dark .text-rose-500,
+body.theme-dark .text-red-600,
+body.theme-dark .text-red-700 { color: #fb7185 !important; }
+body.theme-dark .text-rose-600,
+body.theme-dark .text-rose-700 { color: #fda4af !important; }
+body.theme-dark .text-amber-600,
+body.theme-dark .text-amber-700 { color: #fcd34d !important; }
+body.theme-dark .text-amber-900 { color: #fde68a !important; }
+body.theme-dark .text-emerald-500 { color: #34d399 !important; }
+body.theme-dark .text-emerald-600,
+body.theme-dark .text-emerald-700 { color: #6ee7b7 !important; }
+body.theme-dark .text-sky-500 { color: #38bdf8 !important; }
+body.theme-dark .text-sky-700 { color: #7dd3fc !important; }
+body.theme-dark .text-purple-600 { color: #c4b5fd !important; }
+
+/* ---------- Teks/ikon netral yang masih gelap di tema gelap (polish v22) ----------
+   Label quick-action Dashboard memakai var(--dark-slate) (#1e293b), teks info warga
+   memakai Bootstrap .text-muted/#6c757d, dan applyTheme('dark') mengubah --primary-blue
+   menjadi #0f172a sehingga ikon .text-primary jadi nyaris hitam — semua tidak terbaca
+   di atas latar gelap. Dipetakan ke warna terang. */
+body.theme-dark .quick-action-item { color: #cbd5e1 !important; }
+body.theme-dark .text-muted,
+body.theme-dark .text-secondary { color: #94a3b8 !important; }
+body.theme-dark .text-primary,
+body.theme-dark .text-blue-600,
+body.theme-dark .text-blue-700,
+body.theme-dark .text-blue-800,
+body.theme-dark .text-blue-900 { color: #93c5fd !important; }
+body.theme-dark .info-warga-chev { color: #94a3b8 !important; }

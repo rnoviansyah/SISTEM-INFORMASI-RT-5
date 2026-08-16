@@ -1,3 +1,11 @@
+// PAGINATION SERVER-SIDE (patch v8): hanya halaman aktif yang diunduh + pencarian
+// dikirim ke server. Bila RPC v8 belum terpasang, otomatis fallback ke alur lama
+// (fetch semua + slice di klien) — aplikasi tidak pernah rusak.
+let aspirasiServerMode = false;
+let aspirasiSearch = '';
+let aspirasiTotal = 0;
+let aspirasiSearchTimer = null;
+
 function renderAspirasiView(data) {
   let rows = data.rows || [];
   let isRt = session && session.role === 'RT';
@@ -22,21 +30,21 @@ function renderAspirasiView(data) {
                 <th class="p-3">TANGGAL</th>
                 ${isRt ? '<th class="p-3 text-blue-600 font-bold">PENGIRIM (KHUSUS RT)</th>' : ''}
                 <th class="p-3">ISI ASPIRASI / MASUKAN</th>
-                <th class="p-3 text-center">STATUS</th>
                 ${isRt ? '<th class="p-3 text-center">AKSI</th>' : ''}
               </tr>
             </thead>
             <tbody id="aspirasi-table-body">
-              <tr><td colspan="${isRt ? '6' : '5'}" class="text-center p-4 text-gray-400">Memuat aspirasi...</td></tr>
+              <tr><td colspan="${isRt ? '5' : '4'}" class="text-center p-4 text-gray-400">Memuat aspirasi...</td></tr>
             </tbody>
           </table>
+          <div id="aspirasi-pagination" class="px-2 py-1"></div>
         </div>
       </div>
     </div>
     <!-- MODAL TULIS ASPIRASI -->
     <div id="modal-aspirasi" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-white p-5 rounded-2xl w-full max-w-md shadow-2xl relative">
-        <button onclick="tutupModalAspirasi()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
+        <button onclick="tutupModalAspirasi()" class="absolute top-4 right-4 z-50 text-gray-400 hover:text-gray-600 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">&times;</button>
         <div class="mb-4 border-b pb-2">
           <h3 class="font-bold text-gray-800 text-sm">Tulis Aspirasi / Saran</h3>
           <p class="text-[11px] text-gray-500">Kirim kritik, saran, atau masukan untuk kemajuan RT 5.</p>
@@ -56,26 +64,52 @@ function renderAspirasiView(data) {
   `;
   document.getElementById('main-content').innerHTML = html;
   renderTabelAspirasiRows(rows, isRt, data.headers || []);
+  let searchInp = document.getElementById('searchInput');
+  if (searchInp) {
+    searchInp.onkeyup = function() {
+      clearTimeout(aspirasiSearchTimer);
+      aspirasiSearchTimer = setTimeout(function() {
+        let val = String(searchInp.value || '');
+        if (aspirasiServerMode) {
+          // Server-side: kata kunci dikirim ke RPC (dicari di SEMUA data, bukan cuma halaman aktif).
+          loadAspirasiView(1, val);
+        } else {
+          // Fallback: filter di klien lalu render ulang dari halaman 1.
+          let kw = val.toLowerCase().trim();
+          let filtered = kw
+            ? (currentRows || []).filter(r => r && r.some(v => String(v === null || v === undefined ? '' : v).toLowerCase().includes(kw)))
+            : (currentRows || []);
+          if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('Aspirasi');
+          renderAspirasiView({ headers: currentHeaders, rows: filtered });
+        }
+      }, 350);
+    };
+  }
 }
 function renderTabelAspirasiRows(rows, isRt, headers = []) {
   let tbody = document.getElementById('aspirasi-table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-  let colCount = isRt ? 6 : 5;
+  let colCount = isRt ? 5 : 4;
   if (!rows || rows.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${colCount}" class="text-center p-4 text-gray-400">Belum ada aspirasi yang masuk.</td></tr>`;
+    if (typeof Pagination !== 'undefined' && Pagination.render) {
+      Pagination.render(document.getElementById('aspirasi-pagination'), 'Aspirasi', 0);
+    }
     return;
   }
   let idIdx = headers.indexOf('id');
   let tglIdx = headers.indexOf('tanggal');
   let isiIdx = headers.indexOf('isi_aspirasi');
-  let statusIdx = headers.indexOf('status');
   let namaIdx = headers.indexOf('nama');
-  rows.forEach((r, i) => {
+  // Pagination: mode server-side = baris sudah halaman aktif dari RPC (patch v8);
+  // mode lama (fallback) = slice di klien seperti sebelumnya.
+  let pageRows = (!aspirasiServerMode && typeof Pagination !== 'undefined' && Pagination.slice) ? Pagination.slice('Aspirasi', rows) : rows;
+  let pageStart = (typeof Pagination !== 'undefined') ? (Pagination.page('Aspirasi') - 1) * Pagination.PAGE_SIZE : 0;
+  pageRows.forEach((r, i) => {
     let idVal = (idIdx > -1 && r[idIdx]) ? r[idIdx] : (r[0] || '');
     let tglVal = (tglIdx > -1 && r[tglIdx]) ? r[tglIdx] : (r[1] || '-');
     let isiVal = (isiIdx > -1 && r[isiIdx]) ? r[isiIdx] : (r[2] || '-');
-    let statusVal = (statusIdx > -1 && r[statusIdx]) ? r[statusIdx] : (r[3] || 'Baru');
     let namaVal = (namaIdx > -1 && r[namaIdx]) ? r[namaIdx] : (r[4] || '-');
     let pengirimHtml = '-';
     if (namaVal && namaVal !== '-' && namaVal !== 'null') {
@@ -90,14 +124,24 @@ function renderTabelAspirasiRows(rows, isRt, headers = []) {
     ` : '-';
     tbody.innerHTML += `
       <tr class="border-b hover:bg-gray-50/50 transition">
-        <td class="p-3 text-center text-gray-400">${i + 1}</td>
+        <td class="p-3 text-center text-gray-400">${pageStart + i + 1}</td>
         <td class="p-3 text-gray-600 font-mono text-[10px]">${tglVal}</td>
         ${isRt ? `<td class="p-3 font-semibold text-blue-700 text-xs">${pengirimHtml}</td>` : ''}
         <td class="p-3 font-medium text-gray-800" style="white-space: pre-wrap;">${isiVal}</td>
-        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">${statusVal}</span></td>
         ${isRt ? `<td class="p-3 text-center">${aksiHtml}</td>` : ''}
       </tr>`;
   });
+  if (typeof Pagination !== 'undefined' && Pagination.render) {
+    let totalCount = aspirasiServerMode ? aspirasiTotal : rows.length;
+    Pagination.render(document.getElementById('aspirasi-pagination'), 'Aspirasi', totalCount, function() {
+      if (aspirasiServerMode) {
+        // Klik halaman → ambil halaman itu dari server (hanya 25 baris diunduh).
+        loadAspirasiView(Pagination.page('Aspirasi'), aspirasiSearch);
+      } else {
+        renderTabelAspirasiRows(currentRows && currentRows.length ? currentRows : rows, isRt, headers);
+      }
+    });
+  }
 }
 function bukaModalAspirasi() {
   document.getElementById('modal-aspirasi').classList.remove('hidden');
@@ -114,12 +158,12 @@ async function submitAspirasi(e) {
   btn.innerText = 'Mengirim...';
   let namaPengirim = session.nama || session.nik || 'Warga';
   let payload = {
-    tanggal: new Date().toLocaleDateString('id-ID') + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':') + ' WIB',
+    tanggal: formatWIBDateTime(new Date()),
     isi_aspirasi: isi,
     status: 'Baru',
     nama: namaPengirim
   };
-  const res = await callGASPost('simpanDataKeSheet', {
+  const res = await callRpcPost('simpanDataKeSheet', {
     sheetName: 'Aspirasi',
     formData: payload
   });
@@ -131,7 +175,7 @@ async function submitAspirasi(e) {
 }
 async function hapusAspirasi(id) {
   showUIConfirm('Apakah Anda yakin ingin menghapus aspirasi ini dari database?', async function() {
-    const res = await callGASPost('hapusDataDariSheet', {
+    const res = await callRpcPost('hapusDataDariSheet', {
       sheetName: 'Aspirasi',
       id: id
     });
@@ -139,17 +183,47 @@ async function hapusAspirasi(id) {
     loadMenu('Aspirasi');
   }, 'Hapus Aspirasi');
 }
-async function loadAspirasiView() {
+async function loadAspirasiView(page, search) {
   currentActiveMenu = 'Aspirasi';
   syncActiveNav('Aspirasi');
   document.getElementById('page-title').innerText = 'Aspirasi Warga';
   document.getElementById('main-content').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><br><small class="text-muted mt-2 d-block">Memuat kotak aspirasi...</small></div>';
   document.getElementById('rek-info').style.display = 'none';
-  const res = await callGASGet('getTableData', { sheetName: 'Aspirasi' });
-  if (res) {
+  let pageNum = Math.max(1, parseInt(page, 10) || 1);
+  // Pencarian berubah → kembali ke halaman 1 (kata kunci sama saat klik halaman → tidak reset).
+  if (typeof search === 'string') {
+    if (search !== aspirasiSearch) {
+      aspirasiSearch = search;
+      if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('Aspirasi');
+    }
+  } else {
+    // Muat ulang menu (awal/refresh): ikuti isi kotak pencarian saat ini (umumnya kosong
+    // karena loadMenu mengosongkannya) supaya filter lama tidak tersisa diam-diam.
+    let inputVal = document.getElementById('searchInput') ? String(document.getElementById('searchInput').value || '') : '';
+    if (inputVal !== aspirasiSearch) {
+      aspirasiSearch = inputVal;
+      if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('Aspirasi');
+    }
+  }
+  // Mode server-side (patch v8): hanya halaman aktif yang diunduh, pencarian di server.
+  const res = await callRpcGet('getTablePage', { sheetName: 'Aspirasi', page: pageNum, search: aspirasiSearch });
+  if (res && res.status === 'success') {
+    aspirasiServerMode = true;
+    aspirasiTotal = (res.total !== undefined && res.total !== null) ? res.total : (res.rows || []).length;
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
     renderAspirasiView(res);
+    return;
+  }
+  // Fallback otomatis: RPC v8 belum terpasang → alur lama (fetch semua + slice di klien).
+  aspirasiServerMode = false;
+  const res2 = await callRpcGet('getTableData', { sheetName: 'Aspirasi' });
+  if (res2) {
+    aspirasiTotal = (res2.rows || []).length;
+    currentHeaders = res2.headers || [];
+    currentRows = res2.rows || [];
+    if (typeof Pagination !== 'undefined' && Pagination.reset) Pagination.reset('Aspirasi');
+    renderAspirasiView(res2);
   }
 }
 window.loadAspirasiView = loadAspirasiView;

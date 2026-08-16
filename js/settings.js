@@ -5,40 +5,8 @@
 // scope dengan file JS lain. URUTAN LOAD di index.html WAJIB dijaga.
 // ============================================================
 
-let appSettings = {
-  app_title: 'SISTEM INFORMASI RT 5',
-  app_short_name: 'RT 5',
-  app_subtitle: 'Layanan Digital RT 05 / RW 01 • Transparan & Efisien',
-  rt_rw_text: 'RT 05 / RW 01',
-  nama_kelurahan: 'Kelurahan Palmerah, Kota Jakarta Barat',
-  alamat_rt: 'Jl. Lingkungan RT 05 / RW 01',
-  app_logo: './img/logo.webp',
-  app_theme: 'blue',
-  app_theme_color: '#1e3a8a',
-  nama_sekretaris: 'Sekretaris RT 05',
-  nama_rt_ketua: 'Ketua RT 05',
-  ttd_sekretaris: '',
-  ttd_ketua_rt: '',
-  payment_rekening: JSON.stringify([
-    { bank: 'DANA', no: '08973366667', an: 'RIZKY NOVIANSYAH' },
-    { bank: 'BRI', no: '231313', an: 'RIZKY NOVIANSYAH' }
-  ]),
-  payment_qris_string: '00020101021126570011ID.DANA.WWW011893600915311093669202091109366920303UKE51440014ID.CO.QRIS.WWW0215ID10210624013640303UKE5204899953033605802ID5909SHN GROUP6010Kab. Bogor6105163206304BAFC',
-  payment_qris_name: 'RT 5 / RW 01',
-  payment_qris: '',
-  info_warga: '',
-  gemini_api_key: ''
-};
-
-try {
-  let cachedAppSettings = localStorage.getItem('rt_app_settings_cache');
-  if (cachedAppSettings) {
-    let parsedCache = JSON.parse(cachedAppSettings);
-    if (parsedCache && typeof parsedCache === 'object') {
-      Object.assign(appSettings, parsedCache);
-    }
-  }
-} catch(e) {}
+// appSettings & loadAppSettings dipindah ke js/config/app_config.js
+// (refactor modul) agar tersedia untuk semua modul sejak awal.
 
 function updateDynamicManifest() {
   try {
@@ -124,34 +92,7 @@ function applyAppSettingsUI() {
   updateDynamicManifest();
 }
 
-async function loadAppSettings() {
-  try {
-    if (!db) {
-      try { await initBackendConfig(); } catch(e) {}
-    }
-    const { data: settingsData } = await safeSupabaseSelect('Pengaturan');
-    if (settingsData && settingsData.length > 0) {
-      settingsData.forEach(row => {
-        let k = row.kunci || cariNilaiKolom(row, ['kunci', 'key']);
-        let v = row.nilai !== null && row.nilai !== undefined ? row.nilai : cariNilaiKolom(row, ['nilai', 'value']);
-        if (k) appSettings[k] = v;
-      });
-      try {
-        localStorage.setItem('rt_app_settings_cache', JSON.stringify(appSettings));
-      } catch(e) {}
-    }
-    try {
-      let localK = localStorage.getItem('rt_gemini_api_key');
-      if (localK && localK.trim() !== '') {
-        appSettings.gemini_api_key = localK.trim();
-      }
-    } catch(e) {}
-    applyAppSettingsUI();
-  } catch(e) {
-    console.error('Gagal memuat pengaturan:', e);
-    applyAppSettingsUI();
-  }
-}
+// loadAppSettings dipindah ke js/config/app_config.js (refactor modul).
 
 function selectThemeOption(themeName) {
   let inputTheme = document.getElementById('set-app-theme');
@@ -281,14 +222,27 @@ function switchSettingTab(tabName) {
   let btn = document.getElementById('tab-' + tabName + '-btn');
   if (panel) panel.classList.remove('d-none');
   if (btn) btn.classList.add('active');
-  if (tabName === 'database' && typeof loadDatabaseStatsUI === 'function') {
-    loadDatabaseStatsUI();
-  }
 }
 
 function handleLogoFileUpload(event) {
   let file = event.target.files[0];
   if (!file) return;
+  // Validasi isi file via magic bytes (v3.38) — PDF/doc yang di-rename jadi .jpg TIDAK lolos
+  if (typeof isValidImageFile === 'function') {
+    isValidImageFile(file).then(function(ok) {
+      if (!ok) {
+        event.target.value = '';
+        if (typeof showUIToast === 'function') showUIToast('File logo harus berupa gambar (JPG/PNG/WebP/GIF) — PDF/doc tidak diizinkan.', 'danger');
+        return;
+      }
+      prosesFileLogoUpload(file);
+    });
+    return;
+  }
+  prosesFileLogoUpload(file);
+}
+
+function prosesFileLogoUpload(file) {
   let reader = new FileReader();
   reader.onload = function(e) {
     let img = new Image();
@@ -329,6 +283,86 @@ function handleLogoFileUpload(event) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+function handleQrisPhotoUpload(event) {
+  let file = event.target.files[0];
+  if (!file) return;
+  // Validasi isi file via magic bytes (v3.38) — PDF/doc yang di-rename jadi .jpg TIDAK lolos
+  if (typeof isValidImageFile === 'function') {
+    isValidImageFile(file).then(function(ok) {
+      if (!ok) {
+        event.target.value = '';
+        if (typeof showUIToast === 'function') showUIToast('File foto QRIS harus berupa gambar (JPG/PNG/WebP/GIF) — PDF/doc tidak diizinkan.', 'danger');
+        return;
+      }
+      prosesFileQrisPhotoUpload(file);
+    });
+    return;
+  }
+  prosesFileQrisPhotoUpload(file);
+}
+
+function prosesFileQrisPhotoUpload(file) {
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    let img = new Image();
+    img.onload = function() {
+      let canvas = document.createElement('canvas');
+      let maxDim = 600;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      let ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      // JPEG 85% agar ukuran base64 di DB tetap ringan
+      let compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+      let inputUrl = document.getElementById('set-payment-qris');
+      let previewImg = document.getElementById('preview-qris-photo');
+      let hapusBtn = document.getElementById('btn-hapus-qris-photo');
+      let hintEl = document.getElementById('qris-photo-hint');
+      if (inputUrl) inputUrl.value = compressedBase64;
+      if (previewImg) {
+        previewImg.src = compressedBase64;
+        previewImg.classList.remove('d-none');
+      }
+      if (hapusBtn) hapusBtn.classList.remove('d-none');
+      if (hintEl) hintEl.classList.remove('d-none');
+      if (typeof showUIToast === 'function') {
+        showUIToast('Foto QRIS cadangan terpilih! Klik "Simpan Rekening & QRIS" di bawah.', 'info');
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function hapusFotoQris() {
+  let inputUrl = document.getElementById('set-payment-qris');
+  let previewImg = document.getElementById('preview-qris-photo');
+  let hapusBtn = document.getElementById('btn-hapus-qris-photo');
+  let hintEl = document.getElementById('qris-photo-hint');
+  let fileInp = document.getElementById('file-qris-photo');
+  if (inputUrl) inputUrl.value = '';
+  if (previewImg) {
+    previewImg.removeAttribute('src');
+    previewImg.classList.add('d-none');
+  }
+  if (hapusBtn) hapusBtn.classList.add('d-none');
+  if (hintEl) hintEl.classList.add('d-none');
+  if (fileInp) fileInp.value = '';
 }
 
 function tambahBarisRekening() {
@@ -388,7 +422,6 @@ async function simpanIdentitasDanTema(e) {
     let namaRtKetua = document.getElementById('set-nama-rt-ketua') ? document.getElementById('set-nama-rt-ketua').value.trim() : (appSettings.nama_rt_ketua || '');
     let ttdSekretaris = document.getElementById('set-ttd-sekretaris') ? document.getElementById('set-ttd-sekretaris').value.trim() : (appSettings.ttd_sekretaris || '');
     let ttdKetuaRt = document.getElementById('set-ttd-ketua-rt') ? document.getElementById('set-ttd-ketua-rt').value.trim() : (appSettings.ttd_ketua_rt || '');
-    let geminiApiKey = document.getElementById('set-gemini-api-key') ? document.getElementById('set-gemini-api-key').value.trim() : (appSettings.gemini_api_key || '');
 
     let settingsArray = [
       { kunci: 'app_title', nilai: title },
@@ -404,8 +437,7 @@ async function simpanIdentitasDanTema(e) {
       { kunci: 'nama_sekretaris', nilai: namaSekretaris },
       { kunci: 'nama_rt_ketua', nilai: namaRtKetua },
       { kunci: 'ttd_sekretaris', nilai: ttdSekretaris },
-      { kunci: 'ttd_ketua_rt', nilai: ttdKetuaRt },
-      { kunci: 'gemini_api_key', nilai: geminiApiKey }
+      { kunci: 'ttd_ketua_rt', nilai: ttdKetuaRt }
     ];
 
     appSettings.app_title = title;
@@ -422,14 +454,12 @@ async function simpanIdentitasDanTema(e) {
     appSettings.nama_rt_ketua = namaRtKetua;
     appSettings.ttd_sekretaris = ttdSekretaris;
     appSettings.ttd_ketua_rt = ttdKetuaRt;
-    appSettings.gemini_api_key = geminiApiKey;
 
     try {
-      localStorage.setItem('rt_gemini_api_key', geminiApiKey);
       localStorage.setItem('rt_app_settings_cache', JSON.stringify(appSettings));
     } catch(e) {}
 
-    const res = await callGASPost('simpanPengaturanApp', { settingsArray });
+    const res = await callRpcPost('simpanPengaturanApp', { settingsArray });
     if (res && res.status === 'success') {
       showUIToast('Identitas, Tema & Pengaturan PWA berhasil diperbarui!', 'success');
       await loadAppSettings();
@@ -445,6 +475,22 @@ async function simpanIdentitasDanTema(e) {
 function handleTtdFileUpload(e, targetType) {
   let file = e.target.files[0];
   if (!file) return;
+  // Validasi isi file via magic bytes (v3.38) — PDF/doc yang di-rename jadi .jpg TIDAK lolos
+  if (typeof isValidImageFile === 'function') {
+    isValidImageFile(file).then(function(ok) {
+      if (!ok) {
+        e.target.value = '';
+        if (typeof showUIToast === 'function') showUIToast('File tanda tangan harus berupa gambar (JPG/PNG/WebP/GIF) — PDF/doc tidak diizinkan.', 'danger');
+        return;
+      }
+      prosesFileTtdUpload(file, targetType);
+    });
+    return;
+  }
+  prosesFileTtdUpload(file, targetType);
+}
+
+function prosesFileTtdUpload(file, targetType) {
   let reader = new FileReader();
   reader.onload = function(evt) {
     let img = new Image();
@@ -491,7 +537,6 @@ async function simpanRekeningDanQRIS(e) {
   if (e) e.preventDefault();
   try {
     let qrisString = document.getElementById('set-payment-qris-string') ? document.getElementById('set-payment-qris-string').value.trim() : '';
-    let qrisName   = document.getElementById('set-payment-qris-name') ? document.getElementById('set-payment-qris-name').value.trim() : '';
     let qrisUrl    = document.getElementById('set-payment-qris') ? document.getElementById('set-payment-qris').value.trim() : '';
     let rekList = [];
     document.querySelectorAll('.row-rek-item').forEach(row => {
@@ -505,11 +550,10 @@ async function simpanRekeningDanQRIS(e) {
     });
     let settingsArray = [
       { kunci: 'payment_qris_string', nilai: qrisString },
-      { kunci: 'payment_qris_name', nilai: qrisName },
       { kunci: 'payment_qris', nilai: qrisUrl },
       { kunci: 'payment_rekening', nilai: JSON.stringify(rekList) }
     ];
-    const res = await callGASPost('simpanPengaturanApp', { settingsArray });
+    const res = await callRpcPost('simpanPengaturanApp', { settingsArray });
     if (res && res.status === 'success') {
       showUIToast('Rekening & Pengaturan QRIS Dinamis berhasil disimpan!', 'success');
       await loadAppSettings();
@@ -539,7 +583,7 @@ async function simpanUserBaru(e) {
     password: password,
     role: role
   };
-  const res = await callGASPost('tambahUserWarga', { userObj });
+  const res = await callRpcPost('tambahUserWarga', { userObj });
   if (res && res.status === 'success') {
     alert(`Akun ${username} (${role}) berhasil didaftarkan!`);
     renderPengaturanRTView();
@@ -551,7 +595,7 @@ async function simpanUserBaru(e) {
 async function resetPasswordUser(username) {
   let newPass = prompt(`Masukkan password baru untuk akun '${username}':`);
   if (!newPass) return;
-  const res = await callGASPost('resetPasswordUser', { username: username, newPassword: newPass.trim() });
+  const res = await callRpcPost('resetPasswordUser', { username: username, newPassword: newPass.trim() });
   if (res && res.status === 'success') {
     alert(`Password untuk '${username}' berhasil diubah!`);
   } else {
@@ -562,7 +606,7 @@ async function resetPasswordUser(username) {
 async function hapusUserAkun(username) {
   if (!username) return;
   showUIConfirm(`Apakah Anda yakin ingin menghapus akun user '${username}' secara permanen dari database?`, async function() {
-    const res = await callGASPost('hapusUserAkun', { username: username });
+    const res = await callRpcPost('hapusUserAkun', { username: username });
     if (res && res.status === 'success') {
       try { await safeSupabaseDelete('Sessions', 'nik', username); } catch(e) {}
       showUIToast(`Akun '${username}' dan seluruh sesi login aktifnya berhasil dihapus permanen!`, 'success');
@@ -641,7 +685,7 @@ async function simpanEditUserAkun(e, oldUsername) {
     role: role,
     password: password
   };
-  const res = await callGASPost('editUserAkun', payload);
+  const res = await callRpcPost('editUserAkun', payload);
   if (res && res.status === 'success') {
     showUIToast(`Akun '${username}' berhasil diperbarui!`, 'success');
     let formModal = document.getElementById('formModal');
@@ -658,7 +702,7 @@ async function simpanEditUserAkun(e, oldUsername) {
 async function simpanPengumumanWarga(e) {
   e.preventDefault();
   let teks = document.getElementById('set-info-warga').value;
-  const res = await callGASPost('simpanInfoWarga', { teksBaru: teks });
+  const res = await callRpcPost('simpanInfoWarga', { teksBaru: teks });
   if (res && res.status === 'success') {
     showUIToast('Pengumuman warga berhasil disimpan!', 'success');
     await loadAppSettings();
@@ -738,109 +782,8 @@ function simpanTtdCanvas(type) {
 }
 
 // ============================================================
-// DATABASE SETTINGS: STATS, EXCEL EXPORT & SECURE CLEANUP
+// DATABASE SETTINGS: EXCEL EXPORT & SECURE CLEANUP
 // ============================================================
-async function loadDatabaseStatsUI() {
-  const container = document.getElementById('db-stats-container');
-  if (!container) return;
-
-  container.innerHTML = `<div class="text-center py-3"><span class="spinner-border spinner-border-sm text-primary"></span> Memuat statistik lengkap server...</div>`;
-
-  try {
-    const [localStatsRes, edgeStatsRes] = await Promise.all([
-      db.rpc('get_real_database_stats'),
-      db.functions.invoke('dynamic-processor')
-    ]);
-
-    let localData = localStatsRes.data || {};
-    let cloudData = edgeStatsRes.data || {};
-
-    let exactMb = localData.total_mb || (cloudData.db_size ? (cloudData.db_size / (1024 * 1024)).toFixed(2) : '25.91');
-    let totalRows = localData.total_rows || cloudData.total_rows || 38;
-    let pctUsed = ((exactMb / 500) * 100).toFixed(2);
-
-    let egress = cloudData.egress || (cloudData.egress_data ? (cloudData.egress_data / (1024 * 1024 * 1024)).toFixed(3) + ' GB' : '0.233 GB');
-    let storageSize = cloudData.storage_size || cloudData.storage || '0 GB';
-    let realtimeConns = cloudData.realtime_connections || cloudData.connections || 4;
-    let mau = cloudData.mau || cloudData.monthly_active_users || 0;
-    let realtimeMsgs = cloudData.realtime_messages || 0;
-    let edgeInvocations = cloudData.edge_invocations || 0;
-
-    let html = `
-      <div class="row g-2">
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">DATABASE SIZE</div>
-            <div class="fs-6 fw-bold text-primary mt-1">${exactMb} MB <span class="text-xs text-muted">/ 500 MB</span></div>
-            <div class="progress mt-2" style="height: 4px;">
-              <div class="progress-bar bg-primary" style="width: ${pctUsed}%"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">EGRESS USAGE</div>
-            <div class="fs-6 fw-bold text-success mt-1">${egress} <span class="text-xs text-muted">/ 5 GB</span></div>
-            <div class="text-xs text-success mt-1"><i class="bi bi-arrow-repeat"></i> Reset Tiap Bulan</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">TOTAL BARIS DATA</div>
-            <div class="fs-6 fw-bold text-dark mt-1">${Number(totalRows).toLocaleString('id-ID')} Row</div>
-            <div class="text-xs text-muted mt-1">Seluruh Tabel Public</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">REALTIME PEAK</div>
-            <div class="fs-6 fw-bold text-info mt-1">${realtimeConns} Connections</div>
-            <div class="text-xs text-muted mt-1">Status: Realtime Active</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">STORAGE SIZE</div>
-            <div class="fs-6 fw-bold text-dark mt-1">${storageSize}</div>
-            <div class="text-xs text-muted mt-1">Bucket Media & Foto</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">ACTIVE USERS</div>
-            <div class="fs-6 fw-bold text-dark mt-1">${mau} MAU</div>
-            <div class="text-xs text-muted mt-1">Monthly Active Users</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">REALTIME MESSAGES</div>
-            <div class="fs-6 fw-bold text-dark mt-1">${realtimeMsgs}</div>
-            <div class="text-xs text-muted mt-1">Pesan Notifikasi</div>
-          </div>
-        </div>
-
-        <div class="col-6 col-md-3">
-          <div class="p-3 bg-light rounded-3 text-center border h-100">
-            <div class="text-xs text-muted font-bold">EDGE FUNCTIONS</div>
-            <div class="fs-6 fw-bold text-dark mt-1">${edgeInvocations}</div>
-            <div class="text-xs text-muted mt-1">Total Invocations</div>
-          </div>
-        </div>
-      </div>`;
-    container.innerHTML = html;
-  } catch (e) {
-    console.error('Failed to fetch stats:', e);
-    container.innerHTML = `<div class="text-danger text-xs p-2">Gagal memuat statistik server.</div>`;
-  }
-}
-window.loadDatabaseStatsUI = loadDatabaseStatsUI;
 
 function formatRowsForExcelExport(dataList, opts) {
   return dataList.map((row, idx) => {
@@ -1235,6 +1178,55 @@ function showPasswordConfirmModal(targetLabel, onConfirmed) {
 }
 window.showPasswordConfirmModal = showPasswordConfirmModal;
 
+async function bersihkanFileStorageYatim(btn) {
+  showPasswordConfirmModal('File Storage Tidak Terpakai', async (inputPassword) => {
+    if (btn) setBtnLoading(btn, true, 'Memindai Storage...');
+    try {
+      let userToken = (session && session.token) ? String(session.token).trim() : String(session.nik || '').trim();
+      const { data, error } = await db.rpc('cleanup_orphan_storage_secured', {
+        p_token: userToken,
+        p_password: String(inputPassword).trim()
+      });
+      if (error) {
+        showUIToast('Gagal: ' + error.message, 'danger');
+      } else if (data && data.status === 'success') {
+        // Fase 2: request hapus sudah diantrekan — polling hasilnya sampai tuntas
+        const reqId = data.request_id;
+        const orphanCount = data.orphans || 0;
+        if (reqId) {
+          if (btn) setBtnLoading(btn, true, 'Memverifikasi Hasil Hapus...');
+          let hasil = null;
+          for (let i = 0; i < 12; i++) {
+            await new Promise(r => setTimeout(r, 1200));
+            try {
+              const r2 = await db.rpc('storage_get_delete_result', { p_request_id: reqId });
+              if (r2.error) { hasil = { status: 'error', message: r2.error.message }; break; }
+              if (r2.data && r2.data.status === 'success') { hasil = r2.data; break; }
+              if (r2.data && r2.data.status === 'error') { hasil = r2.data; break; }
+            } catch (e) { hasil = { status: 'error', message: e.message }; break; }
+          }
+          if (hasil && hasil.status === 'success') {
+            showUIToast('Storage: ' + orphanCount + ' file yatim berhasil dihapus.', 'success');
+          } else if (hasil && hasil.status === 'error') {
+            showUIToast('Storage: gagal hapus — ' + (hasil.message || 'error tidak diketahui'), 'warning');
+          } else {
+            showUIToast('Storage: perintah hapus dikirim, hasil belum terkonfirmasi. Cek bucket di Supabase.', 'warning');
+          }
+        } else {
+          showUIToast(data.message, 'success');
+        }
+      } else {
+        showUIToast(data ? data.message : 'Password salah atau gagal memproses.', 'danger');
+      }
+    } catch (err) {
+      showUIToast('Terjadi kesalahan: ' + err.message, 'danger');
+    } finally {
+      if (btn) setBtnLoading(btn, false);
+    }
+  });
+}
+window.bersihkanFileStorageYatim = bersihkanFileStorageYatim;
+
 async function processDatabaseCleanup(btn) {
   let targetTable = document.getElementById('cleanupMenuSelect')?.value;
   if (!targetTable) return showUIToast('Pilih tabel yang ingin dibersihkan!', 'danger');
@@ -1298,8 +1290,9 @@ async function processDatabaseCleanup(btn) {
           } catch (errFile) {
             showUIToast('Gagal hapus file storage: ' + errFile.message, 'warning');
           }
+        } else {
+          showUIToast('Storage: 0 file foto terkait data yang dibersihkan.', 'warning');
         }
-        if (typeof loadDatabaseStatsUI === 'function') loadDatabaseStatsUI();
         if (typeof loadMenu === 'function' && currentActiveMenu) loadMenu(currentActiveMenu);
       } else {
         showUIToast(data ? data.message : 'Password salah atau gagal memproses.', 'danger');
@@ -1473,7 +1466,7 @@ async function renderPengaturanRTView() {
                 </div>
               </div>
               <div class="mb-3">
-                <label class="form-label font-semibold text-xs text-gray-700">NOMOR WHATSAPP DEFAULT LAPORAN RT <small class="text-primary font-bold">(Untuk Laporan Aduan, Surat & Sumbangan)</small></label>
+                <label class="form-label font-semibold text-xs text-gray-700">NOMOR WHATSAPP DEFAULT LAPORAN RT <small class="text-primary font-bold">(Untuk Laporan Pengaduan, Surat & Sumbangan)</small></label>
                 <div class="input-group">
                   <span class="input-group-text bg-success text-white fw-bold"><i class="bi bi-whatsapp me-1"></i>+</span>
                   <input type="text" id="set-rt-wa-number" class="form-control" value="${appSettings.rt_wa_number || '628973366667'}" placeholder="Contoh: 628973366667 atau 08973366667">
@@ -1556,16 +1549,23 @@ async function renderPengaturanRTView() {
               <div class="mb-3">
                 <label class="form-label font-semibold text-xs text-gray-700">BASE PAYLOAD QRIS STATIS RT (Payload Kode QRIS DANA/BRI/NMID)</label>
                 <textarea id="set-payment-qris-string" rows="3" class="form-control font-mono text-xs mb-1" placeholder="Contoh: 00020101021126570011ID.DANA.WWW...">${appSettings.payment_qris_string || ''}</textarea>
-                <small class="text-muted d-block mb-3">*Sistem akan secara otomatis menyisipkan nominal tagihan (seperti Rp 50.000) secara **DINAMIS** dan mengalkulasi ulang checksum CRC16 QRIS saat warga melakukan pembayaran.</small>
-              </div>
-              <div class="mb-3">
-                <label class="form-label font-semibold text-xs text-gray-700">NAMA MERCHANT / SHIFT KODE QRIS</label>
-                <input type="text" id="set-payment-qris-name" class="form-control form-control-sm" value="${appSettings.payment_qris_name || ''}" placeholder="Contoh: RT 5 / RW 01">
+                <small class="text-muted d-block mb-3">*Sistem akan secara otomatis menyisipkan nominal tagihan (seperti Rp 50.000) secara **DINAMIS** dan mengalkulasi ulang checksum CRC16 QRIS saat warga melakukan pembayaran.<br>Nama merchant, NMID, dan "Dicetak oleh" pada kartu QRIS otomatis mengikuti payload ini — tidak perlu disetel terpisah.</small>
               </div>
               <div class="mb-4">
-                <label class="form-label font-semibold text-xs text-gray-700">URL FOTO QRIS STATIS (OPSIONAL / Gambar Cadangan)</label>
-                <input type="text" id="set-payment-qris" class="form-control mb-2" value="${appSettings.payment_qris || ''}" placeholder="https://... (URL foto QRIS cadangan jika ada)">
-                ${appSettings.payment_qris ? `<div class="mb-2"><img src="${appSettings.payment_qris}" class="rounded border p-1" style="max-height:100px;" onclick="bukaPopUpFoto('${appSettings.payment_qris}')"><small class="d-block text-muted">Klik untuk pratinjau</small></div>` : ''}
+                <label class="form-label font-semibold text-xs text-gray-700">FOTO QRIS STATIS CADANGAN (OPSIONAL)</label>
+                <input type="hidden" id="set-payment-qris" value="${appSettings.payment_qris || ''}">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <label class="btn btn-outline-primary btn-sm font-bold mb-0 cursor-pointer">
+                    <i class="bi bi-upload me-1"></i> Upload Foto QRIS
+                    <input type="file" id="file-qris-photo" accept="image/*" class="d-none" onchange="handleQrisPhotoUpload(event)">
+                  </label>
+                  <button type="button" id="btn-hapus-qris-photo" class="btn btn-outline-danger btn-sm font-bold mb-0 ${appSettings.payment_qris ? '' : 'd-none'}" onclick="hapusFotoQris()"><i class="bi bi-trash me-1"></i> Hapus Foto</button>
+                </div>
+                <div class="mb-2 mt-2">
+                  <img id="preview-qris-photo" src="${appSettings.payment_qris || ''}" class="rounded border p-1 ${appSettings.payment_qris ? '' : 'd-none'}" style="max-height:120px;" onclick="bukaPopUpFoto(this.src)">
+                  <small id="qris-photo-hint" class="d-block text-muted ${appSettings.payment_qris ? '' : 'd-none'}">Klik foto untuk pratinjau</small>
+                </div>
+                <small class="text-muted d-block">Foto ini hanya dipakai sebagai <b>cadangan</b> bila QRIS dinamis gagal dimuat (mis. layanan QR mati / offline). Tidak wajib diisi.</small>
               </div>
               <div class="mb-3 border-t pt-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -1735,17 +1735,10 @@ async function renderPengaturanRTView() {
           <div id="tab-content-database" class="setting-tab-panel d-none">
             <div class="d-flex align-items-center justify-content-between mb-3">
               <div>
-                <h5 class="fw-bold text-primary mb-1"><i class="bi bi-hdd-network-fill me-2"></i>Database Settings & Server Stats</h5>
-                <p class="text-xs text-muted mb-0">Monitor kuota server Supabase, rekap data custom ke Excel, dan pemeliharaan database.</p>
+                <h5 class="fw-bold text-primary mb-1"><i class="bi bi-hdd-network-fill me-2"></i>Backup & Pemeliharaan Database</h5>
+                <p class="text-xs text-muted mb-0">Rekap data ke Excel, backup lengkap (data + foto), dan pemeliharaan database.</p>
               </div>
-              <button class="btn btn-sm btn-light border rounded-3 text-xs fw-bold" onclick="loadDatabaseStatsUI()">
-                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Stats
-              </button>
             </div>
-
-            <div id="db-stats-container" class="mb-4"></div>
-
-            <hr class="my-3 text-muted" style="opacity: 0.15;">
 
             <div class="row g-3">
               <div class="col-md-6">
@@ -1804,8 +1797,14 @@ async function renderPengaturanRTView() {
                   <button class="btn btn-sm btn-danger w-100 rounded-2 font-bold text-xs py-2 shadow-sm" onclick="processDatabaseCleanup(this)">
                     <i class="bi bi-exclamation-triangle-fill me-1"></i> Bersihkan Tabel Terpilih
                   </button>
+                  <button class="btn btn-sm btn-outline-danger w-100 rounded-2 font-bold text-xs py-2 shadow-sm mt-2" onclick="bersihkanFileStorageYatim(this)">
+                    <i class="bi bi-brush-fill me-1"></i> Bersihkan File Storage Tidak Terpakai
+                  </button>
                   <div class="text-center mt-2">
                     <span class="text-xxs text-muted"><i class="bi bi-shield-lock-fill text-primary"></i> Tabel <b>Warga</b>, <b>Users</b>, & <b>Sessions</b> dikunci otomatis dari UI.</span>
+                  </div>
+                  <div class="text-center mt-1">
+                    <span class="text-xxs text-muted"><i class="bi bi-info-circle me-1"></i>Versi Aplikasi <b>v3.28</b> — jika angka di sini bukan v3.28, tutup dan buka ulang aplikasi.</span>
                   </div>
                 </div>
               </div>
@@ -1816,7 +1815,7 @@ async function renderPengaturanRTView() {
     </div>`;
   document.getElementById('main-content').innerHTML = html;
   setTimeout(function() {
-    initTtdSignaturePad('canvas-ttd-sekretaris', 'sekretaris');
-    initTtdSignaturePad('canvas-ttd-ketua', 'ketua');
+    if (typeof initTtdSignaturePad === 'function') initTtdSignaturePad('canvas-ttd-sekretaris', 'sekretaris');
+    if (typeof initTtdSignaturePad === 'function') initTtdSignaturePad('canvas-ttd-ketua', 'ketua');
   }, 100);
 }
