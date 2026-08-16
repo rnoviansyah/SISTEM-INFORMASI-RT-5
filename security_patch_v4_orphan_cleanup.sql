@@ -1,21 +1,21 @@
 -- ============================================================
--- SECURITY PATCH v3.3 — HAPUS FILE STORAGE SAAT DATA DIHAPUS
--- Jalankan di Supabase SQL Editor SETELAH security_patch_v2 berhasil.
--- Idempotent — aman dijalankan ulang (jika sudah pernah menjalankan v3
--- / v3.1 / v3.2, jalankan ulang file ini untuk mendapat perbaikan v3.3).
+-- SECURITY PATCH v4.3 — BERSIHKAN FILE STORAGE TIDAK TERPAKAI
+-- Jalankan di Supabase SQL Editor SETELAH security_patch_v3 berhasil.
+-- Idempotent — aman dijalankan ulang (jika sudah pernah menjalankan v4
+-- / v4.1 / v4.2, jalankan ulang file ini untuk mendapat perbaikan v4.3).
 --
--- APA YANG BERUBAH DI v3.3 (PENTING):
+-- APA YANG BERUBAH DI v4.3 (PENTING):
 --   a. Arsitektur DUA FASE. pg_net TIDAK mengirim request sampai
 --      transaksi commit, jadi menunggu respons DI DALAM transaksi yang
 --      sama tidak akan pernah berhasil (itulah penyebab "canceling
 --      statement due to statement timeout" + request tidak pernah
 --      terkirim). Sekarang:
---        Fase 1: storage_api_delete() mengantrekan request ke Storage
---                API dan langsung kembali (transaksi commit -> request
---                benar-benar dikirim oleh pg_net).
+--        Fase 1: cleanup_orphan_storage_secured() memindai bucket vs
+--                data, mengantrekan hapus ke Storage API, lalu
+--                mengembalikan request_id dengan cepat.
 --        Fase 2: storage_get_delete_result(request_id) membaca hasil
---                dari transaksi terpisah (dipanggil aplikasi beberapa
---                kali sampai status bukan 'pending').
+--                dari transaksi terpisah (aplikasi memanggil berulang
+--                sampai status bukan 'pending', lalu menampilkan toast).
 --   b. SET statement_timeout = 0 pada semua fungsi — role anon default
 --      punya batas 3 detik yang bisa mematikan RPC di tengah jalan.
 --
@@ -32,13 +32,17 @@
 --   3) Simpan URL project Anda (Supabase > Project Settings > API >
 --      Project URL) ke Vault — GANTI <URL_PROJECT>:
 --      select vault.create_secret('https://<REF>.supabase.co', 'storage_project_url');
+--
+-- CEK SETUP (read-only, aman dijalankan kapan saja):
+--   select name, (decrypted_secret is not null) as "key_tersimpan"
+--   from vault.decrypted_secrets where name in ('storage_service_role','storage_project_url');
 -- ============================================================
 
 -- ============================================================
 -- FASE 1 — HELPER: antrekan hapus file via Storage API
 -- (DELETE /storage/v1/object/rt-media — multi-delete). Mengembalikan request_id;
 -- hasilnya dicek dengan storage_get_delete_result.
--- Definisi sama dengan yang ada di patch v4.3 — idempotent.
+-- Definisi sama dengan yang ada di patch v3.3 — idempotent.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.storage_api_delete(p_paths text[])
 RETURNS jsonb
@@ -181,43 +185,135 @@ END $$;
 ALTER FUNCTION public.storage_get_delete_result(bigint) OWNER TO postgres;
 
 -- ============================================================
--- RPC: hapus file storage (dipakai tombol Hapus Data per baris &
--- alur "Bersihkan Tabel" di Pengaturan)
+-- RPC: bersihkan file storage tidak terpakai (yatim)
+-- Fase 1: scan + antrekan hapus. Mengembalikan request_id yang
+-- dipakai aplikasi untuk mengecek hasil via storage_get_delete_result.
 -- ============================================================
-CREATE OR REPLACE FUNCTION public.delete_storage_files_secured(
-  p_token text, p_password text, p_paths text[])
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
+CREATE OR REPLACE FUNCTION public.cleanup_orphan_storage_secured(
+  p_token text,
+  p_password text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public, pg_temp
 SET statement_timeout = 0
 AS $$
 DECLARE
-  v_role text := public.auth_role(p_token);
-  v_rt_pass text;
-  v_res jsonb;
+  v_role      text := public.auth_role(p_token);
+  v_rt_pass   text;
+  v_files     text[] := ARRAY[]::text[];
+  v_refs      text[] := ARRAY[]::text[];
+  v_ref_tmp   text[];
+  v_orphans   text[] := ARRAY[]::text[];
+  v_f         record;
+  v_file      text;
+  v_ref       text;
+  v_q         text;
+  v_exists    boolean;
+  v_res       jsonb;
+  v_errmsg    text;
+  v_req_id    bigint;
 BEGIN
   IF v_role <> 'RT' THEN
     RETURN jsonb_build_object('status','error','message','Akses ditolak.');
   END IF;
-  -- Password wajib saat dipanggil dari alur "Bersihkan Tabel" (opsional di alur hapus per baris)
-  IF coalesce(p_password, '') <> '' THEN
-    SELECT password INTO v_rt_pass FROM public."Users"
-      WHERE upper(trim(coalesce(role,''))) = 'RT' LIMIT 1;
-    IF v_rt_pass IS DISTINCT FROM coalesce(p_password,'') THEN
-      RETURN jsonb_build_object('status','error','message','Password salah.');
+
+  IF coalesce(p_password,'') = '' THEN
+    RETURN jsonb_build_object('status','error','message','Password wajib diisi.');
+  END IF;
+
+  SELECT password INTO v_rt_pass FROM public."Users"
+    WHERE upper(trim(coalesce(role,''))) = 'RT' LIMIT 1;
+  IF v_rt_pass IS DISTINCT FROM coalesce(p_password,'') THEN
+    RETURN jsonb_build_object('status','error','message','Password salah.');
+  END IF;
+
+  -- 1) Semua file di bucket rt-media
+  SELECT COALESCE(array_agg(name), ARRAY[]::text[]) INTO v_files
+    FROM storage.objects WHERE bucket_id = 'rt-media';
+
+  IF array_length(v_files, 1) IS NULL THEN
+    RETURN jsonb_build_object('status','success',
+      'message','Storage bersih: tidak ada file di bucket rt-media.',
+      'deleted',0,'total',0,'orphans',0,'failed',0,'request_id',NULL::bigint);
+  END IF;
+
+  -- 2) Kumpulkan nilai semua kolom foto/bukti/ttd/gambar di semua tabel public
+  FOR v_f IN
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND (column_name ILIKE '%foto%'
+        OR column_name ILIKE '%bukti%'
+        OR column_name ILIKE '%gambar%'
+        OR column_name ILIKE '%ttd%')
+  LOOP
+    v_q := format(
+      'SELECT COALESCE(array_agg(DISTINCT %I), ARRAY[]::text[]) FROM public.%I WHERE %I IS NOT NULL AND %I <> ''''',
+      v_f.column_name, v_f.table_name, v_f.column_name, v_f.column_name);
+    BEGIN
+      EXECUTE v_q INTO v_ref_tmp;
+      v_refs := v_refs || v_ref_tmp;
+    EXCEPTION WHEN OTHERS THEN
+      NULL; -- tabel/kolom tidak bisa dibaca — lewati
+    END;
+  END LOOP;
+
+  -- 3) Tentukan file yatim (path-nya tidak muncul di nilai referensi mana pun)
+  FOREACH v_file IN ARRAY v_files LOOP
+    v_exists := false;
+    FOREACH v_ref IN ARRAY v_refs LOOP
+      IF position(v_file IN v_ref) > 0 THEN
+        v_exists := true;
+        EXIT;
+      END IF;
+    END LOOP;
+    IF NOT v_exists THEN
+      v_orphans := v_orphans || v_file;
+    END IF;
+  END LOOP;
+
+  -- 4) Fase 1: antrekan hapus SEMUA file yatim ke Storage API
+  v_req_id := NULL;
+  IF array_length(v_orphans, 1) > 0 THEN
+    v_res := public.storage_api_delete(v_orphans);
+    IF v_res ->> 'status' = 'success' THEN
+      v_req_id := (v_res ->> 'request_id')::bigint;
+    ELSE
+      v_errmsg := v_res ->> 'message';
     END IF;
   END IF;
-  -- Antrekan hapus via Storage API (diproses async — hasil dicek storage_get_delete_result)
-  v_res := public.storage_api_delete(coalesce(p_paths, ARRAY[]::text[]));
-  IF v_res ->> 'status' = 'success' THEN
-    RETURN jsonb_build_object('status','success',
-      'message','Perintah hapus ' || coalesce((v_res ->> 'queued')::int, 0) || ' file storage dikirim.',
-      'deleted', 0, 'request_id', (v_res ->> 'request_id')::bigint);
-  END IF;
-  RETURN jsonb_build_object('status','error','message',
-    'Gagal hapus file storage: ' || coalesce(v_res ->> 'message',''));
-END $$;
-ALTER FUNCTION public.delete_storage_files_secured(text, text, text[]) OWNER TO postgres;
 
+  RETURN jsonb_build_object(
+    'status','success',
+    'message',
+      CASE
+        WHEN v_req_id IS NOT NULL THEN
+          'Storage: perintah hapus ' || array_length(v_orphans, 1) || ' file yatim dikirim. Memverifikasi hasil...'
+        WHEN array_length(v_orphans, 1) > 0 THEN
+          'Storage: gagal mengirim perintah hapus. Error: ' || coalesce(v_errmsg,'')
+        ELSE
+          'Storage bersih: tidak ada file yatim.'
+      END,
+    'deleted', 0,
+    'total', array_length(v_files, 1),
+    'orphans', array_length(v_orphans, 1),
+    'failed', CASE WHEN v_req_id IS NULL AND array_length(v_orphans, 1) > 0 THEN array_length(v_orphans, 1) ELSE 0 END,
+    'request_id', v_req_id);
+END $$;
+ALTER FUNCTION public.cleanup_orphan_storage_secured(text, text) OWNER TO postgres;
+
+-- ============================================================
+-- OPSIONAL (disarankan): hapus policy SELECT anon pada storage.objects.
+-- Setelah fitur di atas dipakai, listing file dari browser TIDAK lagi
+-- dibutuhkan, jadi policy ini boleh dihapus agar banner peringatan
+-- "Clients can list all files in this bucket" hilang dan privasi lebih
+-- ketat (foto tetap tampil normal karena bucket publik dibaca via URL).
+--
+-- Jalankan baris di bawah ini HANYA jika Anda menginginkannya:
+--
+-- DROP POLICY IF EXISTS "rt-media-public-read" ON storage.objects;
 -- ============================================================
 -- SELESAI — jalankan, lalu muat ulang aplikasi.
 -- ============================================================

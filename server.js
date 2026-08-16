@@ -18,6 +18,12 @@ const path = require('path');
 const ROOT = __dirname;
 const argv = process.argv.slice(2);
 
+// Mode --dist: sajikan folder dist/ (hasil build) alih-alih source.
+// Dipakai untuk preview versi FREE: `npm run build:free` lalu
+// `npm run preview:free` (= node server.js --dist).
+const DIST_MODE = argv.indexOf('--dist') !== -1;
+const WEBROOT = DIST_MODE ? path.join(ROOT, 'dist') : ROOT;
+
 function parseCliPort() {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -92,6 +98,8 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8',
   '.sql': 'text/plain; charset=utf-8',
@@ -103,8 +111,8 @@ function send(res, status, body, type) {
 }
 
 function serveIndex(res) {
-  fs.readFile(path.join(ROOT, 'index.html'), (err, html) => {
-    if (err) return send(res, 500, 'index.html not found');
+  fs.readFile(path.join(WEBROOT, 'index.html'), (err, html) => {
+    if (err) return send(res, 500, 'index.html not found (jalankan build dulu: npm run build / npm run build:free)');
     send(res, 200, html, MIME['.html']);
   });
 }
@@ -129,9 +137,9 @@ function createAppServer() {
     }
 
     // Static files.
-    let filePath = path.normalize(path.join(ROOT, urlPath));
+    let filePath = path.normalize(path.join(WEBROOT, urlPath));
     if (urlPath.endsWith('/')) filePath = path.join(filePath, 'index.html');
-    if (!filePath.startsWith(ROOT)) return send(res, 403, 'Forbidden');
+    if (!filePath.startsWith(WEBROOT)) return send(res, 403, 'Forbidden');
 
     fs.stat(filePath, (err, stats) => {
       if (!err && stats.isDirectory()) filePath = path.join(filePath, 'index.html');
@@ -196,7 +204,7 @@ function bindAll() {
         host === '::' ? [{ port: port, host: '::', ipv6Only: true }] : [port, host];
       server.listen(...listenOpts, () => {
         boundCount++;
-        console.log(`SISTEM INFORMASI RT 5 preview server running at http://${host}:${port}`);
+        console.log(`SISTEM INFORMASI RT 5 preview server${DIST_MODE ? ' (dist/ — versi build)' : ' (source/dev)'} running at http://${host}:${port}`);
         attemptHost();
       });
     }

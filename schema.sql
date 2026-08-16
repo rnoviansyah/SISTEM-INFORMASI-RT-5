@@ -27,8 +27,10 @@ CREATE TABLE IF NOT EXISTS public."Aspirasi" (
 CREATE TABLE IF NOT EXISTS public."Iuran" (
     "id" text NOT NULL,
     "nik" text,
+    "nik_sha" text,
     "nama" text,
     "no_kk" text,
+    "kk_sha" text,
     "bulan" text,
     "tahun" numeric,
     "nominal" numeric,
@@ -42,8 +44,10 @@ CREATE TABLE IF NOT EXISTS public."Iuran" (
 CREATE TABLE IF NOT EXISTS public."Bansos" (
     "id" text NOT NULL,
     "nik" text,
+    "nik_sha" text,
     "nama" text,
     "no_kk" text,
+    "kk_sha" text,
     "jenis_bansos" text,
     "tanggal_mulai" text,
     "tanggal_selesai" text,
@@ -69,7 +73,9 @@ CREATE TABLE IF NOT EXISTS public."Kematian" (
     "id" text NOT NULL,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "no_kk" text,
+    "kk_sha" text,
     "tanggal_meninggal" text,
     "rt" numeric,
     "alamat" text,
@@ -83,7 +89,6 @@ CREATE TABLE IF NOT EXISTS public."Keuangan" (
     "pemasukan" numeric,
     "pengeluaran" numeric,
     "keterangan" text,
-    "saldo" numeric,
     "foto_url" text,
     "created_at" timestamptz DEFAULT now()
 );
@@ -100,6 +105,7 @@ CREATE TABLE IF NOT EXISTS public."Peminjaman" (
     "status" text,
     "tanggal" text,
     "nik" text,
+    "nik_sha" text,
     "jumlah" numeric,
     "created_at" timestamptz DEFAULT now()
 );
@@ -108,6 +114,7 @@ CREATE TABLE IF NOT EXISTS public."Pengaduan" (
     "id" text NOT NULL,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "no_hp" text,
     "jenis_aduan" text,
     "keterangan" text,
@@ -129,7 +136,9 @@ CREATE TABLE IF NOT EXISTS public."PindahKeluar" (
     "id" text NOT NULL,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "no_kk" text,
+    "kk_sha" text,
     "alamat_tujuan" text,
     "rt" numeric,
     "rw" numeric,
@@ -141,7 +150,9 @@ CREATE TABLE IF NOT EXISTS public."PindahMasuk" (
     "id" text NOT NULL,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "no_kk" text,
+    "kk_sha" text,
     "asal" text,
     "alamat_baru" text,
     "rt" numeric,
@@ -153,6 +164,7 @@ CREATE TABLE IF NOT EXISTS public."PindahMasuk" (
 CREATE TABLE IF NOT EXISTS public."Sessions" (
     "token" text NOT NULL,
     "nik" text,
+    "nik_sha" text,
     "role" text,
     "createdat" text,
     "created_at" timestamptz DEFAULT now()
@@ -168,6 +180,7 @@ CREATE TABLE IF NOT EXISTS public."Sumbangan" (
     "bukti_transfer" text,
     "status" text,
     "nik" text,
+    "nik_sha" text,
     "created_at" timestamptz DEFAULT now()
 );
 
@@ -175,6 +188,7 @@ CREATE TABLE IF NOT EXISTS public."SuratPengantar" (
     "id" text NOT NULL,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "alamat" text,
     "rt" numeric,
     "jenis_surat" text,
@@ -192,6 +206,7 @@ CREATE TABLE IF NOT EXISTS public."Users" (
     "role" text,
     "nama" text,
     "nik" text,
+    "nik_sha" text,
     "created_at" timestamptz DEFAULT now()
 );
 
@@ -200,13 +215,16 @@ CREATE TABLE IF NOT EXISTS public."Warga" (
     "nama_lengkap" text,
     "nama_panggilan" text,
     "nik" text,
+    "nik_sha" text,
     "no_kk" text,
+    "kk_sha" text,
     "tempat_lahir" text,
     "tanggal_lahir" text,
     "jenis_kelamin" text,
     "alamat" text,
     "status_nikah" text,
     "status_tinggal" text,
+    "status_keluarga" text,
     "pekerjaan" text,
     "no_hp" text,
     "foto_url" text,
@@ -295,6 +313,53 @@ CREATE POLICY "rt-media-anon-upload" ON storage.objects
 
 -- ------------------------------------------------------------
 -- 4) HELPER FUNGSI
+-- ------------------------------------------------------------
+-- 4a) BCRYPT (login & register): password tidak pernah disimpan plaintext.
+--     Trigger di tabel Users me-hash otomatis setiap INSERT/UPDATE password,
+--     sehingga alur register/reset/edit user di frontend tidak perlu diubah.
+-- ------------------------------------------------------------
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Batasi password ke 72 byte (batas internal bcrypt)
+CREATE OR REPLACE FUNCTION public._bcrypt_limit(p_password text)
+RETURNS text LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN octet_length(coalesce(p_password,'')) > 72
+    THEN convert_from(substring(convert_to(coalesce(p_password,''), 'UTF8') FROM 1 FOR 72), 'UTF8')
+    ELSE coalesce(p_password,'') END;
+$$;
+
+-- Hash password dengan bcrypt (cost 10).
+-- PENTING (Supabase): pgcrypto terpasang di schema 'extensions', jadi
+-- search_path helper harus menyertakan 'extensions' — tanpa itu
+-- crypt()/gen_salt() tidak ketemu saat dipanggil dari fungsi lain
+-- (error 42883 'function crypt(text, text) does not exist').
+CREATE OR REPLACE FUNCTION public._bcrypt_hash(p_password text)
+RETURNS text LANGUAGE sql VOLATILE SET search_path = public, extensions, pg_temp AS $$
+  SELECT crypt(public._bcrypt_limit(p_password), gen_salt('bf', 10));
+$$;
+
+-- Verifikasi password terhadap hash bcrypt (aman terhadap NULL / hash tidak valid)
+CREATE OR REPLACE FUNCTION public._bcrypt_check(p_password text, p_hash text)
+RETURNS boolean LANGUAGE sql VOLATILE SET search_path = public, extensions, pg_temp AS $$
+  SELECT p_hash IS NOT NULL AND p_hash <> '' AND
+         crypt(public._bcrypt_limit(coalesce(p_password,'')), p_hash) = p_hash;
+$$;
+
+-- Trigger: hash otomatis setiap INSERT / UPDATE password di tabel Users
+CREATE OR REPLACE FUNCTION public.trg_users_hash_password()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  IF NEW.password IS NOT NULL AND NEW.password <> '' AND NEW.password NOT LIKE '$2%' THEN
+    NEW.password := public._bcrypt_hash(NEW.password);
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_users_hash_password ON public."Users";
+CREATE TRIGGER trg_users_hash_password
+  BEFORE INSERT OR UPDATE OF password ON public."Users"
+  FOR EACH ROW EXECUTE FUNCTION public.trg_users_hash_password();
+
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public._qname(p_table text)
 RETURNS text LANGUAGE plpgsql IMMUTABLE AS $$
@@ -393,7 +458,7 @@ BEGIN
   IF NOT FOUND THEN
     RETURN jsonb_build_object('status','error','message','Akun tidak ditemukan.');
   END IF;
-  IF v_user.password IS DISTINCT FROM v_p THEN
+  IF NOT public._bcrypt_check(v_p, v_user.password) THEN
     RETURN jsonb_build_object('status','error','message','Password salah.');
   END IF;
   RETURN jsonb_build_object(
@@ -677,11 +742,38 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------
--- 6) SEED: Akun Admin Default
+-- 6) SEED: Akun Admin Default (password otomatis di-hash bcrypt oleh trigger)
 -- ------------------------------------------------------------
 INSERT INTO public."Users" (id, username, password, role, nama, nik)
-SELECT CAST(1 AS bigint), 'adminrt', 'admin123', 'RT', 'Admin RT 5', 'adminrt'
+SELECT CAST(1 AS bigint), 'adminrt', public._bcrypt_hash('admin123'), 'RT', 'Admin RT 5', 'adminrt'
 WHERE NOT EXISTS (SELECT 1 FROM public."Users" WHERE lower(trim(coalesce(username,''))) = 'adminrt');
+
+-- ------------------------------------------------------------
+-- 6b) RINGKASAN KAS (query agregasi — pengganti kolom saldo)
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_keuangan_summary_secured(p_token text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+  v_role text := public.auth_role(p_token);
+  v_masuk numeric := 0;
+  v_keluar numeric := 0;
+  v_saldo numeric := 0;
+BEGIN
+  IF v_role IS NULL THEN
+    RETURN jsonb_build_object('status','error','message','Sesi tidak valid. Silakan login ulang.');
+  END IF;
+  SELECT coalesce(sum(coalesce(pemasukan, 0)), 0),
+         coalesce(sum(coalesce(pengeluaran, 0)), 0)
+    INTO v_masuk, v_keluar
+    FROM public."Keuangan";
+  v_saldo := v_masuk - v_keluar;
+  RETURN jsonb_build_object(
+    'status', 'success',
+    'total_masuk', v_masuk,
+    'total_keluar', v_keluar,
+    'saldo', v_saldo
+  );
+END $$;
 
 -- ------------------------------------------------------------
 -- 7) WAKTU SERVER

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "node scripts/build.js"
+    "preview:free": "node server.js --dist",
+    "build": "node scripts/build.js",
+    "build:free": "node scripts/build.js --tier free"
   },
   "devDependencies": {
     "terser": "^5.31.0"

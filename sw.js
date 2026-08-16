@@ -1,13 +1,33 @@
-const CACHE_VERSION = 'kahfi-v12';
+const CACHE_VERSION = 'kahfi-v58';
 const CACHE_NAME = `kahfi-shell-${CACHE_VERSION}`;
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  // Library lokal (v3.37): offline-first, tidak bergantung CDN
+  './vendor/bootstrap.min.css',
+  './vendor/bootstrap-icons.css',
+  './vendor/tailwind.min.js',
+  './vendor/bootstrap.bundle.min.js',
+  './vendor/supabase.min.js',
+  './vendor/xlsx.full.min.js',
+  './vendor/jszip.min.js',
+  './vendor/fonts/bootstrap-icons.woff2',
+  './vendor/fonts/bootstrap-icons.woff',
+  './css/dark-mode.css',
+  './js/config/constants.js',
+  './js/config/app_config.js',
+  './js/helpers/data.js',
+  './js/helpers/ui.js',
+  './js/helpers/pagination.js',
+  './js/services/supabase.js',
+  './js/services/api.js',
+  './js/services/realtime.js',
   './js/app.js',
   './js/auth.js',
   './js/badges.js',
   './js/table.js',
+  './js/table_renderer.js',
   './js/settings.js',
   './js/dashboard.js',
   './js/profil.js',
@@ -15,6 +35,8 @@ const APP_SHELL = [
   './js/iuran.js',
   './js/bansos.js',
   './js/pengaduan.js',
+  './js/tanda_tangan.js',
+  './js/surat_templates.js',
   './js/surat.js',
   './js/keuangan.js',
   './js/sumbangan.js',
@@ -28,8 +50,6 @@ const APP_SHELL = [
 ];
 const NEVER_CACHE = [
   'supabase.co',
-  'cdn.jsdelivr.net',
-  'cdn.tailwindcss.com',
   'lh3.googleusercontent.com',
   'drive.google.com',
   'wa.me'
